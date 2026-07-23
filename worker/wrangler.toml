@@ -14,7 +14,7 @@ RATE_LIMIT_MAX_FAILS = "5"
 RATE_LIMIT_WINDOW_MIN = "15"
 # Cloudinary — cloud name é público (visível no dashboard). API key/secret vão
 # como `wrangler secret put` (não coloque aqui).
-CLOUDINARY_CLOUD_NAME = "dx9abc123"
+CLOUDINARY_CLOUD_NAME = "mlaxyiv7"
 
 # D1 — bind do banco
 [[d1_databases]]

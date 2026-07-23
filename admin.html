@@ -20,7 +20,12 @@
     <section class="mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 style="font-size: 20px; margin: 0;">Usuários</h2>
-        <button class="btn btn-primary btn-sm" id="btn-new-user">+ Novo usuário</button>
+        <div class="flex gap-2 items-center">
+          <label class="text-sm muted" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="show-deleted"> Mostrar excluídas
+          </label>
+          <button class="btn btn-primary btn-sm" id="btn-new-user">+ Novo usuário</button>
+        </div>
       </div>
 
       <div id="new-user-form" class="card hidden">
@@ -102,6 +107,25 @@
       <div class="flex gap-2">
         <button class="btn btn-primary" id="em-save">Salvar</button>
         <button class="btn btn-ghost" id="em-cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação de exclusão -->
+  <div id="delete-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:grid;place-items:center;z-index:100;padding:var(--space-4)">
+    <div class="card" style="width:100%;max-width:520px">
+      <h3 style="margin-top:0;color:var(--danger)">⚠️ Excluir conta</h3>
+      <div id="del-alert"></div>
+      <p id="del-username" style="font-weight:600;margin:0 0 12px 0"></p>
+      <p class="text-sm muted mb-4">O que vai acontecer depende do conteúdo associado a esta conta:</p>
+      <ul class="text-sm muted mb-4" style="padding-left:20px;line-height:1.6">
+        <li><strong>Se nunca criou nada</strong> (sem páginas, personagens, rolagens, etc.): a conta será <strong>apagada por completo</strong> do banco.</li>
+        <li><strong>Se já criou conteúdo</strong>: a conta será <strong>desativada e anonimizada permanentemente</strong> — o username vira <code>usuario-removido-{id}</code>, a senha é invalidada (ninguém consegue mais logar), mas o conteúdo dela permanece intacto pra preservar o histórico.</li>
+      </ul>
+      <p class="text-sm" style="color:var(--warning);margin-bottom:16px">Esta ação não pode ser desfeita.</p>
+      <div class="flex gap-2">
+        <button class="btn btn-danger" id="del-confirm">Confirmar exclusão</button>
+        <button class="btn btn-ghost" id="del-cancel">Cancelar</button>
       </div>
     </div>
   </div>

@@ -14,7 +14,9 @@ export const adminRoutes = new Hono<{ Bindings: Env; Variables: { user?: JwtPayl
 adminRoutes.use("*", requireRole("admin"));
 
 // ---------- GET /api/admin/users ----------
+// ?includeDeleted=1 revela contas anonimizadas (deleted_at preenchido).
 adminRoutes.get("/users", async (c) => {
+  const includeDeleted = c.req.query("includeDeleted") === "1";
   const rows = await queryAll<{
     id: number;
     username: string;
@@ -23,10 +25,15 @@ adminRoutes.get("/users", async (c) => {
     must_change_password: number;
     last_login: string | null;
     created_at: string;
+    deleted_at: string | null;
+    is_game_master: number;
   }>(
     c.env.DB,
-    `SELECT id, username, role, active, must_change_password, last_login, created_at
-     FROM users ORDER BY created_at ASC`
+    includeDeleted
+      ? `SELECT id, username, role, active, must_change_password, last_login, created_at, deleted_at, is_game_master
+         FROM users ORDER BY deleted_at IS NULL DESC, created_at ASC`
+      : `SELECT id, username, role, active, must_change_password, last_login, created_at, deleted_at, is_game_master
+         FROM users WHERE deleted_at IS NULL ORDER BY created_at ASC`
   );
   return c.json({ users: rows });
 });
@@ -127,33 +134,102 @@ adminRoutes.patch("/users/:id", async (c) => {
 });
 
 // ---------- DELETE /api/admin/users/:id ----------
-// Soft-delete: marca como inativo. Nunca apaga o histórico de edições.
+// Exclusão de conta com preservação de integridade referencial.
+//
+// Lógica:
+//   1. Não pode excluir a si mesmo.
+//   2. Não pode excluir o último admin ativo do sistema.
+//   3. Se o usuário NÃO tem nenhum conteúdo associado (páginas criadas,
+//      revisões, personagens, presets, rolagens, stat_templates, audit_log):
+//      → DELETE real da tabela users.
+//   4. Se TEM qualquer conteúdo associado:
+//      → Anonimiza e trava permanentemente (sem apagar a linha):
+//        - username = "usuario-removido-{id}"
+//        - password_hash e salt invalidados (login impossível)
+//        - active = 0
+//        - deleted_at = datetime('now')
+//      → Conteúdo dele (páginas, revisões, personagens, etc.) permanece
+//        intacto, referenciando o user_id anonimizado.
 adminRoutes.delete("/users/:id", async (c) => {
   const user = c.get("user") as JwtPayload;
   const id = Number(c.req.param("id"));
   if (!Number.isInteger(id)) return c.json({ error: "id inválido." }, 400);
   if (id === user.sub) return c.json({ error: "Não é possível excluir a si mesmo." }, 400);
 
-  const target = await queryFirst<{ id: number; username: string; role: string }>(
+  const target = await queryFirst<{ id: number; username: string; role: string; deleted_at: string | null }>(
     c.env.DB,
-    `SELECT id, username, role FROM users WHERE id = ?`,
+    `SELECT id, username, role, deleted_at FROM users WHERE id = ?`,
     id
   );
   if (!target) return c.json({ error: "Usuário não encontrado." }, 404);
+  if (target.deleted_at) {
+    return c.json({ error: "Esta conta já foi excluída/anonimizada." }, 400);
+  }
 
+  // Trava: nunca excluir/desativar o último admin ativo
   if (target.role === "admin") {
     const adminCount = await queryFirst<{ c: number }>(
       c.env.DB,
-      `SELECT COUNT(*) AS c FROM users WHERE role='admin' AND active=1`
+      `SELECT COUNT(*) AS c FROM users WHERE role='admin' AND active=1 AND deleted_at IS NULL`
     );
     if (adminCount && adminCount.c <= 1) {
-      return c.json({ error: "Não é possível excluir o último administrador ativo." }, 400);
+      return c.json({
+        error: "Não é possível excluir o último administrador ativo do sistema. Promova outro usuário a admin antes de excluir este.",
+      }, 400);
     }
   }
 
-  await c.env.DB.prepare(`UPDATE users SET active = 0 WHERE id = ?`).bind(id).run();
-  await audit(c.env.DB, user.sub, "user.deactivate", target.username, null);
-  return c.json({ ok: true });
+  // Verifica se existe QUALQUER conteúdo associado a esse user_id.
+  // Se tudo estiver zerado, pode fazer DELETE real. Senão, anonimiza.
+  const checks: Array<{ table: string; column: string }> = [
+    { table: "pages",         column: "created_by" },
+    { table: "revisions",     column: "editor_id" },
+    { table: "characters",    column: "owner_user_id" },
+    { table: "dice_presets",  column: "owner_user_id" },
+    { table: "dice_log",      column: "roller_user_id" },
+    { table: "stat_templates", column: "created_by" },
+    { table: "audit_log",     column: "user_id" },
+  ];
+  let totalAssociated = 0;
+  const details: Record<string, number> = {};
+  for (const ck of checks) {
+    const r = await queryFirst<{ c: number }>(
+      c.env.DB,
+      `SELECT COUNT(*) AS c FROM ${ck.table} WHERE ${ck.column} = ?`,
+      id
+    );
+    const cnt = r?.c ?? 0;
+    details[ck.table] = cnt;
+    totalAssociated += cnt;
+  }
+
+  if (totalAssociated === 0) {
+    // Exclusão real — sem conteúdo associado, pode apagar a linha sem quebrar FK.
+    await c.env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(id).run();
+    await audit(c.env.DB, user.sub, "user.delete.real", target.username, `id=${id} (nenhum conteúdo associado)`);
+    return c.json({ ok: true, mode: "deleted", message: `Conta "${target.username}" excluída permanentemente (nenhum conteúdo associado).` });
+  }
+
+  // Anonimização — preserva integridade referencial
+  // username vira usuario-removido-{id}; password_hash/salt viram strings
+  // aleatórias que nunca vão passar em verifyPassword.
+  const newUsername = `usuario-removido-${id}`;
+  const fakeHash = `disabled$${Date.now()}$${Math.random().toString(36).slice(2)}`;
+  const fakeSalt = `disabled$${Math.random().toString(36).slice(2)}`;
+  await c.env.DB.prepare(
+    `UPDATE users
+     SET username = ?, password_hash = ?, salt = ?, active = 0, deleted_at = datetime('now')
+     WHERE id = ?`
+  ).bind(newUsername, fakeHash, fakeSalt, id).run();
+  await audit(c.env.DB, user.sub, "user.delete.anonymize", target.username,
+    `id=${id} anonimizado para "${newUsername}" (conteúdo associado: ${JSON.stringify(details)})`);
+  return c.json({
+    ok: true,
+    mode: "anonymized",
+    message: `Conta "${target.username}" desativada e anonimizada permanentemente. O conteúdo criado por ela permanece, mas ninguém pode mais logar nessa conta.`,
+    newUsername,
+    associatedContent: details,
+  });
 });
 
 // ---------- GET /api/admin/audit-log ----------

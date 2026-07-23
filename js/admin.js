@@ -36,21 +36,28 @@
   }
 
   // ---- Users ----
+  let showDeleted = false;
   async function loadUsers() {
     usersListEl.innerHTML = `<div class="muted text-sm">Carregando…</div>`;
     try {
-      const data = await window.api.get("/api/admin/users");
+      const url = showDeleted ? "/api/admin/users?includeDeleted=1" : "/api/admin/users";
+      const data = await window.api.get(url);
       const users = data.users || [];
       if (!users.length) {
         usersListEl.innerHTML = `<div class="muted">Nenhum usuário.</div>`;
         return;
       }
-      usersListEl.innerHTML = users.map(u => `
-        <div class="list-row">
+      usersListEl.innerHTML = users.map(u => {
+        const isDeleted = !!u.deleted_at;
+        const isSelf = u.id === sess.user.id;
+        return `
+        <div class="list-row" ${isDeleted ? 'style="opacity:0.5"' : ''}>
           <div>
             <div class="title">
               ${escapeHtml(u.username)}
-              ${u.id === sess.user.id ? `<span class="tag" style="margin-left:8px">você</span>` : ""}
+              ${isSelf ? `<span class="tag" style="margin-left:8px">você</span>` : ""}
+              ${isDeleted ? `<span class="tag tag-off" style="margin-left:8px">excluída ${formatDate(u.deleted_at)}</span>` : ""}
+              ${u.is_game_master ? `<span class="tag" style="margin-left:8px">mestre</span>` : ""}
             </div>
             <div class="meta">criado em ${formatDate(u.created_at)} · último login ${formatDate(u.last_login)}</div>
           </div>
@@ -58,31 +65,64 @@
           <span class="tag tag-${u.role}">${u.role}</span>
           <span class="tag ${u.active ? "tag-on" : "tag-off"}">${u.active ? "ativo" : "inativo"}</span>
           ${u.must_change_password ? `<span class="tag">trocar senha</span>` : ""}
-          <button class="btn btn-sm" data-edit="${u.id}">Editar</button>
-          ${u.id !== sess.user.id ? `<button class="btn btn-sm btn-danger" data-del="${u.id}">Desativar</button>` : ""}
+          ${!isDeleted ? `<button class="btn btn-sm" data-edit="${u.id}">Editar</button>` : ""}
+          ${!isDeleted && !isSelf ? `<button class="btn btn-sm btn-danger" data-del="${u.id}">Excluir</button>` : ""}
         </div>
-      `).join("");
+      `;
+      }).join("");
 
-      // bind
+      // bind editar
       usersListEl.querySelectorAll('button[data-edit]').forEach(b => {
         b.addEventListener("click", () => openEditModal(Number(b.dataset.edit)));
       });
+      // bind excluir (abre modal de confirmação, não pergunta via confirm())
       usersListEl.querySelectorAll('button[data-del]').forEach(b => {
-        b.addEventListener("click", async () => {
-          const id = Number(b.dataset.del);
-          const target = users.find(u => u.id === id);
-          if (!confirm(`Desativar "${target.username}"?\n\nO histórico de edições dele permanece.`)) return;
-          try {
-            await window.api.del(`/api/admin/users/${id}`);
-            showAlert("success", "Usuário desativado.");
-            loadUsers();
-          } catch (e) { showAlert("error", e.message); }
-        });
+        b.addEventListener("click", () => openDeleteModal(Number(b.dataset.del), users));
       });
     } catch (e) {
       usersListEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
     }
   }
+
+  // ---- Modal de exclusão ----
+  let pendingDeleteId = null;
+  function openDeleteModal(id, users) {
+    const target = users.find(u => u.id === id);
+    if (!target) return;
+    pendingDeleteId = id;
+    document.getElementById("del-username").textContent = `Conta: ${target.username} (${target.role})`;
+    document.getElementById("del-alert").innerHTML = "";
+    document.getElementById("delete-modal").classList.remove("hidden");
+    document.getElementById("delete-modal").style.display = "grid";
+  }
+  document.getElementById("del-cancel").addEventListener("click", () => {
+    document.getElementById("delete-modal").classList.add("hidden");
+    document.getElementById("delete-modal").style.display = "";
+    pendingDeleteId = null;
+  });
+  document.getElementById("del-confirm").addEventListener("click", async () => {
+    if (!pendingDeleteId) return;
+    try {
+      const res = await window.api.del(`/api/admin/users/${pendingDeleteId}`);
+      // api.del retorna o JSON parsed; res.mode diz se foi 'deleted' ou 'anonymized'
+      const msg = res.message || "Conta excluída.";
+      const mode = res.mode ? ` (${res.mode === "deleted" ? "exclusão real" : "anonimizada"})` : "";
+      showAlert("success", msg + mode);
+      document.getElementById("delete-modal").classList.add("hidden");
+      document.getElementById("delete-modal").style.display = "";
+      pendingDeleteId = null;
+      loadUsers();
+      loadAudit();
+    } catch (e) {
+      document.getElementById("del-alert").innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    }
+  });
+
+  // ---- Toggle mostrar excluídas ----
+  document.getElementById("show-deleted").addEventListener("change", (e) => {
+    showDeleted = e.target.checked;
+    loadUsers();
+  });
 
   // ---- Audit ----
   async function loadAudit() {

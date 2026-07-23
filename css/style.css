@@ -1212,3 +1212,56 @@ code, pre { font-family: var(--font-mono); }
   font-size: 13px;
 }
 .inv-qty { font-family: var(--font-mono); color: var(--accent); font-weight: 600; }
+
+/* ============================================================
+   Photo cropper (modal de recorte estilo Discord, quadrado)
+   ============================================================ */
+
+.photo-cropper-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: grid;
+  place-items: center;
+  z-index: 200;
+  padding: var(--space-4);
+}
+.photo-cropper-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  width: 100%;
+  max-width: 380px;
+}
+.photo-cropper-frame-wrap {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-4) 0;
+}
+.photo-cropper-frame {
+  width: 280px;
+  height: 280px;
+  border: 3px solid var(--accent);
+  border-radius: var(--radius);
+  cursor: grab;
+  touch-action: none; /* importante: impede scroll do celular ao arrastar */
+  background: #0a0a0c;
+  display: block;
+}
+.photo-cropper-frame:active { cursor: grabbing; }
+.photo-cropper-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-2);
+}
+.photo-cropper-controls input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 480px) {
+  .photo-cropper-card { padding: var(--space-3); }
+  .photo-cropper-frame { width: 240px; height: 240px; }
+}

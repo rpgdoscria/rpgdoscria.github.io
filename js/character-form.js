@@ -243,17 +243,39 @@
       fileInput.addEventListener("change", async () => {
         const file = fileInput.files?.[0];
         if (!file) return;
-        const fd = new FormData();
-        fd.append("file", file);
-        try {
-          const res = await window.api.postForm("/api/upload", fd);
-          if (res.url) {
-            photoUrl = res.url;
-            renderStep(1);
-          } else {
-            alert(res.warning || "Upload falhou");
-          }
-        } catch (e) { alert(e.message); }
+        // Validação de tipo/tamanho ANTES de abrir o cropper (não deixamos
+        // o usuário recortar um arquivo inválido pra só depois descobrir).
+        const allowedTypes = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
+        if (!allowedTypes.has(file.type)) {
+          alert("Tipo não permitido. Use PNG, JPEG, WebP ou GIF.");
+          fileInput.value = "";
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          alert("Arquivo muito grande. Máximo 5 MB.");
+          fileInput.value = "";
+          return;
+        }
+        // Abre o modal de recorte quadrado (estilo Discord). O Blob recortado
+        // 512x512 é enviado ao backend, NUNCA o arquivo original.
+        const cropper = new window.PhotoCropper({ maxSize: 5 * 1024 * 1024 });
+        cropper.open(file, async (blob) => {
+          const fd = new FormData();
+          // Dá um nome amigável pro arquivo recortado
+          const ext = file.type.split("/")[1] || "png";
+          fd.append("file", blob, `avatar-${Date.now()}.${ext}`);
+          try {
+            const res = await window.api.postForm("/api/upload", fd);
+            if (res.url) {
+              photoUrl = res.url;
+              renderStep(1);
+            } else {
+              alert(res.warning || "Upload falhou");
+            }
+          } catch (e) { alert(e.message); }
+        });
+        // Limpa o input pra permitir re-escolher o mesmo arquivo
+        fileInput.value = "";
       });
       const rmBtn = document.getElementById("btn-remove-photo");
       if (rmBtn) rmBtn.addEventListener("click", () => { photoUrl = null; renderStep(1); });
