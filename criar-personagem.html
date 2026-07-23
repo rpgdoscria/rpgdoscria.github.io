@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criar personagem — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container">
+    <div class="flex items-center justify-between mb-4">
+      <h1 id="page-title" style="font-family: var(--font-serif); font-size: 28px; margin: 0;">Criar personagem</h1>
+      <a href="meus-personagens.html" class="btn btn-ghost btn-sm">← Voltar</a>
+    </div>
+
+    <div id="alert-mount"></div>
+
+    <!-- Indicador de etapas -->
+    <div class="wizard-steps mb-6">
+      <span class="wizard-step-dot active" data-step="1">1. Identidade</span>
+      <span class="wizard-step-dot" data-step="2">2. Lore</span>
+      <span class="wizard-step-dot" data-step="3">3. Status base</span>
+      <span class="wizard-step-dot" data-step="4">4. Customizados</span>
+      <span class="wizard-step-dot" data-step="5">5. Inventário</span>
+      <span class="wizard-step-dot" data-step="6">6. Revisão</span>
+    </div>
+
+    <div id="wizard-step" class="card mb-6" style="min-height: 300px"></div>
+
+    <div class="flex gap-3 justify-between">
+      <button class="btn btn-ghost" id="btn-prev">← Anterior</button>
+      <button class="btn btn-primary" id="btn-next">Próximo →</button>
+    </div>
+  </main>
+
+  <script src="vendor/purify.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/character-render.js"></script>
+  <script src="js/character-form.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "characters");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const params = new URLSearchParams(location.search);
+      const editingId = params.get("id") ? Number(params.get("id")) : null;
+      let currentStep = 1;
+
+      // Inicializa wizard (carrega templates + personagem se editando)
+      await window.characterForm.init(editingId);
+      if (editingId) {
+        document.getElementById("page-title").textContent = "Editar personagem";
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+      }
+      function showAlert(type, msg) {
+        document.getElementById("alert-mount").innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
+      }
+      function updateStepDots() {
+        document.querySelectorAll(".wizard-step-dot").forEach(d => {
+          const s = Number(d.dataset.step);
+          d.classList.toggle("active", s === currentStep);
+          d.classList.toggle("done", s < currentStep);
+        });
+      }
+      function rerender() {
+        window.characterForm.renderStep(currentStep);
+        updateStepDots();
+        // Esconde "Anterior" no step 1
+        document.getElementById("btn-prev").style.visibility = currentStep === 1 ? "hidden" : "visible";
+        // Texto do botão next muda no último step
+        document.getElementById("btn-next").textContent = currentStep === 6 ? "Salvar personagem ✓" : "Próximo →";
+      }
+
+      document.getElementById("btn-prev").addEventListener("click", () => {
+        if (currentStep > 1) { currentStep--; rerender(); }
+      });
+      document.getElementById("btn-next").addEventListener("click", async () => {
+        // Validação básica do step 1
+        if (currentStep === 1 && !window.characterForm.getName()) {
+          showAlert("error", "Nome do personagem é obrigatório.");
+          return;
+        }
+        if (currentStep < 6) { currentStep++; rerender(); return; }
+        // Step 6 = salvar
+        try {
+          const id = await window.characterForm.save(editingId);
+          showAlert("success", "Personagem salvo! Redirecionando…");
+          setTimeout(() => { location.href = "meus-personagens.html"; }, 800);
+        } catch (e) {
+          showAlert("error", e.message);
+        }
+      });
+
+      // Clicar nos dots pula direto (só pra trás ou pra onde já passou)
+      document.querySelectorAll(".wizard-step-dot").forEach(d => {
+        d.addEventListener("click", () => {
+          const s = Number(d.dataset.step);
+          if (s < currentStep) { currentStep = s; rerender(); }
+        });
+      });
+
+      rerender();
+    })();
+  </script>
+</body>
+</html>

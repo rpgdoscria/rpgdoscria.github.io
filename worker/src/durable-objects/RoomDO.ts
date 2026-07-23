@@ -26,15 +26,30 @@ interface Bar { name: string; current: number; max: number; color: string; }
 interface InventoryItem { name: string; qty: number; description?: string; }
 interface StatusEffect { id: string; text: string; }
 
+// Stat flexível (homebrew) — mesmo formato do banco character_stats.
+type StatType = "bar" | "number" | "text" | "tag_list" | "checkbox" | "formula";
+interface CharacterStat {
+  id: number;
+  statTemplateId?: number | null;
+  isCustom: boolean;
+  name: string;
+  type: StatType;
+  valueCurrent?: number | null;
+  valueMax?: number | null;
+  valueText?: string | null;
+  valueBool?: number | null;
+  color?: string | null;
+  displayOrder: number;
+}
+
 interface CharacterState {
   id: number;
   ownerUserId: number;
   ownerUsername: string;
   name: string;
-  hpCurrent: number;
-  hpMax: number;
-  money: number;
-  bars: Bar[];
+  photoUrl?: string | null;
+  pageId?: number | null;
+  stats: CharacterStat[];       // substitui hpCurrent/hpMax/money/bars — tudo é stat
   inventory: InventoryItem[];
   statusEffects: StatusEffect[];
 }
@@ -204,10 +219,10 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       ownerUserId: ch.ownerUserId,
       ownerUsername: ch.ownerUsername ?? "",
       name: String(ch.name).slice(0, 100),
-      hpCurrent: clampInt(ch.hpCurrent ?? 0, -9999, 99999),
-      hpMax: clampInt(ch.hpMax ?? 0, 0, 99999),
-      money: clampInt(ch.money ?? 0, -1_000_000, 1_000_000_000),
-      bars: Array.isArray(ch.bars) ? ch.bars.slice(0, 10) : [],
+      photoUrl: ch.photoUrl ?? null,
+      pageId: ch.pageId ?? null,
+      // Stats flexíveis (homebrew) — aceita array de stats vindos do banco
+      stats: Array.isArray(ch.stats) ? ch.stats.map(sanitizeStat).filter(Boolean) : [],
       inventory: Array.isArray(ch.inventory) ? ch.inventory.slice(0, 100) : [],
       statusEffects: [],
     };
@@ -389,7 +404,9 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     if (!conn.characterId) throw new Error("Você não está conectado com um personagem.");
     if (!this.state!.characters[conn.characterId]) throw new Error("Personagem não está na sala.");
     const ch = this.state!.characters[conn.characterId];
-    this.applyCharacterUpdate(ch, p, /*allowAll=*/false);
+    // Jogador só pode atualizar stats do próprio personagem (não inventário, não nome).
+    // Formato novo: { statId, value } — value depende do tipo daquele stat.
+    this.applyStatUpdate(ch, p);
     this.broadcast({ type: "character_updated", payload: ch });
   }
 
@@ -398,45 +415,47 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     const id = Number(p?.characterId);
     if (!id || !this.state!.characters[id]) throw new Error("Personagem não encontrado.");
     const ch = this.state!.characters[id];
-    this.applyCharacterUpdate(ch, p, /*allowAll=*/true);
-    this.broadcast({ type: "character_updated", payload: ch });
-  }
-
-  private applyCharacterUpdate(ch: CharacterState, p: any, allowAll: boolean) {
-    if (typeof p?.hpCurrent === "number") {
-      const v = Math.floor(p.hpCurrent);
-      if (v < -9999 || v > 99999) throw new Error("HP atual fora do intervalo permitido.");
-      ch.hpCurrent = v;
-    }
-    if (typeof p?.hpMax === "number") {
-      const v = Math.floor(p.hpMax);
-      if (v < 0 || v > 99999) throw new Error("HP máximo fora do intervalo permitido.");
-      ch.hpMax = v;
-    }
-    if (typeof p?.money === "number") {
-      const v = Math.floor(p.money);
-      if (v < -1_000_000 || v > 1_000_000_000) throw new Error("Dinheiro fora do intervalo permitido.");
-      ch.money = v;
-    }
-    if (Array.isArray(p?.bars)) {
-      const clean = p.bars.filter((b: any) => b && typeof b.name === "string").map((b: any) => ({
-        name: String(b.name).slice(0, 50),
-        current: clampInt(b.current, 0, 99999),
-        max: clampInt(b.max, 0, 99999),
-        color: typeof b.color === "string" && /^#[0-9a-f]{6}$/i.test(b.color) ? b.color : "#3498db",
-      }));
-      ch.bars = clean.slice(0, 10);
-    }
+    // Mestre pode atualizar stat individual OU inventário completo.
+    this.applyStatUpdate(ch, p);
     if (Array.isArray(p?.inventory)) {
-      const clean = p.inventory.filter((it: any) => it && typeof it.name === "string").map((it: any) => ({
+      ch.inventory = p.inventory.filter((it: any) => it && typeof it.name === "string").map((it: any) => ({
         name: String(it.name).slice(0, 80),
         qty: clampInt(it.qty, 0, 9999),
         description: it.description ? String(it.description).slice(0, 200) : undefined,
-      }));
-      ch.inventory = clean.slice(0, 100);
+      })).slice(0, 100);
     }
-    // hp_current nunca pode exceder hp_max (se ambos definidos)
-    if (ch.hpMax > 0 && ch.hpCurrent > ch.hpMax) ch.hpCurrent = ch.hpMax;
+    this.broadcast({ type: "character_updated", payload: ch });
+  }
+
+  // Aplica update de UM stat (identificado por statId) no personagem.
+  // Validações: tipo do stat bate com o campo enviado; bar não passa de max.
+  private applyStatUpdate(ch: CharacterState, p: any) {
+    const statId = Number(p?.statId);
+    if (!statId) throw new Error("statId é obrigatório.");
+    const stat = ch.stats.find(s => s.id === statId);
+    if (!stat) throw new Error("Status não encontrado neste personagem.");
+    const v = p?.value ?? {};
+    if (stat.type === "bar" || stat.type === "number") {
+      if (typeof v.current === "number" && Number.isFinite(v.current)) {
+        let n = v.current;
+        if (stat.type === "bar") {
+          if (stat.valueMax !== null && stat.valueMax !== undefined && n > stat.valueMax) n = stat.valueMax;
+          if (n < 0) n = 0;
+        }
+        stat.valueCurrent = n;
+      }
+      if (stat.type === "bar" && typeof v.max === "number" && Number.isFinite(v.max) && v.max >= 0) {
+        stat.valueMax = v.max;
+        if (stat.valueCurrent !== null && stat.valueCurrent !== undefined && stat.valueCurrent > v.max) {
+          stat.valueCurrent = v.max;
+        }
+      }
+    } else if (stat.type === "text" || stat.type === "tag_list" || stat.type === "formula") {
+      if (typeof v.text === "string") stat.valueText = v.text.slice(0, 2000);
+    } else if (stat.type === "checkbox") {
+      if (typeof v.bool === "boolean") stat.valueBool = v.bool ? 1 : 0;
+      else if (typeof v.bool === "number") stat.valueBool = v.bool ? 1 : 0;
+    }
   }
 
   private async handleCreateEnemy(conn: Connection, p: any) {
@@ -676,4 +695,25 @@ function cryptoRandomId(): string {
   const buf = new Uint8Array(8);
   crypto.getRandomValues(buf);
   return Array.from(buf).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Sanitiza um stat vindo do cliente/banco pro formato CharacterStat do RoomDO.
+// Devolve null se inválido (caller filtra).
+function sanitizeStat(s: any): CharacterStat | null {
+  if (!s || typeof s.name !== "string") return null;
+  const validTypes = new Set(["bar", "number", "text", "tag_list", "checkbox", "formula"]);
+  if (!validTypes.has(s.type)) return null;
+  return {
+    id: Number(s.id),
+    statTemplateId: s.statTemplateId ? Number(s.statTemplateId) : null,
+    isCustom: !!s.isCustom,
+    name: String(s.name).slice(0, 50),
+    type: s.type,
+    valueCurrent: s.valueCurrent !== null && s.valueCurrent !== undefined ? Number(s.valueCurrent) : null,
+    valueMax: s.valueMax !== null && s.valueMax !== undefined ? Number(s.valueMax) : null,
+    valueText: s.valueText ? String(s.valueText).slice(0, 2000) : null,
+    valueBool: s.valueBool ? 1 : 0,
+    color: s.color && /^#[0-9a-f]{6}$/i.test(s.color) ? s.color : null,
+    displayOrder: Number(s.displayOrder ?? 0),
+  };
 }

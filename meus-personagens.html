@@ -16,56 +16,26 @@
   <main class="container wide">
     <div class="flex items-center justify-between mb-4">
       <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0;">Meus personagens</h1>
-      <button class="btn btn-primary" id="btn-new">+ Novo personagem</button>
+      <a class="btn btn-primary" href="criar-personagem.html">+ Novo personagem</a>
     </div>
 
     <div id="alert-mount"></div>
 
-    <div id="chars-list" class="card">
+    <div id="chars-list" class="characters-grid">
       <div class="muted text-sm">Carregando…</div>
     </div>
   </main>
 
-  <!-- Modal -->
-  <div id="modal" class="modal-backdrop hidden">
-    <div class="modal-card">
-      <h3 id="modal-title">Novo personagem</h3>
-      <div id="modal-alert"></div>
-      <div class="field">
-        <label>Nome</label>
-        <input type="text" id="m-name">
-      </div>
-      <div class="grid-2">
-        <div class="field">
-          <label>HP atual</label>
-          <input type="number" id="m-hp-current" value="0">
-        </div>
-        <div class="field">
-          <label>HP máximo</label>
-          <input type="number" id="m-hp-max" value="0">
-        </div>
-      </div>
-      <div class="field">
-        <label>Dinheiro</label>
-        <input type="number" id="m-money" value="0">
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
-        <button class="btn btn-primary" id="modal-save">Salvar</button>
-      </div>
-    </div>
-  </div>
-
+  <script src="vendor/purify.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/character-render.js"></script>
   <script>
     (async function () {
-      window.auth.mountHeader("#header-mount");
+      window.auth.mountHeader("#header-mount", "characters");
       const sess = window.auth.requireAuth("viewer");
       if (!sess) return;
-
-      let editingId = null;
 
       function escapeHtml(s) {
         return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
@@ -76,93 +46,54 @@
 
       async function load() {
         try {
-          const data = await window.api.get("/api/rooms/characters");
+          const data = await window.api.get("/api/characters");
           const list = document.getElementById("chars-list");
           if (!data.characters || data.characters.length === 0) {
-            list.innerHTML = `<div class="muted text-sm" style="padding: var(--space-3)">Você ainda não tem personagens. Clique em "Novo personagem" para criar um.</div>`;
+            list.innerHTML = `
+              <div class="card" style="grid-column:1/-1">
+                <div style="text-align:center;padding:32px">
+                  <div style="font-size:48px;margin-bottom:16px">🧙</div>
+                  <h3 style="margin:0 0 8px 0">Você ainda não tem personagens</h3>
+                  <p class="muted text-sm mb-4">Crie seu primeiro personagem pra usar nas salas de jogo.</p>
+                  <a class="btn btn-primary" href="criar-personagem.html">+ Criar primeiro personagem</a>
+                </div>
+              </div>`;
             return;
           }
-          list.innerHTML = data.characters.map(c => `
-            <div class="list-row" data-id="${c.id}">
-              <div>
-                <div class="title">${escapeHtml(c.name)}</div>
-                <div class="meta">HP ${c.hpCurrent}/${c.hpMax} · ${c.money} moedas</div>
+          list.innerHTML = data.characters.map(ch => `
+            <div class="card" style="padding:16px;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;gap:12px;align-items:center">
+                ${window.characterRender.renderAvatar(ch, 64)}
+                <div style="flex:1">
+                  <div style="font-weight:700;font-family:var(--font-serif);font-size:18px">${escapeHtml(ch.name)}</div>
+                  <div class="muted text-xs">${ch.isActive ? "⭐ ativo" : ""}</div>
+                </div>
               </div>
-              <div class="spacer"></div>
-              <button class="btn btn-sm" data-edit="${c.id}">Editar</button>
-              <button class="btn btn-sm btn-danger" data-del="${c.id}">Apagar</button>
+              <div class="text-xs muted">${(ch.stats || []).length} status · ${(ch.inventory || []).length} itens</div>
+              <div class="flex gap-2 flex-wrap" style="margin-top:8px">
+                <a class="btn btn-sm btn-primary" href="criar-personagem.html?id=${ch.id}">Editar</a>
+                ${!ch.isActive ? `<button class="btn btn-sm" data-activate="${ch.id}">Ativar</button>` : ""}
+                <button class="btn btn-sm btn-danger" data-del="${ch.id}">Apagar</button>
+              </div>
             </div>
           `).join("");
-          list.querySelectorAll('button[data-edit]').forEach(b => {
-            b.addEventListener("click", () => openModal(Number(b.dataset.edit)));
+          list.querySelectorAll('button[data-activate]').forEach(b => {
+            b.addEventListener("click", async () => {
+              try { await window.api.post(`/api/characters/${b.dataset.activate}/activate`, {}); load(); }
+              catch (e) { alert(e.message); }
+            });
           });
           list.querySelectorAll('button[data-del]').forEach(b => {
             b.addEventListener("click", async () => {
-              if (!confirm("Apagar este personagem?")) return;
-              try {
-                await window.api.del(`/api/rooms/characters/${b.dataset.del}`);
-                load();
-              } catch (e) { alert(e.message); }
+              if (!confirm("Apagar este personagem? Não dá pra desfazer.")) return;
+              try { await window.api.del(`/api/characters/${b.dataset.del}`); load(); }
+              catch (e) { alert(e.message); }
             });
           });
         } catch (e) {
           showAlert("error", e.message);
         }
       }
-
-      function openModal(id) {
-        editingId = id;
-        if (id) {
-          const row = document.querySelector(`[data-id="${id}"]`);
-          document.getElementById("modal-title").textContent = "Editar personagem";
-          // Busca dados atuais
-          window.api.get("/api/rooms/characters").then(data => {
-            const c = data.characters.find(x => x.id === id);
-            if (!c) return;
-            document.getElementById("m-name").value = c.name;
-            document.getElementById("m-hp-current").value = c.hpCurrent;
-            document.getElementById("m-hp-max").value = c.hpMax;
-            document.getElementById("m-money").value = c.money;
-          });
-        } else {
-          document.getElementById("modal-title").textContent = "Novo personagem";
-          document.getElementById("m-name").value = "";
-          document.getElementById("m-hp-current").value = 0;
-          document.getElementById("m-hp-max").value = 0;
-          document.getElementById("m-money").value = 0;
-        }
-        document.getElementById("modal-alert").innerHTML = "";
-        document.getElementById("modal").classList.remove("hidden");
-      }
-
-      document.getElementById("btn-new").addEventListener("click", () => openModal(null));
-      document.getElementById("modal-cancel").addEventListener("click", () => {
-        document.getElementById("modal").classList.add("hidden");
-      });
-      document.getElementById("modal-save").addEventListener("click", async () => {
-        const payload = {
-          name: document.getElementById("m-name").value.trim(),
-          hpCurrent: parseInt(document.getElementById("m-hp-current").value, 10),
-          hpMax: parseInt(document.getElementById("m-hp-max").value, 10),
-          money: parseInt(document.getElementById("m-money").value, 10),
-        };
-        if (!payload.name) {
-          document.getElementById("modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`;
-          return;
-        }
-        try {
-          if (editingId) {
-            await window.api.put(`/api/rooms/characters/${editingId}`, payload);
-          } else {
-            await window.api.post("/api/rooms/characters", payload);
-          }
-          document.getElementById("modal").classList.add("hidden");
-          load();
-        } catch (e) {
-          document.getElementById("modal-alert").innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
-        }
-      });
-
       load();
     })();
   </script>

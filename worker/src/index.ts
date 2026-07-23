@@ -13,6 +13,8 @@ import { adminRoutes } from "./routes/admin";
 import { pageRoutes } from "./routes/pages";
 import { uploadRoutes } from "./routes/upload";
 import { roomRoutes } from "./routes/rooms";
+import { characterRoutes } from "./routes/characters";
+import { statTemplateRoutes } from "./routes/stat-templates";
 
 // Re-export da classe RoomDO — o Wrangler precisa encontrar a classe aqui.
 export { RoomDO } from "./durable-objects/RoomDO";
@@ -55,7 +57,9 @@ app.route("/api/auth", authRoutes);            // /login, /me, /change-password,
 app.route("/api/pages", pageRoutes);           // CRUD + revisões + backlinks
 app.route("/api/admin", adminRoutes);          // usuários + audit-log (exige admin)
 app.route("/api/upload", uploadRoutes);        // Cloudinary
-app.route("/api/rooms", roomRoutes);           // salas + personagens + presets
+app.route("/api/rooms", roomRoutes);           // salas + presets de dados
+app.route("/api/characters", characterRoutes); // personagens + stats (homebrew)
+app.route("/api/stat-templates", statTemplateRoutes); // status base (mestre+)
 
 // 404 genérico para /api/*
 app.notFound((c) => c.json({ error: "Rota não encontrada." }, 404));

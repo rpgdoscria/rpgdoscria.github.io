@@ -25,13 +25,18 @@
       id: 0, // preenchido por /me na sequência
       username: data.username,
       role: data.role,
+      isGameMaster: !!data.isGameMaster, // pode vir do login se o backend enviar
       mustChangePassword: !!data.mustChangePassword,
       expiresAt: data.expiresAt,
     });
-    // Busca dados completos
+    // Busca dados completos (inclui isGameMaster via is_game_master no banco)
     try {
       const me = await window.api.get("/api/auth/me");
-      window.api.setUser(Object.assign({}, window.api.getUser(), me));
+      // /me retorna role, username, etc. mas não isGameMaster ainda.
+      // Pra ter isGameMaster, fazemos uma query indireta: se /api/stat-templates
+      // funcionar pra esse user, ele é mestre. Mais simples: admin sempre é mestre.
+      const isMaster = me.role === "admin" || !!data.isGameMaster;
+      window.api.setUser(Object.assign({}, window.api.getUser(), me, { isGameMaster: isMaster }));
     } catch (e) {
       // silencioso: ainda temos o básico
     }
@@ -70,10 +75,15 @@
     const links = [
       { href: "index.html", label: "Início", key: "home" },
       { href: "meus-personagens.html", label: "Personagens", key: "characters" },
+      { href: "gerenciar-status.html", label: "Status base", key: "stats", minMaster: true },
       { href: "sala-criar.html", label: "Sala", key: "rooms" },
       { href: "edit.html", label: "Nova página", key: "new", minRole: "editor" },
       { href: "admin.html", label: "Admin", key: "admin", minRole: "admin" },
-    ].filter(l => !l.minRole || (user && roleRank(user.role) >= roleRank(l.minRole)));
+    ].filter(l => {
+      if (l.minRole && !(user && roleRank(user.role) >= roleRank(l.minRole))) return false;
+      if (l.minMaster && !(user && (user.role === "admin" || user.isGameMaster))) return false;
+      return true;
+    });
 
     const navHtml = links.map(l =>
       `<a href="${l.href}" class="${active === l.key ? "active" : ""}">${l.label}</a>`

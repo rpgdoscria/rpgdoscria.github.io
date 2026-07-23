@@ -104,6 +104,7 @@
   <script src="js/room-ws.js"></script>
   <script src="js/dice-ui.js"></script>
   <script src="js/room-render.js"></script>
+  <script src="js/character-render.js"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -178,7 +179,7 @@
         } else {
           cg.innerHTML = state.characters.map(ch => {
             const isOwn = ch.id === characterId;
-            return window.roomRender.renderCharacter(ch, {
+            return window.characterRender.renderCharacterCard(ch, {
               editable: isOwn,
               isMaster: false,
               isOwn,
@@ -203,6 +204,25 @@
         }
 
         // Bind botões
+        // +/- nos stats (só do próprio personagem)
+        document.querySelectorAll('button[data-stat-id][data-delta]').forEach(b => {
+          b.addEventListener("click", () => {
+            const card = b.closest("[data-character-id]");
+            const cardCharId = Number(card.dataset.characterId);
+            if (cardCharId !== characterId) return; // só próprio
+            const statId = Number(b.dataset.statId);
+            const delta = Number(b.dataset.delta);
+            const statRow = b.closest("[data-stat-type]");
+            const type = statRow.dataset.statType;
+            const valuesEl = statRow.querySelector(".stat-bar-values, .stat-number-value");
+            if (!valuesEl) return;
+            const text = valuesEl.textContent || "";
+            let cur = 0;
+            if (type === "bar") { const m = text.match(/^(\d+)/); cur = m ? Number(m[1]) : 0; }
+            else { cur = Number(text) || 0; }
+            client.send("update_own_character", { statId, value: { current: cur + delta } });
+          });
+        });
         document.querySelectorAll('button[data-action="edit-character"]').forEach(b => {
           b.addEventListener("click", () => openCharacterModal(Number(b.dataset.characterId)));
         });

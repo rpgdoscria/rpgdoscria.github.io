@@ -49,9 +49,10 @@ authRoutes.post("/login", async (c) => {
     role: "admin" | "editor" | "viewer";
     active: number;
     must_change_password: number;
+    is_game_master: number;
   }>(
     env.DB,
-    `SELECT id, username, password_hash, salt, role, active, must_change_password
+    `SELECT id, username, password_hash, salt, role, active, must_change_password, is_game_master
      FROM users WHERE username = ? COLLATE NOCASE`,
     username
   );
@@ -82,6 +83,7 @@ authRoutes.post("/login", async (c) => {
     token,
     role: user!.role,
     username: user!.username,
+    isGameMaster: user!.role === "admin" || user!.is_game_master === 1,
     mustChangePassword: user!.must_change_password === 1,
     expiresAt,
   });
@@ -100,9 +102,10 @@ authRoutes.get("/me", async (c) => {
     last_login: string | null;
     created_at: string;
     must_change_password: number;
+    is_game_master: number;
   }>(
     c.env.DB,
-    `SELECT id, username, role, active, last_login, created_at, must_change_password FROM users WHERE id = ?`,
+    `SELECT id, username, role, active, last_login, created_at, must_change_password, is_game_master FROM users WHERE id = ?`,
     user.sub
   );
   if (!row || row.active !== 1) return c.json({ error: "Conta inativa." }, 403);
@@ -111,6 +114,7 @@ authRoutes.get("/me", async (c) => {
     id: row.id,
     username: row.username,
     role: row.role,
+    isGameMaster: row.role === "admin" || row.is_game_master === 1,
     lastLogin: row.last_login,
     createdAt: row.created_at,
     mustChangePassword: row.must_change_password === 1,
@@ -156,8 +160,15 @@ authRoutes.post("/change-password", async (c) => {
 // ---------- POST /api/admin/bootstrap ----------
 // Cria o PRIMEIRO admin. Refuse se já existir qualquer admin.
 // Requer header X-Bootstrap-Key igual ao secret ADMIN_BOOTSTRAP_KEY.
-authRoutes.post("/admin/bootstrap", async (c) => {
-  const env = c.env;
+//
+// IMPORTANTE: este handler é EXPORTADO como `bootstrapHandler` e registrado
+// DIRETO em index.ts no caminho `/api/admin/bootstrap`, ANTES do middleware
+// `requireRole("admin")` que protege todo o restante de /api/admin/*. Sem
+// isso, o bootstrap nunca funcionaria — ele é a única rota de admin que
+// precisa funcionar SEM admin autenticado (afinal, é como o primeiro admin
+// é criado).
+export async function bootstrapHandler(c: any) {
+  const env = c.env as Env;
   const provided = c.req.header("X-Bootstrap-Key");
   if (!provided || provided !== env.ADMIN_BOOTSTRAP_KEY) {
     return c.json({ error: "Bootstrap key inválida." }, 401);
@@ -192,12 +203,7 @@ authRoutes.post("/admin/bootstrap", async (c) => {
 
   const { hash, salt } = await hashPassword(password);
 
-  // BUG CORRIGIDO: race condition. Duas chamadas simultâneas podiam passar
-  // ambas pela checagem `SELECT COUNT(*)` (antes de qualquer INSERT commitar)
-  // e criar dois admins com usernames diferentes. Agora o INSERT é atômico:
-  // só executa se NÃO existir admin. A constraint UNIQUE em username cuida
-  // do caso de usernames iguais; este INSERT cuida do caso de usernames
-  // diferentes mas ambos admins.
+  // Race condition corrigida: INSERT atômico com WHERE NOT EXISTS.
   const result = await env.DB.prepare(
     `INSERT INTO users (username, password_hash, salt, role, active, must_change_password)
      SELECT ?, ?, ?, 'admin', 1, 0
@@ -206,7 +212,6 @@ authRoutes.post("/admin/bootstrap", async (c) => {
     .bind(username, hash, salt)
     .run();
 
-  // Se a cláusula WHERE NOT EXISTS não casar nenhuma linha, last_row_id é 0/undefined.
   if (!result.meta.last_row_id || result.meta.changes === 0) {
     return c.json({ error: "Já existe um administrador. Bootstrap desativado." }, 409);
   }
@@ -215,4 +220,8 @@ authRoutes.post("/admin/bootstrap", async (c) => {
   await audit(env.DB, newId, "admin.bootstrap", username, "Primeiro admin criado");
 
   return c.json({ ok: true, id: newId, username, role: "admin" }, 201);
-});
+}
+
+// Rota legada em /api/auth/admin/bootstrap mantida por compatibilidade (aponta
+// pro mesmo handler). O caminho canônico agora é /api/admin/bootstrap.
+authRoutes.post("/admin/bootstrap", bootstrapHandler);

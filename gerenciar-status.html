@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Status base — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0;">Status base da campanha</h1>
+        <p class="muted text-sm mt-2">Estes são os status que o mestre define para a campanha. Cada jogador escolhe quais aplicar ao próprio personagem. Nada é fixo — você inventa as regras.</p>
+      </div>
+      <button class="btn btn-primary" id="btn-new">+ Novo status</button>
+    </div>
+
+    <div id="alert-mount"></div>
+
+    <div class="card">
+      <div id="templates-list" class="muted text-sm">Carregando…</div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 id="modal-title">Novo status base</h3>
+      <div id="modal-alert"></div>
+      <div class="field">
+        <label>Nome (ex: "Vida", "Sanidade", "Estamina")</label>
+        <input type="text" id="m-name" maxlength="50">
+      </div>
+      <div class="field">
+        <label>Tipo</label>
+        <select id="m-type">
+          <option value="bar">Bar (atual/máximo, ex: Vida 30/30)</option>
+          <option value="number">Número (ex: Força +3, Nível 5)</option>
+          <option value="text">Texto livre (ex: Aparência, Manias)</option>
+          <option value="tag_list">Lista de tags (ex: Resistências)</option>
+          <option value="checkbox">Checkbox (ex: Transformado?)</option>
+          <option value="formula">Fórmula de dado (ex: Ataque 1d20+5)</option>
+        </select>
+      </div>
+      <div class="field" id="m-default-max-field">
+        <label>Valor máximo padrão (apenas para tipo "bar")</label>
+        <input type="number" id="m-default-max" value="0">
+      </div>
+      <div class="field">
+        <label>Cor (opcional, formato #rrggbb)</label>
+        <input type="color" id="m-color" value="#a78bfa">
+      </div>
+      <div class="field">
+        <label>Descrição/tooltip (opcional, máx 200 chars)</label>
+        <textarea id="m-description" maxlength="200"></textarea>
+      </div>
+      <div class="field">
+        <label>
+          <input type="checkbox" id="m-primary-health">
+          Este é o status principal de vida (ganha destaque na sala com botões de dano rápido)
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="modal-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "stats");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      // Verifica que é mestre
+      if (!sess.user.isGameMaster) {
+        document.body.innerHTML = `<div class="alert alert-error" style="margin:32px">Acesso restrito a mestres.</div>`;
+        return;
+      }
+
+      let editingId = null;
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+      }
+      function showAlert(type, msg) {
+        document.getElementById("alert-mount").innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
+      }
+
+      const typeLabels = { bar: "Bar", number: "Número", text: "Texto", tag_list: "Tags", checkbox: "Checkbox", formula: "Fórmula" };
+
+      async function load() {
+        try {
+          const data = await window.api.get("/api/stat-templates?includeInactive=1");
+          const list = document.getElementById("templates-list");
+          if (!data.templates || data.templates.length === 0) {
+            list.innerHTML = `<div class="muted text-sm" style="padding:16px">Nenhum status base ainda. Crie o primeiro (ex: "Vida" tipo bar) pra que os jogadores possam usar nas fichas.</div>`;
+            return;
+          }
+          list.innerHTML = data.templates.map(t => `
+            <div class="list-row" data-id="${t.id}">
+              <div>
+                <div class="title">
+                  ${escapeHtml(t.name)}
+                  <span class="tag" style="background:${t.color || 'var(--surface)'};color:${t.color ? 'white' : 'var(--text-muted)'};font-size:10px;margin-left:8px;padding:2px 8px">${escapeHtml(typeLabels[t.type] || t.type)}</span>
+                  ${t.is_primary_health ? `<span class="tag tag-on" style="margin-left:4px">vida principal</span>` : ""}
+                  ${!t.active ? `<span class="tag tag-off" style="margin-left:4px">desativado</span>` : ""}
+                  ${t.description ? `<div class="text-xs muted" style="margin-top:2px">${escapeHtml(t.description)}</div>` : ""}
+                </div>
+              </div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" data-edit="${t.id}">Editar</button>
+              ${t.active
+                ? `<button class="btn btn-sm btn-danger" data-deactivate="${t.id}">Desativar</button>`
+                : `<button class="btn btn-sm" data-reactivate="${t.id}">Reativar</button>`}
+            </div>
+          `).join("");
+          list.querySelectorAll('button[data-edit]').forEach(b => {
+            b.addEventListener("click", () => openModal(Number(b.dataset.edit)));
+          });
+          list.querySelectorAll('button[data-deactivate]').forEach(b => {
+            b.addEventListener("click", async () => {
+              try {
+                await window.api.post(`/api/stat-templates/${b.dataset.deactivate}/deactivate`, {});
+                load();
+              } catch (e) { alert(e.message); }
+            });
+          });
+          list.querySelectorAll('button[data-reactivate]').forEach(b => {
+            b.addEventListener("click", async () => {
+              try {
+                await window.api.post(`/api/stat-templates/${b.dataset.reactivate}/reactivate`, {});
+                load();
+              } catch (e) { alert(e.message); }
+            });
+          });
+        } catch (e) {
+          showAlert("error", e.message);
+        }
+      }
+
+      function openModal(id) {
+        editingId = id;
+        const titleEl = document.getElementById("modal-title");
+        document.getElementById("modal-alert").innerHTML = "";
+        if (id) {
+          // Busca dados
+          window.api.get("/api/stat-templates?includeInactive=1").then(data => {
+            const t = data.templates.find(x => x.id === id);
+            if (!t) return;
+            titleEl.textContent = "Editar: " + t.name;
+            document.getElementById("m-name").value = t.name;
+            document.getElementById("m-type").value = t.type;
+            document.getElementById("m-default-max").value = t.default_max || 0;
+            document.getElementById("m-color").value = t.color || "#a78bfa";
+            document.getElementById("m-description").value = t.description || "";
+            document.getElementById("m-primary-health").checked = !!t.is_primary_health;
+            toggleDefaultMax();
+          });
+        } else {
+          titleEl.textContent = "Novo status base";
+          document.getElementById("m-name").value = "";
+          document.getElementById("m-type").value = "bar";
+          document.getElementById("m-default-max").value = 0;
+          document.getElementById("m-color").value = "#a78bfa";
+          document.getElementById("m-description").value = "";
+          document.getElementById("m-primary-health").checked = false;
+          toggleDefaultMax();
+        }
+        document.getElementById("modal").classList.remove("hidden");
+      }
+
+      function toggleDefaultMax() {
+        const type = document.getElementById("m-type").value;
+        document.getElementById("m-default-max-field").style.display = type === "bar" ? "" : "none";
+      }
+      document.getElementById("m-type").addEventListener("change", toggleDefaultMax);
+
+      document.getElementById("btn-new").addEventListener("click", () => openModal(null));
+      document.getElementById("modal-cancel").addEventListener("click", () => {
+        document.getElementById("modal").classList.add("hidden");
+      });
+      document.getElementById("modal-save").addEventListener("click", async () => {
+        const payload = {
+          name: document.getElementById("m-name").value.trim(),
+          type: document.getElementById("m-type").value,
+          defaultMax: Number(document.getElementById("m-default-max").value),
+          color: document.getElementById("m-color").value,
+          description: document.getElementById("m-description").value.trim(),
+          isPrimaryHealth: document.getElementById("m-primary-health").checked,
+        };
+        if (!payload.name) {
+          document.getElementById("modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`;
+          return;
+        }
+        try {
+          if (editingId) {
+            await window.api.put(`/api/stat-templates/${editingId}`, payload);
+          } else {
+            await window.api.post("/api/stat-templates", payload);
+          }
+          document.getElementById("modal").classList.add("hidden");
+          load();
+        } catch (e) {
+          document.getElementById("modal-alert").innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+        }
+      });
+
+      load();
+    })();
+  </script>
+</body>
+</html>

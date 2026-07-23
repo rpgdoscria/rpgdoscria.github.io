@@ -187,6 +187,7 @@
   <script src="js/room-ws.js"></script>
   <script src="js/dice-ui.js"></script>
   <script src="js/room-render.js"></script>
+  <script src="js/character-render.js"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -245,13 +246,13 @@
         const lockBtn = document.getElementById("btn-lock");
         lockBtn.textContent = state.locked ? "🔓 Destravar sala" : "🔒 Travar sala";
 
-        // Personagens
+        // Personagens — usa componente único character-render.js (mesmo da wiki)
         const cg = document.getElementById("characters-grid");
         if (!state.characters || state.characters.length === 0) {
           cg.innerHTML = `<div class="muted text-sm">Nenhum personagem na sala ainda. Jogadores podem entrar com seus personagens via sala-jogador.html?code=${encodeURIComponent(state.code)}</div>`;
         } else {
-          cg.innerHTML = state.characters.map(ch => window.roomRender.renderCharacter(ch, {
-            editable: false, isMaster: true, isOwn: false,
+          cg.innerHTML = state.characters.map(ch => window.characterRender.renderCharacterCard(ch, {
+            editable: true, isMaster: true, isOwn: false,
           })).join("");
         }
 
@@ -284,6 +285,24 @@
       }
 
       function bindActionButtons() {
+        // Botões de +/- nos stats (mestre altera qualquer personagem)
+        document.querySelectorAll('button[data-stat-id][data-delta]').forEach(b => {
+          b.addEventListener("click", () => {
+            const card = b.closest("[data-character-id]");
+            const characterId = Number(card.dataset.characterId);
+            const statId = Number(b.dataset.statId);
+            const delta = Number(b.dataset.delta);
+            const statRow = b.closest("[data-stat-type]");
+            const type = statRow.dataset.statType;
+            const valuesEl = statRow.querySelector(".stat-bar-values, .stat-number-value");
+            if (!valuesEl) return;
+            const text = valuesEl.textContent || "";
+            let cur = 0;
+            if (type === "bar") { const m = text.match(/^(\d+)/); cur = m ? Number(m[1]) : 0; }
+            else { cur = Number(text) || 0; }
+            client.send("update_character", { characterId, statId, value: { current: cur + delta } });
+          });
+        });
         // Editar personagem (como mestre)
         document.querySelectorAll('button[data-action="gm-edit-character"], button[data-action="edit-character"]').forEach(b => {
           b.addEventListener("click", () => openCharacterModal(Number(b.dataset.characterId)));
