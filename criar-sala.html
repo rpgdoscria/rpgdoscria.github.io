@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Criar Sala — Crônicas RPG</title>
+  <title>Criar sala — Crônicas RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -15,7 +15,7 @@
 
   <main class="container wide">
     <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0 0 var(--space-2) 0;">Criar sala de jogo</h1>
-    <p class="muted text-sm mb-6">Selecione os personagens que vão participar desta sessão. Você poderá adicionar mais depois via WebSocket.</p>
+    <p class="muted text-sm mb-6">Selecione os personagens que vão participar desta sessão. Depois de criar, você recebe um link único pra compartilhar com o grupo.</p>
 
     <div id="alert-mount"></div>
 
@@ -48,6 +48,12 @@
       const sess = window.auth.requireAuth("viewer");
       if (!sess) return;
 
+      // Apenas mestres podem criar sala
+      if (!sess.user.isGameMaster) {
+        document.body.innerHTML = `<div class="alert alert-error" style="margin:32px">Acesso restrito a mestres.</div>`;
+        return;
+      }
+
       const alertMount = document.getElementById("alert-mount");
       function showAlert(type, msg) {
         alertMount.innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
@@ -60,15 +66,15 @@
 
       // Carrega personagens
       try {
-        const data = await window.api.get("/api/rooms/characters");
+        const data = await window.api.get("/api/characters");
         const list = document.getElementById("characters-list");
         if (!data.characters || data.characters.length === 0) {
-          list.innerHTML = `<div class="alert alert-info">Você ainda não tem personagens. Crie um primeiro (link abaixo).</div>`;
+          list.innerHTML = `<div class="alert alert-info">Você ainda não tem personagens. Crie um primeiro em "Personagens".</div>`;
         } else {
           list.innerHTML = data.characters.map(c => `
             <div class="character-pick ${selected.has(c.id) ? "selected" : ""}" data-id="${c.id}">
               <div class="name">${escapeHtml(c.name)}</div>
-              <div class="meta">HP ${c.hpCurrent}/${c.hpMax} · ${c.money} moedas</div>
+              <div class="meta">${(c.stats || []).length} status · ${(c.inventory || []).length} itens${c.isActive ? " · ⭐ ativo" : ""}</div>
             </div>
           `).join("");
           list.querySelectorAll(".character-pick").forEach(el => {
@@ -97,10 +103,20 @@
                 <div class="meta">${r.participantCount} personagens · ${r.enemyCount} inimigos · ${r.diceCount} rolagens · ${r.locked ? "🔒 travada" : "🔓 aberta"}</div>
               </div>
               <div class="spacer"></div>
-              <a class="btn btn-sm btn-primary" href="sala-mestre.html?code=${encodeURIComponent(r.code)}">Reabrir como mestre</a>
+              <a class="btn btn-sm btn-primary" href="sala.html?code=${encodeURIComponent(r.code)}">Reabrir</a>
+              <button class="btn btn-sm" data-copy="${escapeHtml(r.code)}">Copiar link</button>
               <button class="btn btn-sm btn-danger" data-end-code="${escapeHtml(r.code)}">Encerrar</button>
             </div>
           `).join("");
+          rl.querySelectorAll('button[data-copy]').forEach(b => {
+            b.addEventListener("click", () => {
+              const link = `${location.origin}${location.pathname.replace(/[^/]*$/, "")}sala.html?code=${b.dataset.copy}`;
+              navigator.clipboard.writeText(link).then(() => {
+                b.textContent = "✓ Copiado!";
+                setTimeout(() => { b.textContent = "Copiar link"; }, 2000);
+              });
+            });
+          });
           rl.querySelectorAll('button[data-end-code]').forEach(b => {
             b.addEventListener("click", async () => {
               if (!confirm("Encerrar a sala definitivamente? Todo mundo será desconectado.")) return;
@@ -120,7 +136,10 @@
         btn.innerHTML = '<span class="spinner"></span> Criando…';
         try {
           const res = await window.api.post("/api/rooms", { characterIds: Array.from(selected) });
-          location.href = `sala-mestre.html?code=${encodeURIComponent(res.code)}`;
+          // Redireciona IMEDIATAMENTE para o endereço real da sala (sala.html).
+          // Não fica preso na tela de criação. O papel (mestre/jogador) será
+          // decidido pelo servidor quando sala.html chamar /api/rooms/:code/status.
+          location.href = `sala.html?code=${encodeURIComponent(res.code)}`;
         } catch (e) {
           showAlert("error", e.message);
           btn.disabled = false;

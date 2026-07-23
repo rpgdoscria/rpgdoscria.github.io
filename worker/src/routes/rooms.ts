@@ -167,6 +167,76 @@ roomRoutes.get("/", async (c) => {
   })) });
 });
 
+// ---------- GET /api/rooms/:code/status — estado da sala + papel do usuário ----------
+// CRÍTICO: este endpoint decide se o usuário é mestre ou jogador COMPARANDO
+// o usuário autenticado com o masterUserId da sala no banco. Nunca confiar em
+// parâmetro de URL nem em flag enviada pelo cliente.
+roomRoutes.get("/:code/status", async (c) => {
+  const user = c.get("user") as JwtPayload | undefined;
+  if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const code = c.req.param("code");
+
+  const row = await queryFirst<{ state_json: string; created_at: string }>(
+    c.env.DB,
+    `SELECT state_json, created_at FROM room_snapshots WHERE room_code = ? ORDER BY created_at DESC LIMIT 1`,
+    code
+  );
+
+  if (!row) {
+    return c.json({
+      status: "not_found",
+      message: "Sala não encontrada. Verifique o código com o mestre.",
+    });
+  }
+
+  let st: any;
+  try { st = JSON.parse(row.state_json); }
+  catch { return c.json({ status: "corrupted", message: "Estado da sala corrompido." }, 500); }
+
+  // Sala encerrada pelo mestre
+  if (st.expired) {
+    return c.json({
+      status: "ended",
+      message: "Esta sala foi encerrada pelo mestre.",
+      code,
+    });
+  }
+
+  // Sala expirada por inatividade (6h)
+  const idleMs = Date.now() - (st.lastActivity ?? 0);
+  if (idleMs > 6 * 60 * 60 * 1000) {
+    return c.json({
+      status: "expired",
+      message: "Esta sala expirou por inatividade (mais de 6h sem atividade).",
+      code,
+    });
+  }
+
+  // DECISÃO DE PAPEL PELO SERVIDOR — mestre é quem criou a sala (masterUserId)
+  const isMaster = st.masterUserId === user.sub;
+  // Sala travada: só o mestre pode entrar
+  if (st.locked && !isMaster) {
+    return c.json({
+      status: "locked",
+      message: "Sala travada pelo mestre — não aceita novas entradas.",
+      code,
+    });
+  }
+
+  return c.json({
+    status: "active",
+    code,
+    masterUsername: st.masterUsername,
+    locked: !!st.locked,
+    createdAt: st.createdAt,
+    lastActivity: st.lastActivity,
+    participantCount: Object.keys(st.characters || {}).length,
+    enemyCount: Object.keys(st.enemies || {}).length,
+    // PAPEL DECIDIDO PELO SERVIDOR — nunca pelo cliente
+    role: isMaster ? "master" : "player",
+  });
+});
+
 // ---------- GET /api/rooms/:code — info de uma sala ----------
 roomRoutes.get("/:code", async (c) => {
   const code = c.req.param("code");

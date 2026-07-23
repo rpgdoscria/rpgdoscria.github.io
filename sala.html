@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sala — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <!-- Tela de verificação inicial (mostrada antes de qualquer outra coisa) -->
+  <main id="verifying-screen" class="container">
+    <div style="text-align:center;padding:64px 16px">
+      <div class="spinner" style="width:48px;height:48px;border-width:4px;margin:0 auto 24px"></div>
+      <h2 style="font-family:var(--font-serif);margin:0 0 8px 0">Verificando sala…</h2>
+      <p class="muted text-sm">Aguarde enquanto confirmamos o código.</p>
+    </div>
+  </main>
+
+  <!-- Tela de erro (sala não encontrada / encerrada / expirada / travada) -->
+  <main id="error-screen" class="container hidden">
+    <div style="text-align:center;padding:64px 16px;max-width:480px;margin:0 auto">
+      <div id="error-icon" style="font-size:64px;margin-bottom:16px">🚫</div>
+      <h2 id="error-title" style="font-family:var(--font-serif);margin:0 0 8px 0">Sala não encontrada</h2>
+      <p id="error-message" class="muted mb-6">Verifique o código com o mestre.</p>
+      <div class="flex gap-2 justify-center">
+        <a href="entrar-sala.html" class="btn btn-primary">Entrar com outro código</a>
+        <a href="index.html" class="btn btn-ghost">Voltar ao início</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Tela da sala (mestre OU jogador — papel decidido pelo servidor) -->
+  <main id="room-screen" class="sala-layout hidden">
+    <div class="sala-main">
+      <div class="sala-header">
+        <h1 id="room-title">Sala</h1>
+        <span class="room-code" id="room-code" title="Clique para copiar o link da sala">-------</span>
+        <span id="conn-mount"></span>
+        <span id="role-badge" class="tag" style="font-size:11px"></span>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn btn-sm btn-ghost hidden" id="btn-copy-link">📋 Copiar link</button>
+        <button class="btn btn-sm btn-ghost hidden" id="btn-lock">🔒 Travar sala</button>
+        <button class="btn btn-sm btn-danger hidden" id="btn-end">Encerrar sala</button>
+      </div>
+
+      <div id="alert-mount"></div>
+
+      <!-- Aviso "sala travada" (mestre vê mas pode destravar) -->
+      <div id="locked-warning" class="alert alert-warning hidden">Sala travada — novos jogadores não conseguem entrar. Clique em "Destravar sala" pra liberar.</div>
+
+      <section>
+        <div class="flex items-center justify-between mb-2">
+          <h2 style="font-size: 18px; margin: 0;">Personagens na sala</h2>
+          <div id="join-hint" class="muted text-xs hidden"></div>
+        </div>
+        <div id="characters-grid" class="characters-grid">
+          <div class="muted text-sm">Conectando…</div>
+        </div>
+      </section>
+
+      <section class="mt-6" id="enemies-section">
+        <div class="flex items-center justify-between mb-2">
+          <h2 style="font-size: 18px; margin: 0;">Inimigos</h2>
+          <button class="btn btn-sm btn-primary hidden" id="btn-add-enemy">+ Criar inimigo</button>
+        </div>
+        <div id="enemies-grid" class="enemies-grid">
+          <div class="muted text-sm">Nenhum inimigo ainda.</div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="sala-side">
+      <div class="side-panel">
+        <h3>🎲 Dados</h3>
+        <div id="dice-master-panel" class="hidden">
+          <div class="dice-quick-row">
+            <button class="dice-btn" data-formula="1d20">d20</button>
+            <button class="dice-btn" data-formula="1d12">d12</button>
+            <button class="dice-btn" data-formula="1d10">d10</button>
+            <button class="dice-btn" data-formula="1d8">d8</button>
+            <button class="dice-btn" data-formula="1d6">d6</button>
+            <button class="dice-btn" data-formula="1d4">d4</button>
+            <button class="dice-btn" data-formula="1d100">d100</button>
+            <button class="dice-btn" data-formula="2d20kh1">Vant.</button>
+          </div>
+          <div class="dice-formula-row">
+            <input type="text" id="dice-input" placeholder="Ex: 1d20+5 ou 2d6+3" autocomplete="off">
+            <button class="btn btn-primary" id="btn-roll">Rolar</button>
+          </div>
+          <div class="dice-formula-feedback" id="dice-feedback"></div>
+          <input type="text" id="dice-label" placeholder="Label opcional (ex: Ataque com espada)" class="mb-2" style="width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; font-size: 13px;">
+        </div>
+        <div class="dice-result-display" id="dice-result-display">As rolagens vão aparecer aqui em destaque — todos os jogadores verão ao mesmo tempo.</div>
+
+        <div id="suggest-panel" class="hidden">
+          <div class="dice-formula-row mt-3">
+            <input type="text" id="suggest-formula" placeholder="Sugerir fórmula pro mestre" style="font-size: 12px;">
+            <input type="text" id="suggest-label" placeholder="Label" style="font-size: 12px;">
+            <button class="btn btn-sm btn-primary" id="btn-suggest">Sugerir</button>
+          </div>
+          <div class="dice-formula-feedback" id="suggest-feedback"></div>
+        </div>
+
+        <details class="mt-2">
+          <summary class="text-xs muted">Fórmulas salvas</summary>
+          <div id="presets-list" class="mt-2"></div>
+          <div class="dice-formula-row mt-2" id="preset-add-row">
+            <input type="text" id="preset-label" placeholder="Label" style="font-size: 12px;">
+            <input type="text" id="preset-formula" placeholder="1d20+5" style="font-size: 12px;">
+            <button class="btn btn-sm" id="btn-save-preset">+</button>
+          </div>
+        </details>
+      </div>
+
+      <div class="side-panel hidden" id="suggestions-panel">
+        <h3>💡 Sugestões dos jogadores</h3>
+        <div id="suggestions-list">
+          <div class="muted text-sm">Nenhuma sugestão ainda.</div>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <h3>📜 Histórico de rolagens</h3>
+        <div id="dice-log" class="dice-log-list">
+          <div class="muted text-sm">Nenhuma rolagem ainda.</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Modais (edit personagem, inimigo, status) — mesmos do sala-mestre.html anterior -->
+  <div id="character-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 id="char-modal-title">Editar personagem</h3>
+      <div id="char-modal-alert"></div>
+      <div class="field">
+        <label>Nome</label>
+        <input type="text" id="char-name">
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>HP atual</label>
+          <input type="number" id="char-hp-current">
+        </div>
+        <div class="field">
+          <label>HP máximo</label>
+          <input type="number" id="char-hp-max">
+        </div>
+      </div>
+      <div class="field">
+        <label>Dinheiro</label>
+        <input type="number" id="char-money">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="char-modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="char-modal-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="enemy-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 id="enemy-modal-title">Criar inimigo</h3>
+      <div id="enemy-modal-alert"></div>
+      <div class="field">
+        <label>Nome</label>
+        <input type="text" id="enemy-name">
+      </div>
+      <div class="field">
+        <label>Modo de vida</label>
+        <select id="enemy-hp-mode">
+          <option value="numeric">HP numérico</option>
+          <option value="description">Descrição qualitativa</option>
+        </select>
+      </div>
+      <div id="enemy-numeric-fields" class="grid-2">
+        <div class="field">
+          <label>HP atual</label>
+          <input type="number" id="enemy-hp-current">
+        </div>
+        <div class="field">
+          <label>HP máximo</label>
+          <input type="number" id="enemy-hp-max">
+        </div>
+      </div>
+      <div id="enemy-desc-fields" class="field hidden">
+        <label>Descrição</label>
+        <select id="enemy-preset-select">
+          <option value="">— presets —</option>
+        </select>
+        <input type="text" id="enemy-desc" placeholder="Ou digite uma descrição customizada" class="mt-2">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="enemy-modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="enemy-modal-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="status-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3>Adicionar status</h3>
+      <div class="field">
+        <label>Texto do status (máx 200 caracteres)</label>
+        <textarea id="status-text" placeholder="Ex: Envenenado, -2 de velocidade"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="status-modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="status-modal-save">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/purify.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/room-ws.js"></script>
+  <script src="js/dice-ui.js"></script>
+  <script src="js/room-render.js"></script>
+  <script src="js/character-render.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "rooms");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const params = new URLSearchParams(location.search);
+      const code = params.get("code");
+      if (!code) {
+        showError("🚫", "Código ausente", "Esta URL não contém um código de sala. Peça o link correto ao mestre.", true);
+        return;
+      }
+
+      // ============================================================
+      // ETAPA 1: VERIFICAÇÃO REST — checar existência da sala ANTES
+      // de tentar conectar via WebSocket. Esta é a correção central:
+      // nunca conectar WS em código inválido.
+      // ============================================================
+      let statusData;
+      try {
+        statusData = await window.api.get(`/api/rooms/${encodeURIComponent(code)}/status`);
+      } catch (e) {
+        if (e.status === 401) return; // api.js já redirecionou pra login
+        showError("🚫", "Erro ao verificar sala", e.message, true);
+        return;
+      }
+
+      // statusData.status pode ser: not_found, ended, expired, locked, active
+      switch (statusData.status) {
+        case "not_found":
+          showError("🔍", "Sala não encontrada", "O código <code>" + escapeHtml(code) + "</code> não corresponde a nenhuma sala ativa. Verifique com o mestre.", true);
+          return;
+        case "ended":
+          showError("🏁", "Sala encerrada", "Esta sala foi encerrada pelo mestre. Não é mais possível entrar.", false);
+          return;
+        case "expired":
+          showError("⏰", "Sala expirada", "Esta sala ficou mais de 6h sem atividade e expirou. Peça ao mestre para criar uma nova.", false);
+          return;
+        case "locked":
+          showError("🔒", "Sala travada", "O mestre travou esta sala — não aceita novas entradas. Peça pra ele destravar.", false);
+          return;
+        case "active":
+          // Tudo certo — continua pra etapa 2
+          break;
+        default:
+          showError("🚫", "Estado desconhecido", "Recebeu status: " + escapeHtml(statusData.status || "?"), true);
+          return;
+      }
+
+      // ============================================================
+      // ETAPA 2: Sala ativa. PAPEL decidido pelo servidor — nunca
+      // pela URL nem por flag do cliente. statusData.role === "master"
+      // só é true se o usuário autenticado for o masterUserId da sala.
+      // ============================================================
+      const isMaster = statusData.role === "master";
+      showRoomScreen(statusData, isMaster);
+
+      // ===== Conecta WebSocket =====
+      let characterId = null;
+      if (!isMaster) {
+        // Jogador precisa escolher personagem antes de conectar
+        try {
+          const data = await window.api.get("/api/characters");
+          if (!data.characters || data.characters.length === 0) {
+            showError("🧙", "Sem personagem", "Você precisa criar um personagem antes de entrar numa sala. <a href='meus-personagens.html' class='btn btn-primary'>Criar personagem</a>", false);
+            return;
+          }
+          if (data.characters.length === 1) {
+            characterId = data.characters[0].id;
+          } else {
+            // Tenta o ativo primeiro; senão pergunta
+            const active = data.characters.find(c => c.isActive);
+            if (active) {
+              characterId = active.id;
+            } else {
+              const choice = prompt(`Você tem ${data.characters.length} personagens. Escolha:\n\n${data.characters.map((c, i) => `${i + 1}. ${c.name}`).join("\n")}\n\nDigite o número:`);
+              const idx = parseInt(choice, 10) - 1;
+              if (isNaN(idx) || idx < 0 || idx >= data.characters.length) {
+                showError("🚫", "Seleção cancelada", "Você precisa escolher um personagem pra entrar na sala.", false);
+                return;
+              }
+              characterId = data.characters[idx].id;
+            }
+          }
+        } catch (e) {
+          showError("🚫", "Erro ao carregar personagens", e.message, false);
+          return;
+        }
+      }
+
+      const client = new window.RoomClient(code, characterId);
+      let currentState = null;
+
+      client.onConnectivity = (st) => {
+        document.getElementById("conn-mount").innerHTML = window.roomRender.renderConnectivity(st);
+      };
+      client.onStateChange = (state) => {
+        if (!state) return;
+        currentState = state;
+        render(state, isMaster);
+      };
+      client.onEvent = (msg) => {
+        if (msg.type === "dice_result") {
+          window.diceUI.flashDiceResult(
+            document.getElementById("dice-result-display"),
+            window.diceUI.formatResult(msg.payload)
+          );
+        } else if (msg.type === "room_closed") {
+          showError("🏁", "Sala encerrada", "O mestre encerrou a sala.", false);
+          document.getElementById("room-screen").classList.add("hidden");
+        } else if (msg.type === "error") {
+          showAlert("error", msg.payload?.message || "Erro");
+          setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 4000);
+        }
+      };
+      client.connect();
+
+      // ===== Funções de render =====
+      function showRoomScreen(st, isMaster) {
+        document.getElementById("verifying-screen").classList.add("hidden");
+        document.getElementById("room-screen").classList.remove("hidden");
+        document.getElementById("room-code").textContent = st.code;
+        document.getElementById("room-title").textContent = isMaster ? "Sala do Mestre" : "Sala de Jogo";
+        const roleBadge = document.getElementById("role-badge");
+        roleBadge.textContent = isMaster ? "MESTRE" : "JOGADOR";
+        roleBadge.style.background = isMaster ? "var(--accent)" : "var(--surface)";
+        roleBadge.style.color = isMaster ? "var(--accent-fg)" : "var(--text-muted)";
+
+        // Botões de mestre só aparecem pra mestre
+        if (isMaster) {
+          document.getElementById("btn-lock").classList.remove("hidden");
+          document.getElementById("btn-end").classList.remove("hidden");
+          document.getElementById("btn-add-enemy").classList.remove("hidden");
+          document.getElementById("dice-master-panel").classList.remove("hidden");
+          document.getElementById("suggestions-panel").classList.remove("hidden");
+        } else {
+          document.getElementById("suggest-panel").classList.remove("hidden");
+        }
+        // Botão copiar link — todo mundo pode copiar (jogador também pode compartilhar)
+        document.getElementById("btn-copy-link").classList.remove("hidden");
+
+        // Hint de como entrar (jogador vê o link pra compartilhar)
+        if (!isMaster) {
+          document.getElementById("join-hint").classList.remove("hidden");
+          document.getElementById("join-hint").textContent = `Conectado como ${sess.user.username}`;
+        }
+
+        // Presets do select de inimigo
+        const presetSelect = document.getElementById("enemy-preset-select");
+        window.roomRender.ENEMY_PRESETS.forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p; opt.textContent = p;
+          presetSelect.appendChild(opt);
+        });
+      }
+
+      function render(state, isMaster) {
+        const lockBtn = document.getElementById("btn-lock");
+        lockBtn.textContent = state.locked ? "🔓 Destravar sala" : "🔒 Travar sala";
+        document.getElementById("locked-warning").classList.toggle("hidden", !state.locked || !isMaster);
+
+        // Personagens
+        const cg = document.getElementById("characters-grid");
+        if (!state.characters || state.characters.length === 0) {
+          cg.innerHTML = `<div class="muted text-sm">Nenhum personagem na sala ainda.</div>`;
+        } else {
+          cg.innerHTML = state.characters.map(ch => {
+            const isOwn = !isMaster && ch.id === characterId;
+            return window.characterRender.renderCharacterCard(ch, {
+              editable: true, isMaster, isOwn,
+            });
+          }).join("");
+        }
+
+        // Inimigos
+        const eg = document.getElementById("enemies-grid");
+        if (!state.enemies || state.enemies.length === 0) {
+          eg.innerHTML = `<div class="muted text-sm">Nenhum inimigo ${isMaster ? "ainda. Clique em \"+ Criar inimigo\"" : "visível"}.</div>`;
+        } else {
+          eg.innerHTML = state.enemies.map(en => window.roomRender.renderEnemy(en, { isMaster })).join("");
+        }
+
+        // Sugestões (só mestre vê)
+        if (isMaster) {
+          const sl = document.getElementById("suggestions-list");
+          if (!state.suggestions || state.suggestions.length === 0) {
+            sl.innerHTML = `<div class="muted text-sm">Nenhuma sugestão ainda.</div>`;
+          } else {
+            sl.innerHTML = window.roomRender.renderSuggestions(state.suggestions, { isMaster });
+          }
+        }
+
+        // Log
+        const dl = document.getElementById("dice-log");
+        if (!state.diceLog || state.diceLog.length === 0) {
+          dl.innerHTML = `<div class="muted text-sm">Nenhuma rolagem ainda.</div>`;
+        } else {
+          dl.innerHTML = window.roomRender.renderDiceLog(state.diceLog);
+        }
+        bindActionButtons(isMaster);
+      }
+
+      function bindActionButtons(isMaster) {
+        // +/- stats
+        document.querySelectorAll('button[data-stat-id][data-delta]').forEach(b => {
+          b.addEventListener("click", () => {
+            const card = b.closest("[data-character-id]");
+            const characterIdCard = Number(card.dataset.characterId);
+            const statId = Number(b.dataset.statId);
+            const delta = Number(b.dataset.delta);
+            const statRow = b.closest("[data-stat-type]");
+            const type = statRow.dataset.statType;
+            const valuesEl = statRow.querySelector(".stat-bar-values, .stat-number-value");
+            if (!valuesEl) return;
+            const text = valuesEl.textContent || "";
+            let cur = 0;
+            if (type === "bar") { const m = text.match(/^(\d+)/); cur = m ? Number(m[1]) : 0; }
+            else { cur = Number(text) || 0; }
+            if (isMaster) {
+              client.send("update_character", { characterId: characterIdCard, statId, value: { current: cur + delta } });
+            } else if (characterIdCard === characterId) {
+              client.send("update_own_character", { statId, value: { current: cur + delta } });
+            }
+          });
+        });
+        document.querySelectorAll('button[data-action="gm-edit-character"], button[data-action="edit-character"]').forEach(b => {
+          b.addEventListener("click", () => openCharacterModal(Number(b.dataset.characterId)));
+        });
+        document.querySelectorAll('button[data-action="edit-enemy"]').forEach(b => {
+          b.addEventListener("click", () => openEnemyModal(b.dataset.enemyId));
+        });
+        document.querySelectorAll('button[data-action="delete-enemy"]').forEach(b => {
+          b.addEventListener("click", () => {
+            if (!confirm("Remover este inimigo?")) return;
+            client.send("delete_enemy", { enemyId: b.dataset.enemyId });
+          });
+        });
+        document.querySelectorAll('button[data-action="add-status"]').forEach(b => {
+          b.addEventListener("click", () => openStatusModal(b.dataset.targetType, b.dataset.targetId));
+        });
+        document.querySelectorAll('button[data-action="remove-status"]').forEach(b => {
+          b.addEventListener("click", () => {
+            client.send("remove_status_effect", {
+              targetType: b.dataset.targetType,
+              targetId: b.dataset.targetType === "character" ? Number(b.dataset.targetId) : b.dataset.targetId,
+              statusId: b.dataset.statusId,
+            });
+          });
+        });
+        document.querySelectorAll('button[data-action="accept-suggestion"]').forEach(b => {
+          b.addEventListener("click", () => {
+            client.send("roll_dice", { formula: b.dataset.formula, label: b.dataset.label });
+          });
+        });
+        document.querySelectorAll('button[data-action="dismiss-suggestion"]').forEach(b => {
+          b.addEventListener("click", () => {
+            if (currentState) {
+              currentState.suggestions = currentState.suggestions.filter(s => s.id !== b.dataset.suggestionId);
+              render(currentState, isMaster);
+            }
+          });
+        });
+      }
+
+      // ===== Dados (mestre only) =====
+      function updateDiceFeedback() {
+        const input = document.getElementById("dice-input");
+        const fb = document.getElementById("dice-feedback");
+        if (!input) return;
+        const v = input.value.trim();
+        if (!v) { fb.textContent = ""; fb.className = "dice-formula-feedback"; input.classList.remove("invalid"); return; }
+        const r = window.diceUI.previewParse(v);
+        if (r.ok) { fb.textContent = "✓ Fórmula válida"; fb.className = "dice-formula-feedback valid"; input.classList.remove("invalid"); }
+        else { fb.textContent = "✗ " + r.error; fb.className = "dice-formula-feedback invalid"; input.classList.add("invalid"); }
+      }
+      const diceInput = document.getElementById("dice-input");
+      if (diceInput) {
+        diceInput.addEventListener("input", updateDiceFeedback);
+        diceInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); rollFromInput(); } });
+      }
+      document.querySelectorAll(".dice-btn").forEach(b => {
+        b.addEventListener("click", () => {
+          document.getElementById("dice-input").value = b.dataset.formula;
+          updateDiceFeedback();
+          rollFromInput();
+        });
+      });
+      const btnRoll = document.getElementById("btn-roll");
+      if (btnRoll) btnRoll.addEventListener("click", rollFromInput);
+
+      function rollFromInput() {
+        const formula = document.getElementById("dice-input").value.trim();
+        const label = document.getElementById("dice-label").value.trim();
+        if (!formula) return;
+        if (!window.diceUI.isValid(formula)) {
+          showAlert("error", "Fórmula inválida.");
+          setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 3000);
+          return;
+        }
+        client.send("roll_dice", { formula, label: label || undefined });
+        document.getElementById("dice-label").value = "";
+      }
+
+      // ===== Sugerir (jogador) =====
+      const suggestInput = document.getElementById("suggest-formula");
+      const suggestLabel = document.getElementById("suggest-label");
+      const suggestFb = document.getElementById("suggest-feedback");
+      if (suggestInput) {
+        suggestInput.addEventListener("input", () => {
+          const v = suggestInput.value.trim();
+          if (!v) { suggestFb.textContent = ""; suggestFb.className = "dice-formula-feedback"; suggestInput.classList.remove("invalid"); return; }
+          const r = window.diceUI.previewParse(v);
+          if (r.ok) { suggestFb.textContent = "✓ Pronto para sugerir"; suggestFb.className = "dice-formula-feedback valid"; suggestInput.classList.remove("invalid"); }
+          else { suggestFb.textContent = "✗ " + r.error; suggestFb.className = "dice-formula-feedback invalid"; suggestInput.classList.add("invalid"); }
+        });
+        document.getElementById("btn-suggest").addEventListener("click", () => {
+          const formula = suggestInput.value.trim();
+          const label = suggestLabel.value.trim();
+          if (!formula || !label) { suggestFb.textContent = "Preencha fórmula e label."; suggestFb.className = "dice-formula-feedback invalid"; return; }
+          if (!window.diceUI.isValid(formula)) return;
+          client.send("suggest_formula", { formula, label });
+          suggestInput.value = ""; suggestLabel.value = "";
+          suggestFb.textContent = "✓ Sugestão enviada ao mestre!";
+          suggestFb.className = "dice-formula-feedback valid";
+          setTimeout(() => { suggestFb.textContent = ""; }, 3000);
+        });
+      }
+
+      // ===== Lock / End / Copy (mestre) =====
+      const btnLock = document.getElementById("btn-lock");
+      if (btnLock) btnLock.addEventListener("click", () => {
+        if (!currentState) return;
+        client.send("lock_room", { locked: !currentState.locked });
+      });
+      const btnEnd = document.getElementById("btn-end");
+      if (btnEnd) btnEnd.addEventListener("click", async () => {
+        if (!confirm("Encerrar a sala definitivamente? Todos serão desconectados.")) return;
+        try {
+          await window.api.post(`/api/rooms/${encodeURIComponent(code)}/end`, {});
+          location.href = "criar-sala.html";
+        } catch (e) { alert(e.message); }
+      });
+
+      // Copiar link da sala — todo mundo pode
+      document.getElementById("btn-copy-link").addEventListener("click", () => {
+        const link = `${location.origin}${location.pathname.replace(/[^/]*$/, "")}sala.html?code=${encodeURIComponent(code)}`;
+        navigator.clipboard.writeText(link).then(() => {
+          const btn = document.getElementById("btn-copy-link");
+          btn.textContent = "✓ Copiado!";
+          setTimeout(() => { btn.textContent = "📋 Copiar link"; }, 2000);
+        });
+      });
+      document.getElementById("room-code").addEventListener("click", () => {
+        const link = `${location.origin}${location.pathname.replace(/[^/]*$/, "")}sala.html?code=${encodeURIComponent(code)}`;
+        navigator.clipboard.writeText(link).then(() => {
+          showAlert("success", `Link copiado: ${link}`);
+          setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 4000);
+        });
+      });
+
+      // ===== Modal personagem =====
+      let editingCharacterId = null;
+      function openCharacterModal(id) {
+        if (!currentState) return;
+        const ch = currentState.characters.find(c => c.id === id);
+        if (!ch) return;
+        editingCharacterId = id;
+        document.getElementById("char-modal-title").textContent = `Editar: ${ch.name}`;
+        document.getElementById("char-name").value = ch.name;
+        // Compat: se ch tem hpCurrent (formato antigo), usa; senão vazio
+        document.getElementById("char-hp-current").value = ch.hpCurrent ?? "";
+        document.getElementById("char-hp-max").value = ch.hpMax ?? "";
+        document.getElementById("char-money").value = ch.money ?? "";
+        document.getElementById("char-modal-alert").innerHTML = "";
+        document.getElementById("character-modal").classList.remove("hidden");
+      }
+      document.getElementById("char-modal-cancel").addEventListener("click", () => {
+        document.getElementById("character-modal").classList.add("hidden");
+      });
+      document.getElementById("char-modal-save").addEventListener("click", () => {
+        // Nota: na sala nova, edição de stats é via statId. Mas mantemos o modal
+        // pra compat com nome/dinheiro — se o jogador só quer mudar nome, pode.
+        // Stats individuais vão via botões +/- direto na ficha.
+        const payload = {
+          characterId: editingCharacterId,
+          name: document.getElementById("char-name").value.trim(),
+        };
+        if (isMaster) {
+          client.send("update_character", payload);
+        } else {
+          client.send("update_own_character", payload);
+        }
+        document.getElementById("character-modal").classList.add("hidden");
+      });
+
+      // ===== Modal inimigo =====
+      let editingEnemyId = null;
+      function openEnemyModal(enemyId) {
+        editingEnemyId = enemyId;
+        const en = enemyId ? currentState?.enemies.find(e => e.id === enemyId) : null;
+        document.getElementById("enemy-modal-title").textContent = en ? `Editar: ${en.name}` : "Criar inimigo";
+        document.getElementById("enemy-name").value = en?.name ?? "";
+        document.getElementById("enemy-hp-mode").value = en?.hpMode ?? "numeric";
+        document.getElementById("enemy-hp-current").value = en?.hpCurrent ?? 10;
+        document.getElementById("enemy-hp-max").value = en?.hpMax ?? 10;
+        document.getElementById("enemy-desc").value = en?.description ?? "";
+        document.getElementById("enemy-preset-select").value = en?.description && window.roomRender.ENEMY_PRESETS.includes(en.description) ? en.description : "";
+        toggleEnemyFields();
+        document.getElementById("enemy-modal-alert").innerHTML = "";
+        document.getElementById("enemy-modal").classList.remove("hidden");
+      }
+      function toggleEnemyFields() {
+        const mode = document.getElementById("enemy-hp-mode").value;
+        document.getElementById("enemy-numeric-fields").classList.toggle("hidden", mode !== "numeric");
+        document.getElementById("enemy-desc-fields").classList.toggle("hidden", mode !== "description");
+      }
+      document.getElementById("enemy-hp-mode").addEventListener("change", toggleEnemyFields);
+      document.getElementById("enemy-preset-select").addEventListener("change", (e) => {
+        document.getElementById("enemy-desc").value = e.target.value;
+      });
+      const btnAddEnemy = document.getElementById("btn-add-enemy");
+      if (btnAddEnemy) btnAddEnemy.addEventListener("click", () => openEnemyModal(null));
+      document.getElementById("enemy-modal-cancel").addEventListener("click", () => {
+        document.getElementById("enemy-modal").classList.add("hidden");
+      });
+      document.getElementById("enemy-modal-save").addEventListener("click", () => {
+        const name = document.getElementById("enemy-name").value.trim();
+        if (!name) { document.getElementById("enemy-modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`; return; }
+        const mode = document.getElementById("enemy-hp-mode").value;
+        const payload = {
+          name,
+          hpMode: mode,
+          hpCurrent: parseInt(document.getElementById("enemy-hp-current").value, 10),
+          hpMax: parseInt(document.getElementById("enemy-hp-max").value, 10),
+          description: document.getElementById("enemy-desc").value.trim() || "Ileso",
+        };
+        if (editingEnemyId) { payload.enemyId = editingEnemyId; client.send("update_enemy", payload); }
+        else { client.send("create_enemy", payload); }
+        document.getElementById("enemy-modal").classList.add("hidden");
+      });
+
+      // ===== Modal status =====
+      let statusTarget = null;
+      function openStatusModal(targetType, targetId) {
+        statusTarget = { targetType, targetId };
+        document.getElementById("status-text").value = "";
+        document.getElementById("status-modal").classList.remove("hidden");
+        setTimeout(() => document.getElementById("status-text").focus(), 50);
+      }
+      document.getElementById("status-modal-cancel").addEventListener("click", () => {
+        document.getElementById("status-modal").classList.add("hidden");
+      });
+      document.getElementById("status-modal-save").addEventListener("click", () => {
+        const text = document.getElementById("status-text").value.trim();
+        if (!text) return;
+        client.send("add_status_effect", {
+          targetType: statusTarget.targetType,
+          targetId: statusTarget.targetType === "character" ? Number(statusTarget.targetId) : statusTarget.targetId,
+          text,
+        });
+        document.getElementById("status-modal").classList.add("hidden");
+      });
+
+      // ===== Presets =====
+      async function loadPresets() {
+        try {
+          const data = await window.api.get("/api/rooms/dice-presets");
+          const pl = document.getElementById("presets-list");
+          if (!data.presets || data.presets.length === 0) {
+            pl.innerHTML = `<div class="muted text-xs">Sem presets. Crie abaixo.</div>`;
+            return;
+          }
+          pl.innerHTML = data.presets.map(p => `
+            <div class="list-row" style="padding: 4px 0; border: none">
+              <div>
+                <div class="text-sm">${escapeHtml(p.label)}</div>
+                <code class="text-xs">${escapeHtml(p.formula)}</code>
+              </div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm btn-ghost" data-preset-formula="${escapeHtml(p.formula)}" data-preset-label="${escapeHtml(p.label)}">${isMaster ? "Rolar" : "Sugerir"}</button>
+            </div>
+          `).join("");
+          pl.querySelectorAll('button[data-preset-formula]').forEach(b => {
+            b.addEventListener("click", () => {
+              if (isMaster) {
+                client.send("roll_dice", { formula: b.dataset.presetFormula, label: b.dataset.presetLabel });
+              } else {
+                client.send("suggest_formula", { formula: b.dataset.presetFormula, label: b.dataset.presetLabel });
+              }
+            });
+          });
+        } catch {}
+      }
+      loadPresets();
+      const btnSavePreset = document.getElementById("btn-save-preset");
+      if (btnSavePreset) btnSavePreset.addEventListener("click", async () => {
+        const label = document.getElementById("preset-label").value.trim();
+        const formula = document.getElementById("preset-formula").value.trim();
+        if (!label || !formula) return;
+        try {
+          await window.api.post("/api/rooms/dice-presets", { label, formula, isPublic: true });
+          document.getElementById("preset-label").value = "";
+          document.getElementById("preset-formula").value = "";
+          loadPresets();
+        } catch (e) { alert(e.message); }
+      });
+
+      // ===== Helpers =====
+      function showError(icon, title, msg, allowRetry) {
+        document.getElementById("verifying-screen").classList.add("hidden");
+        document.getElementById("room-screen").classList.add("hidden");
+        document.getElementById("error-screen").classList.remove("hidden");
+        document.getElementById("error-icon").textContent = icon;
+        document.getElementById("error-title").textContent = title;
+        document.getElementById("error-message").innerHTML = msg;
+      }
+      function showAlert(type, msg) {
+        document.getElementById("alert-mount").innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+      }
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+      }
+    })();
+  </script>
+</body>
+</html>

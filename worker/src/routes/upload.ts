@@ -1,19 +1,15 @@
 // routes/upload.ts — upload de imagem para Cloudinary (free tier, 25GB, sem cartão)
 //
-// Substitui o R2 que exigia cartão de crédito mesmo no free tier.
-// Cloudinary oferece:
-//   - 25 GB de armazenamento (mais que os 10 GB necessários)
-//   - 25 GB de bandwidth mensal
-//   - CDN global (imagens servem rápido de qualquer lugar)
-//   - Transformações automáticas (resize, otimização)
-//   - Sem cartão de crédito no signup
+// BUG CORRIGIDO (401 do Cloudinary):
+// A assinatura anterior não incluía o parâmetro `folder` no hash SHA-1, mas o
+// enviava no form. O Cloudinary exige que TODOS os parâmetros (exceto `file` e
+// `api_key`) estejam na assinatura, ordenados alfabeticamente por nome,
+// concatenados como `param=valor&param=valor...`, com a API secret ANEXADA
+// no final antes de gerar o hash. Qualquer parâmetro fora da assinatura
+// invalida tudo → 401 "Invalid Signature".
 //
-// Setup (uma vez):
-//   1. Criar conta free em https://cloudinary.com
-//   2. Pegar Cloud Name, API Key e API Secret no dashboard
-//   3. Colocar Cloud Name em wrangler.toml (var CLOUDINARY_CLOUD_NAME)
-//   4. wrangler secret put CLOUDINARY_API_KEY
-//   5. wrangler secret put CLOUDINARY_API_SECRET
+// Adicionado também: captura e log do corpo da resposta de erro do Cloudinary,
+// pra diagnóstico rápido em caso de futuros problemas.
 
 import { Hono } from "hono";
 import type { Env } from "../env";
@@ -37,7 +33,7 @@ uploadRoutes.post("/", requireRole("editor"), async (c) => {
   const user = c.get("user") as JwtPayload;
   const env = c.env;
 
-  // Pré-checa: cloud name precisa estar configurado
+  // Pré-checa: cloud name precisa estar configurado (não pode ser o placeholder)
   if (!env.CLOUDINARY_CLOUD_NAME || env.CLOUDINARY_CLOUD_NAME === "SEU_CLOUD_NAME") {
     return c.json({ error: "Cloudinary não configurado. Veja instruções em wrangler.toml." }, 500);
   }
@@ -73,19 +69,35 @@ uploadRoutes.post("/", requireRole("editor"), async (c) => {
   const b64 = bufToBase64(buf);
   const dataUri = `data:${f.type};base64,${b64}`;
 
-  // Gera assinatura HMAC-SHA1 (Cloudinary usa SHA-1 para upload assinado)
+  // ---- GERAÇÃO DA ASSINATURA (corrigida) ----
+  // Cloudinary exige: TODOS os parâmetros que vão no form (exceto `file` e
+  // `api_key`) devem ser incluídos na assinatura, ordenados alfabeticamente
+  // por nome, concatenados como "name=value&name=value", com a API secret
+  // anexada no final, antes de gerar o hash SHA-1.
   const timestamp = Math.floor(Date.now() / 1000);
-  const sigString = `timestamp=${timestamp}${env.CLOUDINARY_API_SECRET}`;
+  const folder = "rpg-wiki";
+
+  // 1. Monta objeto com todos os params que vão no form (exceto file, api_key, signature)
+  const paramsToSign: Record<string, string> = {
+    folder,
+    timestamp: String(timestamp),
+  };
+
+  // 2. Ordena alfabeticamente por nome e concatena
+  const sortedKeys = Object.keys(paramsToSign).sort();
+  const sigString = sortedKeys.map(k => `${k}=${paramsToSign[k]}`).join("&") + env.CLOUDINARY_API_SECRET;
+
+  // 3. Gera SHA-1 hex
   const signature = await sha1Hex(sigString);
 
-  // Monta form do Cloudinary
+  // Monta form do Cloudinary — envia EXATAMENTE os mesmos params que foram assinados
   const uploadForm = new FormData();
   uploadForm.append("file", dataUri);
-  uploadForm.append("timestamp", String(timestamp));
   uploadForm.append("api_key", env.CLOUDINARY_API_KEY);
   uploadForm.append("signature", signature);
-  // Pasta organizacional dentro do Cloudinary (opcional, mas ajuda a separar)
-  uploadForm.append("folder", "rpg-wiki");
+  // Importante: timestamp e folder na MESMA ordem/valores que foram assinados
+  uploadForm.append("timestamp", String(timestamp));
+  uploadForm.append("folder", folder);
 
   const uploadUrl = `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/image/upload`;
 
@@ -100,10 +112,30 @@ uploadRoutes.post("/", requireRole("editor"), async (c) => {
     return c.json({ error: "Falha de rede ao contatar Cloudinary." }, 502);
   }
 
+  // ---- CAPTURA CORPO DO ERRO (corrigido) ----
+  // Antes: só checava resp.ok e logava status. Agora captura o corpo JSON
+  // completo do erro do Cloudinary, que tem campos como
+  // { error: { message: "Invalid Signature", http_code: 401 } } — essencial
+  // pra diagnosticar a causa exata.
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "");
-    console.error("Cloudinary upload failed", resp.status, errText);
-    return c.json({ error: `Cloudinary rejeitou o upload (status ${resp.status}).` }, 502);
+    let errBody: any = null;
+    try { errBody = JSON.parse(errText); } catch { /* não é JSON */ }
+    const errMsg = errBody?.error?.message || errText || "erro desconhecido";
+    console.error("Cloudinary upload failed", {
+      status: resp.status,
+      cloudinaryError: errBody || errText,
+      // NÃO logar signature/api_key/secret nunca — só o que é seguro
+      cloudName: env.CLOUDINARY_CLOUD_NAME,
+      folder,
+      timestamp,
+    });
+    // Mensagem pro cliente inclui o erro específico do Cloudinary — facilita
+    // debug sem expor secrets.
+    return c.json({
+      error: `Cloudinary rejeitou o upload (status ${resp.status}): ${errMsg}`,
+      cloudinaryError: errMsg,
+    }, 502);
   }
 
   const result = await resp.json() as {

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar em sala — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="login-wrap">
+    <div class="login-card">
+      <h1>Entrar em sala</h1>
+      <p class="subtitle">Digite o código de 6 caracteres que o mestre compartilhou.</p>
+
+      <form id="enter-form">
+        <div class="field">
+          <label for="code">Código da sala</label>
+          <input type="text" id="code" maxlength="6" autocomplete="off" required
+                 style="text-transform:uppercase;letter-spacing:0.2em;font-family:var(--font-mono);font-size:24px;text-align:center"
+                 placeholder="XXXXXX">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center" id="btn-enter">
+          Entrar na sala →
+        </button>
+      </form>
+
+      <p class="muted text-xs mt-6" style="text-align:center">
+        Não tem o código? Peça ao mestre.<br>
+        É mestre? <a href="criar-sala.html">Criar nova sala</a>
+      </p>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (function () {
+      window.auth.mountHeader("#header-mount", "rooms");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const input = document.getElementById("code");
+      const btn = document.getElementById("btn-enter");
+      const form = document.getElementById("enter-form");
+
+      // Auto-uppercase e remove não-alfanumérico
+      input.addEventListener("input", () => {
+        input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      });
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const code = input.value.trim().toUpperCase();
+        if (!code || code.length !== 6) {
+          alert("Digite o código completo de 6 caracteres.");
+          return;
+        }
+        // Redireciona pro endereço real da sala. sala.html vai fazer a
+        // verificação REST primeiro — se o código não existir, mostra
+        // "sala não encontrada" em vez de cair numa tela de criação.
+        location.href = `sala.html?code=${encodeURIComponent(code)}`;
+      });
+
+      // Se veio ?code= na URL, pré-preenche e tenta direto
+      const params = new URLSearchParams(location.search);
+      const preset = params.get("code");
+      if (preset) {
+        input.value = preset.toUpperCase();
+        form.dispatchEvent(new Event("submit"));
+      }
+    })();
+  </script>
+</body>
+</html>

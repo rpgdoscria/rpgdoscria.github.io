@@ -21,10 +21,15 @@
         <div class="quick-title">Personagens</div>
         <div class="quick-desc">Crie e gerencie suas fichas para usar nas sessões</div>
       </a>
-      <a href="sala-criar.html" class="quick-card">
+      <a href="entrar-sala.html" class="quick-card">
+        <div class="quick-icon">🔗</div>
+        <div class="quick-title">Entrar em sala</div>
+        <div class="quick-desc">Digite o código que o mestre compartilhou</div>
+      </a>
+      <a href="criar-sala.html" id="quick-create-room" class="quick-card hidden">
         <div class="quick-icon">🎪</div>
-        <div class="quick-title">Sala de Jogo</div>
-        <div class="quick-desc">Crie uma sala ao vivo ou entre em uma existente</div>
+        <div class="quick-title">Criar sala</div>
+        <div class="quick-desc">Para mestres: abra uma sala nova pro grupo</div>
       </a>
       <a href="edit.html" class="quick-card">
         <div class="quick-icon">📝</div>
@@ -71,7 +76,7 @@
     </section>
 
     <!-- Seção SALA DE JOGO -->
-    <section class="mb-6">
+    <section class="mb-6" id="home-rooms-section">
       <div class="section-divider">
         <h2>🎲 Sala de Jogo</h2>
         <span class="muted text-sm">Sessão ao vivo com mestre + jogadores</span>
@@ -79,17 +84,17 @@
 
       <div class="grid-2">
         <div class="card">
-          <h3 style="margin-top:0; font-size: 18px;">🎪 Criar nova sala</h3>
-          <p class="text-sm muted mb-4">Para mestres. Selecione os personagens que vão participar e gere um código de 6 caracteres para compartilhar com o grupo.</p>
-          <a href="sala-criar.html" class="btn btn-primary">Criar sala →</a>
-        </div>
-        <div class="card">
           <h3 style="margin-top:0; font-size: 18px;">🔗 Entrar numa sala</h3>
           <p class="text-sm muted mb-4">Para jogadores. Precisa do código que o mestre compartilhou (ex: <code>K7P3M2</code>).</p>
           <div class="flex gap-2">
             <input type="text" id="join-code-input" placeholder="CÓDIGO" maxlength="6" style="flex:1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; font-family: var(--font-mono); font-size: 16px; text-transform: uppercase; letter-spacing: 0.1em; outline: none;">
             <button class="btn btn-primary" id="btn-join">Entrar</button>
           </div>
+        </div>
+        <div class="card" id="home-create-room-card">
+          <h3 style="margin-top:0; font-size: 18px;">🎪 Criar nova sala</h3>
+          <p class="text-sm muted mb-4">Para mestres. Selecione os personagens que vão participar e gere um link para compartilhar com o grupo.</p>
+          <a href="criar-sala.html" class="btn btn-primary">Criar sala →</a>
         </div>
       </div>
     </section>
@@ -112,12 +117,20 @@
       if (sess.user.role === "admin") {
         document.getElementById("quick-admin").classList.remove("hidden");
       }
+      // Mostra card de criar sala se for mestre
+      if (sess.user.isGameMaster || sess.user.role === "admin") {
+        document.getElementById("quick-create-room").classList.remove("hidden");
+      } else {
+        // Não-mestre não vê o card "Criar nova sala" na seção de Sala de Jogo
+        const c = document.getElementById("home-create-room-card");
+        if (c) c.classList.add("hidden");
+      }
 
       // ---- Entrar em sala (botão da home) ----
       document.getElementById("btn-join").addEventListener("click", () => {
         const code = document.getElementById("join-code-input").value.trim().toUpperCase();
         if (!code) { alert("Digite o código da sala."); return; }
-        location.href = `sala-jogador.html?code=${encodeURIComponent(code)}`;
+        location.href = `sala.html?code=${encodeURIComponent(code)}`;
       });
       document.getElementById("join-code-input").addEventListener("keydown", (e) => {
         if (e.key === "Enter") document.getElementById("btn-join").click();
