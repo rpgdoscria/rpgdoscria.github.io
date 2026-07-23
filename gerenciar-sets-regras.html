@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sets de Regras — Rpg dos Cria</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=202607232121">
+  <link rel="stylesheet" href="css/theme-custom.css?v=202607232121">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0;">Sets de Regras</h1>
+        <p class="muted text-sm mt-2">Pacotes de status base que jogadores escolhem ao criar personagem. Ex: "Combate Padrão" agrupa Vida + Estamina + Atributos físicos.</p>
+      </div>
+      <button class="btn btn-primary" id="btn-new">+ Novo set</button>
+    </div>
+
+    <div id="alert-mount"></div>
+
+    <div class="card">
+      <div id="sets-list" class="muted text-sm">Carregando…</div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:600px">
+      <h3 id="modal-title">Novo set de regras</h3>
+      <div id="modal-alert"></div>
+      <div class="field">
+        <label>Nome (ex: "Combate Padrão", "Investigação")</label>
+        <input type="text" id="m-name" maxlength="80">
+      </div>
+      <div class="field">
+        <label>Descrição (opcional)</label>
+        <textarea id="m-description" maxlength="500"></textarea>
+      </div>
+      <div class="field">
+        <label>Status base incluídos neste set</label>
+        <p class="text-xs muted mb-2">Marque quais status base fazem parte deste set. A ordem dos marcados é a ordem que aparecem na ficha.</p>
+        <div id="m-stats-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--border-soft);border-radius:var(--radius);padding:8px"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="modal-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js?v=202607232121"></script>
+  <script src="js/api.js?v=202607232121"></script>
+  <script src="js/auth.js?v=202607232121"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "rulesets");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+      if (!sess.user.isGameMaster && sess.user.role !== "admin") {
+        document.body.innerHTML = `<div class="alert alert-error" style="margin:32px">Acesso restrito a administradores.</div>`;
+        return;
+      }
+
+      let allTemplates = [];
+      let editingId = null;
+      let selectedStatIds = [];
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+      }
+      function showAlert(type, msg) {
+        document.getElementById("alert-mount").innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
+      }
+
+      // Carrega stat_templates pra seleção no modal
+      async function loadTemplates() {
+        try {
+          const data = await window.api.get("/api/stat-templates");
+          allTemplates = data.templates || [];
+        } catch { allTemplates = []; }
+      }
+
+      async function loadSets() {
+        try {
+          const data = await window.api.get("/api/rule-sets?includeInactive=1");
+          const list = document.getElementById("sets-list");
+          if (!data.ruleSets || data.ruleSets.length === 0) {
+            list.innerHTML = `<div class="muted text-sm" style="padding:16px">Nenhum set ainda. Crie o primeiro — ele agrupa status base pra aplicar automaticamente ao criar personagem.</div>`;
+            return;
+          }
+          list.innerHTML = data.ruleSets.map(rs => `
+            <div class="list-row" data-id="${rs.id}">
+              <div>
+                <div class="title">
+                  ${escapeHtml(rs.name)}
+                  ${!rs.active ? `<span class="tag tag-off" style="margin-left:8px">desativado</span>` : ""}
+                </div>
+                <div class="text-xs muted" style="margin-top:2px">
+                  ${rs.stats.length} status: ${rs.stats.map(s => escapeHtml(s.name)).join(", ") || "—"}
+                  ${rs.description ? `<br>${escapeHtml(rs.description)}` : ""}
+                </div>
+              </div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" data-edit="${rs.id}">Editar</button>
+              ${rs.active
+                ? `<button class="btn btn-sm btn-danger" data-deactivate="${rs.id}">Desativar</button>`
+                : `<button class="btn btn-sm" data-reactivate="${rs.id}">Reativar</button>`}
+            </div>
+          `).join("");
+          list.querySelectorAll('button[data-edit]').forEach(b => {
+            b.addEventListener("click", () => openModal(Number(b.dataset.edit), data.ruleSets));
+          });
+          list.querySelectorAll('button[data-deactivate]').forEach(b => {
+            b.addEventListener("click", async () => {
+              try { await window.api.post(`/api/rule-sets/${b.dataset.deactivate}/deactivate`, {}); loadSets(); }
+              catch (e) { alert(e.message); }
+            });
+          });
+          list.querySelectorAll('button[data-reactivate]').forEach(b => {
+            b.addEventListener("click", async () => {
+              try { await window.api.post(`/api/rule-sets/${b.dataset.reactivate}/reactivate`, {}); loadSets(); }
+              catch (e) { alert(e.message); }
+            });
+          });
+        } catch (e) {
+          showAlert("error", e.message);
+        }
+      }
+
+      function openModal(id, sets) {
+        editingId = id;
+        selectedStatIds = [];
+        document.getElementById("modal-alert").innerHTML = "";
+        const titleEl = document.getElementById("modal-title");
+        const statsList = document.getElementById("m-stats-list");
+        // Render lista de stat_templates com checkbox
+        if (allTemplates.length === 0) {
+          statsList.innerHTML = `<div class="muted text-xs">Nenhum status base cadastrado. Crie em "Status base" primeiro.</div>`;
+        } else {
+          statsList.innerHTML = allTemplates.map(t => `
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
+              <input type="checkbox" value="${t.id}" data-stat-id="${t.id}">
+              <span>${escapeHtml(t.name)} <span class="tag" style="font-size:10px">${escapeHtml(t.type)}</span></span>
+            </label>
+          `).join("");
+          statsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener("change", () => {
+              const sid = Number(cb.dataset.statId);
+              if (cb.checked) selectedStatIds.push(sid);
+              else selectedStatIds = selectedStatIds.filter(x => x !== sid);
+            });
+          });
+        }
+        if (id) {
+          const rs = sets.find(s => s.id === id);
+          if (rs) {
+            titleEl.textContent = "Editar: " + rs.name;
+            document.getElementById("m-name").value = rs.name;
+            document.getElementById("m-description").value = rs.description || "";
+            selectedStatIds = rs.stats.map(s => s.id);
+            // Marca os checkboxes
+            statsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+              if (selectedStatIds.includes(Number(cb.dataset.statId))) cb.checked = true;
+            });
+          }
+        } else {
+          titleEl.textContent = "Novo set de regras";
+          document.getElementById("m-name").value = "";
+          document.getElementById("m-description").value = "";
+        }
+        document.getElementById("modal").classList.remove("hidden");
+      }
+
+      await loadTemplates();
+      document.getElementById("btn-new").addEventListener("click", () => openModal(null, null));
+      document.getElementById("modal-cancel").addEventListener("click", () => {
+        document.getElementById("modal").classList.add("hidden");
+      });
+      document.getElementById("modal-save").addEventListener("click", async () => {
+        const payload = {
+          name: document.getElementById("m-name").value.trim(),
+          description: document.getElementById("m-description").value.trim(),
+          statIds: selectedStatIds,
+        };
+        if (!payload.name) {
+          document.getElementById("modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`;
+          return;
+        }
+        try {
+          if (editingId) {
+            await window.api.put(`/api/rule-sets/${editingId}`, payload);
+          } else {
+            await window.api.post("/api/rule-sets", payload);
+          }
+          document.getElementById("modal").classList.add("hidden");
+          loadSets();
+        } catch (e) {
+          document.getElementById("modal-alert").innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+        }
+      });
+
+      loadSets();
+    })();
+  </script>
+</body>
+</html>

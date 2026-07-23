@@ -1,17 +1,20 @@
 // frontend/js/character-form.js — wizard de criação de personagem
 //
-// Wizard em 6 etapas:
+// Wizard em 7 etapas:
 // 1. Identidade (nome + foto)
 // 2. Vínculo com wiki (opcional)
-// 3. Status base (seleciona dos stat_templates ativos)
-// 4. Status customizados (cria do zero)
-// 5. Inventário inicial
-// 6. Revisão final + salvar
+// 3. Sets de Regras (obrigatório ≥1) — aplica status automaticamente
+// 4. Status base (avulsos, fora dos sets escolhidos)
+// 5. Status customizados
+// 6. Inventário inicial (com campo equipped)
+// 7. Revisão final + salvar
 
 (function () {
   let allTemplates = [];
-  let selectedTemplates = {};  // templateId -> { ...values }
-  let customStats = [];         // array de { name, type, ...values }
+  let allRuleSets = [];
+  let selectedRuleSetIds = new Set();
+  let selectedTemplates = {};  // templateId -> { ...values } — avulsos, fora de sets
+  let customStats = [];
   let inventory = [];
   let photoUrl = null;
   let pageId = null;
@@ -21,14 +24,30 @@
     return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
   }
 
-  // Carrega templates ativos da campanha
+  // Carrega templates e rule sets ativos da campanha
   async function loadTemplates() {
     try {
-      const data = await window.api.get("/api/stat-templates");
-      allTemplates = data.templates || [];
+      const [tplData, rsData] = await Promise.all([
+        window.api.get("/api/stat-templates"),
+        window.api.get("/api/rule-sets"),
+      ]);
+      allTemplates = tplData.templates || [];
+      allRuleSets = rsData.ruleSets || [];
     } catch (e) {
       allTemplates = [];
+      allRuleSets = [];
     }
+  }
+
+  // Helper: template IDs que já vão ser aplicados via sets escolhidos
+  function templateIdsFromSelectedSets() {
+    const ids = new Set();
+    allRuleSets.forEach(rs => {
+      if (selectedRuleSetIds.has(rs.id)) {
+        rs.stats.forEach(s => ids.add(s.id));
+      }
+    });
+    return ids;
   }
 
   // Render da etapa atual
@@ -47,14 +66,14 @@
           <div class="field">
             <label>Foto (opcional)</label>
             <div class="flex items-center gap-3">
-              <div id="photo-preview" style="width:80px;height:80px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:24px;color:var(--text-muted);overflow:hidden">
+              <div id="photo-preview" style="width:80px;height:80px;border-radius:8px;background:var(--surface);display:grid;place-items:center;font-size:24px;color:var(--text-muted);overflow:hidden">
                 ${photoUrl ? `<img src="${escapeHtml(photoUrl)}" style="width:100%;height:100%;object-fit:cover">` : "👤"}
               </div>
               <input type="file" id="f-photo" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
               <button type="button" class="btn" id="btn-upload-photo">📷 Escolher foto</button>
               ${photoUrl ? `<button type="button" class="btn btn-ghost" id="btn-remove-photo">Remover</button>` : ""}
             </div>
-            <p class="text-xs muted mt-2">PNG, JPEG, WebP ou GIF. Máx 5 MB.</p>
+            <p class="text-xs muted mt-2">PNG, JPEG, WebP ou GIF. Máx 5 MB. Vai passar por recorte quadrado.</p>
           </div>
         `;
         break;
@@ -73,11 +92,35 @@
         break;
       case 3:
         html = `
-          <h2>3. Status base da campanha</h2>
-          <p class="muted text-sm mb-4">Marque quais status da campanha se aplicam a este personagem e defina os valores iniciais.</p>
-          ${allTemplates.length === 0
-            ? `<div class="alert alert-info">Nenhum status base definido pelo mestre ainda. Peça ao mestre para configurar em "Status base" — ou pule esta etapa e use apenas status customizados.</div>`
-            : allTemplates.map(t => `
+          <h2>3. Sets de Regras *</h2>
+          <p class="muted text-sm mb-4">Escolha pelo menos 1 set de regras. Os status do set são aplicados automaticamente na ficha.</p>
+          ${allRuleSets.length === 0
+            ? `<div class="alert alert-warning">Nenhum set de regras cadastrado pelo mestre ainda. Peça ao admin para criar em "Sets de Regras". Sem isso, você não pode criar personagem.</div>`
+            : allRuleSets.filter(rs => rs.active).map(rs => `
+              <div class="card mb-2" style="padding:12px;${selectedRuleSetIds.has(rs.id) ? 'border-color:var(--accent)' : ''}">
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">
+                  <input type="checkbox" data-ruleset-id="${rs.id}" ${selectedRuleSetIds.has(rs.id) ? "checked" : ""} style="margin-top:4px">
+                  <div>
+                    <strong>${escapeHtml(rs.name)}</strong>
+                    ${rs.description ? `<div class="text-xs muted" style="margin-top:2px">${escapeHtml(rs.description)}</div>` : ""}
+                    <div class="text-xs muted" style="margin-top:4px">Inclui: ${rs.stats.map(s => escapeHtml(s.name)).join(", ") || "—"}</div>
+                  </div>
+                </label>
+              </div>
+            `).join("")}
+          <p class="text-xs muted mt-4">💡 Você ainda pode adicionar status avulsos e customizados nas próximas etapas.</p>
+        `;
+        break;
+      case 4: {
+        // Status base AVULSOS — só mostra os que NÃO vieram de sets escolhidos
+        const fromSets = templateIdsFromSelectedSets();
+        const available = allTemplates.filter(t => !fromSets.has(t.id));
+        html = `
+          <h2>4. Status base (avulsos)</h2>
+          <p class="muted text-sm mb-4">Status da campanha que <strong>não</strong> vieram dos sets escolhidos. Marque os adicionais que se aplicam.</p>
+          ${available.length === 0
+            ? `<div class="alert alert-info">Todos os status base já foram incluídos pelos sets de regras escolhidos. Pode pular.</div>`
+            : available.map(t => `
               <div class="card mb-2" style="padding:12px">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                   <input type="checkbox" data-template-id="${t.id}" ${selectedTemplates[t.id] ? "checked" : ""}>
@@ -92,9 +135,10 @@
             `).join("")}
         `;
         break;
-      case 4:
+      }
+      case 5:
         html = `
-          <h2>4. Status customizados</h2>
+          <h2>5. Status customizados</h2>
           <p class="muted text-sm mb-4">Crie status exclusivos deste personagem (inventados por você). Quantos quiser.</p>
           <button type="button" class="btn btn-sm btn-primary mb-4" id="btn-add-custom">+ Adicionar status customizado</button>
           <div id="custom-list">
@@ -119,18 +163,22 @@
           </div>
         `;
         break;
-      case 5:
+      case 6:
         html = `
-          <h2>5. Inventário inicial</h2>
-          <p class="muted text-sm mb-4">Itens que o personagem começa com.</p>
+          <h2>6. Inventário inicial</h2>
+          <p class="muted text-sm mb-4">Itens que o personagem começa com. Marque "equipado" para itens em uso.</p>
           <button type="button" class="btn btn-sm btn-primary mb-4" id="btn-add-item">+ Adicionar item</button>
           <div id="inv-list">
             ${inventory.length === 0 ? `<div class="muted text-sm">Sem itens ainda.</div>` : ""}
             ${inventory.map((it, i) => `
               <div class="card mb-2" style="padding:12px" data-inv-idx="${i}">
-                <div class="flex gap-2 mb-2">
+                <div class="flex gap-2 mb-2 items-center">
                   <input type="text" placeholder="Nome do item" value="${escapeHtml(it.name)}" data-inv-field="name" style="flex:1">
                   <input type="number" placeholder="Qtd" value="${it.qty}" data-inv-field="qty" min="1" style="width:80px">
+                  <label class="text-xs muted" style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                    <input type="checkbox" data-inv-field="equipped" ${it.equipped ? "checked" : ""}>
+                    equipado
+                  </label>
                   <button type="button" class="btn btn-sm btn-danger" data-remove-inv="${i}">🗑</button>
                 </div>
                 <input type="text" placeholder="Descrição (opcional)" value="${escapeHtml(it.description || "")}" data-inv-field="description" style="width:100%">
@@ -139,9 +187,23 @@
           </div>
         `;
         break;
-      case 6: {
+      case 7: {
         // Constrói um objeto character temporário pra preview
         const stats = [];
+        // Stats de sets escolhidos
+        allRuleSets.forEach(rs => {
+          if (selectedRuleSetIds.has(rs.id)) {
+            rs.stats.forEach(s => {
+              stats.push({
+                statTemplateId: s.id, isCustom: false,
+                name: s.name, type: s.type,
+                valueCurrent: s.defaultMax, valueMax: s.defaultMax,
+                color: s.color, displayOrder: 0,
+              });
+            });
+          }
+        });
+        // Stats avulsos
         allTemplates.forEach(t => {
           if (selectedTemplates[t.id]) {
             stats.push(buildStatFromTemplate(t, selectedTemplates[t.id]));
@@ -159,7 +221,7 @@
           statusEffects: [],
         };
         html = `
-          <h2>6. Revisão final</h2>
+          <h2>7. Revisão final</h2>
           <p class="muted text-sm mb-4">Confira como a ficha vai ficar antes de salvar.</p>
           <div id="preview-container"></div>
         `;
@@ -294,6 +356,18 @@
       sel.addEventListener("change", () => { pageId = sel.value ? Number(sel.value) : null; });
     }
     if (step === 3) {
+      // Sets de regras — checkbox toggle
+      document.querySelectorAll('input[data-ruleset-id]').forEach(cb => {
+        cb.addEventListener("change", () => {
+          const id = Number(cb.dataset.rulesetId);
+          if (cb.checked) selectedRuleSetIds.add(id);
+          else selectedRuleSetIds.delete(id);
+          renderStep(3);
+        });
+      });
+    }
+    if (step === 4) {
+      // Status base avulsos
       document.querySelectorAll('input[data-template-id]').forEach(cb => {
         cb.addEventListener("change", () => {
           const id = Number(cb.dataset.templateId);
@@ -302,7 +376,7 @@
           } else {
             delete selectedTemplates[id];
           }
-          renderStep(3);
+          renderStep(4);
         });
       });
       document.querySelectorAll('[data-tpl-field]').forEach(inp => {
@@ -317,15 +391,15 @@
         });
       });
     }
-    if (step === 4) {
+    if (step === 5) {
       document.getElementById("btn-add-custom").addEventListener("click", () => {
         customStats.push({ name: "", type: "bar", valueCurrent: 0, valueMax: 0, valueText: "", valueBool: false });
-        renderStep(4);
+        renderStep(5);
       });
       document.querySelectorAll('[data-remove-custom]').forEach(b => {
         b.addEventListener("click", () => {
           customStats.splice(Number(b.dataset.removeCustom), 1);
-          renderStep(4);
+          renderStep(5);
         });
       });
       document.querySelectorAll("[data-custom-idx] [data-field]").forEach(inp => {
@@ -335,36 +409,41 @@
           const field = inp.dataset.field;
           if (inp.type === "checkbox") customStats[idx][field] = inp.checked;
           else if (inp.type === "number") customStats[idx][field] = inp.value === "" ? null : Number(inp.value);
-          else if (field === "type") { customStats[idx].type = inp.value; renderStep(4); }
+          else if (field === "type") { customStats[idx].type = inp.value; renderStep(5); }
           else customStats[idx][field] = inp.value;
         });
       });
     }
-    if (step === 5) {
+    if (step === 6) {
       document.getElementById("btn-add-item").addEventListener("click", () => {
-        inventory.push({ name: "", qty: 1, description: "" });
-        renderStep(5);
+        inventory.push({ name: "", qty: 1, description: "", equipped: false });
+        renderStep(6);
       });
       document.querySelectorAll('[data-remove-inv]').forEach(b => {
         b.addEventListener("click", () => {
           inventory.splice(Number(b.dataset.removeInv), 1);
-          renderStep(5);
+          renderStep(6);
         });
       });
       document.querySelectorAll("[data-inv-idx] [data-inv-field]").forEach(inp => {
-        inp.addEventListener("input", () => {
+        const updateField = () => {
           const card = inp.closest("[data-inv-idx]");
           const idx = Number(card.dataset.invIdx);
           const field = inp.dataset.invField;
-          if (inp.type === "number") inventory[idx][field] = Number(inp.value);
+          if (inp.type === "checkbox") inventory[idx][field] = inp.checked;
+          else if (inp.type === "number") inventory[idx][field] = Number(inp.value);
           else inventory[idx][field] = inp.value;
-        });
+        };
+        inp.addEventListener("input", updateField);
+        inp.addEventListener("change", updateField);
       });
     }
   }
 
   function collectStats() {
     const stats = [];
+    // Stats de sets escolhidos não são incluídos aqui — o backend aplica via
+    // ruleSetIds no POST/PUT. Só mandamos avulsos + customizados.
     allTemplates.forEach(t => {
       if (selectedTemplates[t.id]) {
         stats.push(buildStatFromTemplate(t, selectedTemplates[t.id]));
@@ -383,25 +462,26 @@
     async init(editingCharacterId) {
       await loadTemplates();
       if (editingCharacterId) {
-        // Modo edição: carrega personagem existente
         try {
           const ch = await window.api.get(`/api/characters/${editingCharacterId}`);
           characterName = ch.name;
           photoUrl = ch.photoUrl;
           pageId = ch.pageId;
-          inventory = ch.inventory || [];
-          // Reconstrói selectedTemplates a partir dos stats existentes
+          inventory = (ch.inventory || []).map(it => ({ ...it, equipped: !!it.equipped }));
           (ch.stats || []).forEach(s => {
-            if (s.statTemplateId) {
+            if (s.statTemplateId && !s.addedViaRuleSet) {
+              // Stat avulso (não veio de rule set)
               selectedTemplates[s.statTemplateId] = {
                 valueCurrent: s.valueCurrent,
                 valueMax: s.valueMax,
                 valueText: s.valueText,
                 valueBool: s.valueBool,
               };
-            } else {
+            } else if (!s.statTemplateId) {
               customStats.push({ ...s });
             }
+            // Stats que vieram de rule set não precisam ser reconstruídos aqui —
+            // o backend já os mantém. Em modo edição não reenviamos ruleSetIds.
           });
         } catch (e) {
           alert("Erro ao carregar personagem: " + e.message);
@@ -414,6 +494,8 @@
     getPhotoUrl: () => photoUrl,
     getPageId: () => pageId,
     getInventory: () => inventory,
+    getRuleSetIds: () => Array.from(selectedRuleSetIds),
+    hasSelectedRuleSet: () => selectedRuleSetIds.size > 0,
     save: async (editingCharacterId) => {
       const payload = {
         name: characterName,
@@ -422,6 +504,10 @@
         inventory,
         stats: collectStats(),
       };
+      // Só manda ruleSetIds no create (no update, os stats já estão no banco)
+      if (!editingCharacterId) {
+        payload.ruleSetIds = Array.from(selectedRuleSetIds);
+      }
       if (editingCharacterId) {
         await window.api.put(`/api/characters/${editingCharacterId}`, payload);
         return editingCharacterId;

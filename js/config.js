@@ -5,10 +5,10 @@
 window.WIKI_CONFIG = {
   // URL pública do seu Cloudflare Worker (depois de `wrangler deploy`).
   // Em dev local, troque por http://localhost:8787 (ou a porta do `wrangler dev`).
-  API_BASE: "https://rpg-wiki-api.genericbr-paypal.workers.dev",
+  API_BASE: "https://rpg-wiki-api.SEU_SUBDOMAIN.workers.dev",
 
   // Nome exibido no header e na tela de login.
-  SITE_NAME: "Crônicas RPG",
+  SITE_NAME: "Rpg dos Cria",
 
   // Mostrar botão "Tema" no header? (true/false) — extra opcional
   ENABLE_THEME_TOGGLE: false,

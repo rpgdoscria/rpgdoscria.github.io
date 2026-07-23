@@ -76,6 +76,7 @@
       { href: "index.html", label: "Início", key: "home" },
       { href: "meus-personagens.html", label: "Personagens", key: "characters" },
       { href: "gerenciar-status.html", label: "Status base", key: "stats", minMaster: true },
+      { href: "gerenciar-sets-regras.html", label: "Sets de Regras", key: "rulesets", minMaster: true },
       { href: "entrar-sala.html", label: "Entrar em sala", key: "join" },
       { href: "criar-sala.html", label: "Criar sala", key: "rooms", minMaster: true },
       { href: "edit.html", label: "Nova página", key: "new", minRole: "editor" },

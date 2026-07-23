@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Criar personagem — Crônicas RPG</title>
+  <title>Criar personagem — Rpg dos Cria</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/theme-custom.css">
+  <link rel="stylesheet" href="css/style.css?v=202607232121">
+  <link rel="stylesheet" href="css/theme-custom.css?v=202607232121">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -25,10 +26,11 @@
     <div class="wizard-steps mb-6">
       <span class="wizard-step-dot active" data-step="1">1. Identidade</span>
       <span class="wizard-step-dot" data-step="2">2. Lore</span>
-      <span class="wizard-step-dot" data-step="3">3. Status base</span>
-      <span class="wizard-step-dot" data-step="4">4. Customizados</span>
-      <span class="wizard-step-dot" data-step="5">5. Inventário</span>
-      <span class="wizard-step-dot" data-step="6">6. Revisão</span>
+      <span class="wizard-step-dot" data-step="3">3. Sets de Regras</span>
+      <span class="wizard-step-dot" data-step="4">4. Status base</span>
+      <span class="wizard-step-dot" data-step="5">5. Customizados</span>
+      <span class="wizard-step-dot" data-step="6">6. Inventário</span>
+      <span class="wizard-step-dot" data-step="7">7. Revisão</span>
     </div>
 
     <div id="wizard-step" class="card mb-6" style="min-height: 300px"></div>
@@ -40,12 +42,12 @@
   </main>
 
   <script src="vendor/purify.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/character-render.js"></script>
-  <script src="js/photo-cropper.js"></script>
-  <script src="js/character-form.js"></script>
+  <script src="js/config.js?v=202607232121"></script>
+  <script src="js/api.js?v=202607232121"></script>
+  <script src="js/auth.js?v=202607232121"></script>
+  <script src="js/character-render.js?v=202607232121"></script>
+  <script src="js/photo-cropper.js?v=202607232121"></script>
+  <script src="js/character-form.js?v=202607232121"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "characters");
@@ -78,23 +80,25 @@
       function rerender() {
         window.characterForm.renderStep(currentStep);
         updateStepDots();
-        // Esconde "Anterior" no step 1
         document.getElementById("btn-prev").style.visibility = currentStep === 1 ? "hidden" : "visible";
-        // Texto do botão next muda no último step
-        document.getElementById("btn-next").textContent = currentStep === 6 ? "Salvar personagem ✓" : "Próximo →";
+        document.getElementById("btn-next").textContent = currentStep === 7 ? "Salvar personagem ✓" : "Próximo →";
       }
 
       document.getElementById("btn-prev").addEventListener("click", () => {
         if (currentStep > 1) { currentStep--; rerender(); }
       });
       document.getElementById("btn-next").addEventListener("click", async () => {
-        // Validação básica do step 1
+        // Validações por etapa
         if (currentStep === 1 && !window.characterForm.getName()) {
           showAlert("error", "Nome do personagem é obrigatório.");
           return;
         }
-        if (currentStep < 6) { currentStep++; rerender(); return; }
-        // Step 6 = salvar
+        if (currentStep === 3 && !editingId && !window.characterForm.hasSelectedRuleSet()) {
+          showAlert("error", "Selecione pelo menos 1 set de regras para continuar.");
+          return;
+        }
+        if (currentStep < 7) { currentStep++; rerender(); return; }
+        // Step 7 = salvar
         try {
           const id = await window.characterForm.save(editingId);
           showAlert("success", "Personagem salvo! Redirecionando…");

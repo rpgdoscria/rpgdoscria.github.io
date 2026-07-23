@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sala — Crônicas RPG</title>
+  <title>Sala — Rpg dos Cria</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/theme-custom.css">
+  <link rel="stylesheet" href="css/style.css?v=202607232121">
+  <link rel="stylesheet" href="css/theme-custom.css?v=202607232121">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -53,6 +54,9 @@
 
       <!-- Aviso "sala travada" (mestre vê mas pode destravar) -->
       <div id="locked-warning" class="alert alert-warning hidden">Sala travada — novos jogadores não conseguem entrar. Clique em "Destravar sala" pra liberar.</div>
+
+      <!-- Dado Visual Animado — fixo no topo, visível em TODAS as abas -->
+      <div id="dice-visual-mount"></div>
 
       <section>
         <div class="flex items-center justify-between mb-2">
@@ -218,13 +222,14 @@
   </div>
 
   <script src="vendor/purify.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/room-ws.js"></script>
-  <script src="js/dice-ui.js"></script>
-  <script src="js/room-render.js"></script>
-  <script src="js/character-render.js"></script>
+  <script src="js/config.js?v=202607232121"></script>
+  <script src="js/api.js?v=202607232121"></script>
+  <script src="js/auth.js?v=202607232121"></script>
+  <script src="js/room-ws.js?v=202607232121"></script>
+  <script src="js/dice-ui.js?v=202607232121"></script>
+  <script src="js/dice-visual.js?v=202607232121"></script>
+  <script src="js/room-render.js?v=202607232121"></script>
+  <script src="js/character-render.js?v=202607232121"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -326,8 +331,14 @@
         currentState = state;
         render(state, isMaster);
       };
+      // Inicializa o dado visual animado no topo da sala
+      window.diceVisual.init("#dice-visual-mount");
+
       client.onEvent = (msg) => {
         if (msg.type === "dice_result") {
+          // Dado visual animado (faixa do topo — visível em todas as abas)
+          window.diceVisual.animateRoll(msg.payload);
+          // Também atualiza o display de texto na aba Dados
           window.diceUI.flashDiceResult(
             document.getElementById("dice-result-display"),
             window.diceUI.formatResult(msg.payload)

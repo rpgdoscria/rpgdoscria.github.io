@@ -15,6 +15,7 @@ import { uploadRoutes } from "./routes/upload";
 import { roomRoutes } from "./routes/rooms";
 import { characterRoutes } from "./routes/characters";
 import { statTemplateRoutes } from "./routes/stat-templates";
+import { ruleSetRoutes } from "./routes/rule-sets";
 
 // Re-export da classe RoomDO — o Wrangler precisa encontrar a classe aqui.
 export { RoomDO } from "./durable-objects/RoomDO";
@@ -60,6 +61,7 @@ app.route("/api/upload", uploadRoutes);        // Cloudinary
 app.route("/api/rooms", roomRoutes);           // salas + presets de dados
 app.route("/api/characters", characterRoutes); // personagens + stats (homebrew)
 app.route("/api/stat-templates", statTemplateRoutes); // status base (mestre+)
+app.route("/api/rule-sets", ruleSetRoutes);           // sets de regras (mestre+)
 
 // 404 genérico para /api/*
 app.notFound((c) => c.json({ error: "Rota não encontrada." }, 404));
