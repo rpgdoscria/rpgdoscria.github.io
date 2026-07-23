@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Histórico — Rpg dos Cria</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../css/style.css?v=202607232121">
+  <link rel="stylesheet" href="../css/theme-custom.css?v=202607232121">
+  <link rel="stylesheet" href="css/wiki-style.css?v=202607232121">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <div class="flex items-center justify-between mb-4">
+      <h1 id="title-mount" style="font-family: var(--font-serif); font-size: 28px; margin: 0;">Histórico</h1>
+      <a class="btn btn-ghost btn-sm" id="back-link" href="#">← Voltar à página</a>
+    </div>
+    <div id="alert-mount"></div>
+    <div class="grid-2 mb-4">
+      <div class="card">
+        <h3 style="margin:0 0 var(--space-3) 0; font-size: 16px;">Revisões</h3>
+        <div id="revisions-list" class="muted text-sm">Carregando…</div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 var(--space-3) 0; font-size: 16px;">Comparar versões</h3>
+        <p class="muted text-sm mb-2">Selecione duas revisões na lista ao lado.</p>
+        <div id="diff-mount" class="hidden">
+          <div class="diff-container">
+            <div><div class="text-xs muted mb-2" id="diff-left-label">—</div><div class="diff-pane" id="diff-left"></div></div>
+            <div><div class="text-xs muted mb-2" id="diff-right-label">—</div><div class="diff-pane" id="diff-right"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../vendor/marked.min.js"></script>
+  <script src="../vendor/purify.min.js"></script>
+  <script src="../js/config.js?v=202607232121"></script>
+  <script src="../js/api.js?v=202607232121"></script>
+  <script src="../js/auth.js?v=202607232121"></script>
+  <script src="../js/markdown.js?v=202607232121"></script>
+  <script src="../js/wiki/wiki-core.js?v=202607232121"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "wiki");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const params = new URLSearchParams(location.search);
+      const slug = params.get("slug");
+      const canEdit = window.auth.roleRank(sess.user.role) >= 2;
+
+      const titleMount = document.getElementById("title-mount");
+      const listEl = document.getElementById("revisions-list");
+      const diffMount = document.getElementById("diff-mount");
+      const alertMount = document.getElementById("alert-mount");
+      const backLink = document.getElementById("back-link");
+      backLink.href = wikiCore.pageUrl(slug);
+
+      function escapeHtml(s) { return wikiCore.escapeHtml(s); }
+      function formatDate(s) { return wikiCore.formatDate(s); }
+      function showAlert(type, msg) { alertMount.innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`; }
+
+      let revisions = [];
+      let selected = [];
+
+      try {
+        const page = await window.api.get(`/api/pages/${encodeURIComponent(slug)}`);
+        titleMount.textContent = `Histórico — ${page.title}`;
+        document.title = `Histórico — ${page.title}`;
+        const data = await window.api.get(`/api/pages/${encodeURIComponent(slug)}/revisions`);
+        revisions = data.revisions || [];
+        renderList();
+      } catch (e) { showAlert("error", e.message); }
+
+      function renderList() {
+        if (!revisions.length) { listEl.innerHTML = `<div class="muted">Nenhuma revisão.</div>`; return; }
+        listEl.innerHTML = revisions.map((r, i) => `
+          <div class="list-row" style="cursor:pointer" data-id="${r.id}">
+            <input type="checkbox" data-id="${r.id}" ${selected.includes(r.id) ? "checked" : ""}>
+            <div>
+              <div class="title">#${revisions.length - i} · ${escapeHtml(r.comment || "sem comentário")}</div>
+              <div class="meta">${escapeHtml(r.editor)} · ${formatDate(r.created_at)}</div>
+            </div>
+            <div class="spacer"></div>
+            ${canEdit ? `<button class="btn btn-sm btn-ghost" data-revert="${r.id}">Reverter</button>` : ""}
+          </div>
+        `).join("");
+
+        listEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener("click", e => e.stopPropagation());
+          cb.addEventListener("change", () => {
+            const id = Number(cb.dataset.id);
+            if (cb.checked) { selected.push(id); if (selected.length > 2) selected.shift(); }
+            else { selected = selected.filter(x => x !== id); }
+            renderList();
+            if (selected.length === 2) showDiff(); else diffMount.classList.add("hidden");
+          });
+        });
+
+        listEl.querySelectorAll('button[data-revert]').forEach(b => {
+          b.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            if (!confirm("Reverter para esta revisão?")) return;
+            try { await window.api.post(`/api/pages/${encodeURIComponent(slug)}/revert/${b.dataset.revert}`, {}); showAlert("success", "Revertido."); setTimeout(() => location.reload(), 600); }
+            catch (err) { showAlert("error", err.message); }
+          });
+        });
+      }
+
+      async function showDiff() {
+        const [aId, bId] = selected;
+        const a = revisions.find(r => r.id === aId);
+        const b = revisions.find(r => r.id === bId);
+        const left = a.created_at < b.created_at ? a : b;
+        const right = a.created_at < b.created_at ? b : a;
+        const diff = window.md.diffHtml(left.content_md, right.content_md);
+        document.getElementById("diff-left-label").textContent = `${formatDate(left.created_at)} · ${left.editor}`;
+        document.getElementById("diff-right-label").textContent = `${formatDate(right.created_at)} · ${right.editor}`;
+        document.getElementById("diff-left").innerHTML = diff.left;
+        document.getElementById("diff-right").innerHTML = diff.right;
+        diffMount.classList.remove("hidden");
+      }
+    })();
+  </script>
+</body>
+</html>

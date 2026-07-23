@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Página — Rpg dos Cria</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../css/style.css?v=202607232121">
+  <link rel="stylesheet" href="../css/theme-custom.css?v=202607232121">
+  <link rel="stylesheet" href="css/wiki-style.css?v=202607232121">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container" id="page-mount">
+    <div class="muted text-sm" style="padding: var(--space-6) 0;">Carregando página…</div>
+  </main>
+
+  <script src="../vendor/marked.min.js"></script>
+  <script src="../vendor/purify.min.js"></script>
+  <script src="../js/config.js?v=202607232121"></script>
+  <script src="../js/api.js?v=202607232121"></script>
+  <script src="../js/auth.js?v=202607232121"></script>
+  <script src="../js/markdown.js?v=202607232121"></script>
+  <script src="../js/wiki/wiki-core.js?v=202607232121"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "wiki");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const params = new URLSearchParams(location.search);
+      const slug = params.get("slug");
+      const mount = document.getElementById("page-mount");
+
+      if (!slug) {
+        mount.innerHTML = `<div class="alert alert-error">Slug ausente na URL.</div>`;
+        return;
+      }
+
+      let page;
+      try {
+        page = await window.api.get(`/api/pages/${encodeURIComponent(slug)}`);
+      } catch (e) {
+        if (e.status === 404) {
+          const canEdit = window.auth.roleRank(sess.user.role) >= 2;
+          mount.innerHTML = `
+            ${wikiCore.breadcrumb([{ label: "Página não encontrada" }])}
+            <div class="alert alert-warning">A página "<strong>${wikiCore.escapeHtml(slug)}</strong>" ainda não existe.</div>
+            ${canEdit ? `<a class="btn btn-primary" href="${wikiCore.editNewUrl(slug)}">Criar esta página</a>` : `<p class="muted">Peça a um editor para criá-la.</p>`}
+          `;
+          return;
+        }
+        mount.innerHTML = `<div class="alert alert-error">Erro: ${wikiCore.escapeHtml(e.message)}</div>`;
+        return;
+      }
+
+      document.title = `${page.title} — Rpg dos Cria`;
+
+      // Carrega slugs conhecidos pra marcar wikilinks
+      let knownSlugs = new Set();
+      try {
+        const all = await window.api.get("/api/pages");
+        (all.pages || []).forEach(p => knownSlugs.add(p.slug));
+      } catch {}
+
+      const canEdit = window.auth.roleRank(sess.user.role) >= 2;
+      const isAdmin = sess.user.role === "admin";
+      const rendered = window.md.render(page.content_md || "", knownSlugs);
+
+      mount.innerHTML = `
+        ${wikiCore.breadcrumb([{ label: page.category, href: `index.html?category=${encodeURIComponent(page.category)}` }, { label: page.title }])}
+        <div class="wiki-page-view">
+          <h1 class="page-title">${wikiCore.escapeHtml(page.title)}</h1>
+          <div class="page-meta">
+            <span class="category-pill">${wikiCore.escapeHtml(page.category)}</span>
+            <span>por ${wikiCore.escapeHtml(page.author)}</span>
+            <span>criada em ${wikiCore.formatDate(page.created_at)}</span>
+            <span>atualizada em ${wikiCore.formatDate(page.updated_at)}</span>
+          </div>
+          <div class="flex gap-2 mb-6 flex-wrap">
+            ${canEdit ? `<a class="btn btn-sm" href="${wikiCore.editUrl(page.slug)}">✎ Editar</a>` : ""}
+            <a class="btn btn-sm" href="${wikiCore.historyUrl(page.slug)}">📜 Histórico</a>
+            <button class="btn btn-sm" id="btn-backlinks">↶ Backlinks</button>
+            ${isAdmin ? `<button class="btn btn-sm btn-danger" id="btn-delete">🗑 Excluir</button>` : ""}
+          </div>
+          <article class="prose">${rendered}</article>
+          <div id="backlinks-mount" class="wiki-backlinks hidden">
+            <h3>Páginas que apontam para esta</h3>
+            <div id="backlinks-list"></div>
+          </div>
+        </div>
+      `;
+
+      // Intercepta wikilinks missing
+      mount.querySelectorAll("a.wikilink-missing").forEach(a => {
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          const title = a.getAttribute("data-wiki-title");
+          if (canEdit) location.href = wikiCore.editNewUrl(title);
+          else alert(`A página "${title}" ainda não existe.`);
+        });
+      });
+
+      // Backlinks
+      document.getElementById("btn-backlinks").addEventListener("click", async () => {
+        const blMount = document.getElementById("backlinks-mount");
+        const blList = document.getElementById("backlinks-list");
+        blMount.classList.remove("hidden");
+        blList.innerHTML = `<div class="muted text-sm">Carregando…</div>`;
+        try {
+          const data = await window.api.get(`/api/pages/${encodeURIComponent(slug)}/backlinks`);
+          const bl = data.backlinks || [];
+          if (!bl.length) {
+            blList.innerHTML = `<div class="muted text-sm">Nenhuma página aponta para esta.</div>`;
+          } else {
+            blList.innerHTML = bl.map(p => `
+              <a class="wiki-backlink-item" href="${wikiCore.pageUrl(p.slug)}">${wikiCore.escapeHtml(p.title)}</a>
+            `).join("");
+          }
+        } catch (e) { blList.innerHTML = `<div class="alert alert-error">${wikiCore.escapeHtml(e.message)}</div>`; }
+      });
+
+      // Delete (admin)
+      const delBtn = document.getElementById("btn-delete");
+      if (delBtn) {
+        delBtn.addEventListener("click", async () => {
+          if (!confirm(`Excluir "${page.title}"?`)) return;
+          try { await window.api.del(`/api/pages/${encodeURIComponent(slug)}`); location.href = "index.html"; }
+          catch (e) { alert(e.message); }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -72,15 +72,25 @@
   function renderHeader(active = "") {
     const sess = currentSession();
     const user = sess ? sess.user : null;
+    const inWiki = location.pathname.includes("/wiki/");
+    const wikiHref = inWiki ? "index.html" : "wiki/index.html";
+    const charHref = inWiki ? "../meus-personagens.html" : "meus-personagens.html";
+    const statsHref = inWiki ? "../gerenciar-status.html" : "gerenciar-status.html";
+    const rulesetsHref = inWiki ? "../gerenciar-sets-regras.html" : "gerenciar-sets-regras.html";
+    const joinHref = inWiki ? "../entrar-sala.html" : "entrar-sala.html";
+    const createRoomHref = inWiki ? "../criar-sala.html" : "criar-sala.html";
+    const newPageHref = inWiki ? "editar.html?new=true" : "wiki/editar.html?new=true";
+    const adminHref = inWiki ? "../admin.html" : "admin.html";
+
     const links = [
-      { href: "index.html", label: "Início", key: "home" },
-      { href: "meus-personagens.html", label: "Personagens", key: "characters" },
-      { href: "gerenciar-status.html", label: "Status base", key: "stats", minMaster: true },
-      { href: "gerenciar-sets-regras.html", label: "Sets de Regras", key: "rulesets", minMaster: true },
-      { href: "entrar-sala.html", label: "Entrar em sala", key: "join" },
-      { href: "criar-sala.html", label: "Criar sala", key: "rooms", minMaster: true },
-      { href: "edit.html", label: "Nova página", key: "new", minRole: "editor" },
-      { href: "admin.html", label: "Admin", key: "admin", minRole: "admin" },
+      { href: wikiHref, label: "Wiki", key: "wiki" },
+      { href: charHref, label: "Personagens", key: "characters" },
+      { href: statsHref, label: "Status base", key: "stats", minMaster: true },
+      { href: rulesetsHref, label: "Sets de Regras", key: "rulesets", minMaster: true },
+      { href: joinHref, label: "Entrar em sala", key: "join" },
+      { href: createRoomHref, label: "Criar sala", key: "rooms", minMaster: true },
+      { href: newPageHref, label: "Nova página", key: "new", minRole: "editor" },
+      { href: adminHref, label: "Admin", key: "admin", minRole: "admin" },
     ].filter(l => {
       if (l.minRole && !(user && roleRank(user.role) >= roleRank(l.minRole))) return false;
       if (l.minMaster && !(user && (user.role === "admin" || user.isGameMaster))) return false;

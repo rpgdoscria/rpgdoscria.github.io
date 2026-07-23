@@ -24,8 +24,11 @@
     return md.replace(WIKILINK_RE, (m, title, label) => {
       const t = title.trim();
       const l = (label || title).trim();
-      // placeholder que DOMPurify deixa passar (atributo data + classes)
-      return `<a class="wikilink" data-wiki-title="${escapeAttr(t)}" href="page.html?slug=${encodeURIComponent(slugify(t))}">${escapeHtml(l)}</a>`;
+      // Detecta se está dentro da pasta /wiki/ (páginas da wiki) ou na raiz
+      // (sala, personagens). Links internos sempre apontam pra /wiki/pagina?slug=...
+      const inWiki = location.pathname.includes("/wiki/");
+      const prefix = inWiki ? "" : "wiki/";
+      return `<a class="wikilink" data-wiki-title="${escapeAttr(t)}" href="${prefix}pagina.html?slug=${encodeURIComponent(slugify(t))}">${escapeHtml(l)}</a>`;
     });
   }
 

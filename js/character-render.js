@@ -130,7 +130,7 @@
             <div>
               <div class="character-name">${escapeHtml(ch.name)}</div>
               <div class="character-owner muted text-xs">jogador: ${escapeHtml(ch.ownerUsername)}</div>
-              ${ch.pageId ? `<a href="page.html?slug=personagem-${ch.id}" class="text-xs">📄 Ver lore</a>` : ""}
+              ${ch.pageId ? `<a href="wiki/pagina.html?slug=personagem-${ch.id}" class="text-xs">📄 Ver lore</a>` : ""}
             </div>
           </div>
           <div class="character-actions">
@@ -161,7 +161,7 @@
           <div>
             <div class="character-name" style="font-size:24px">${escapeHtml(ch.name)}</div>
             <div class="muted text-sm">jogador: ${escapeHtml(ch.ownerUsername)}${ch.isActive ? " · ⭐ ativo" : ""}</div>
-            ${ch.pageId ? `<a href="page.html?id=${ch.pageId}" class="text-sm">📄 Ver página de lore vinculada</a>` : ""}
+            ${ch.pageId ? `<a href="wiki/pagina.html?id=${ch.pageId}" class="text-sm">📄 Ver página de lore vinculada</a>` : ""}
           </div>
         </div>
         <div class="stats-section">${statsHtml || `<div class="muted">Sem status definidos.</div>`}</div>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Wiki — Rpg dos Cria</title>
+  <title>Rpg dos Cria</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,8 +15,13 @@
   <div id="header-mount"></div>
 
   <main class="container wide">
-    <!-- Cards de acesso rápido às duas seções -->
+    <!-- Cards de acesso rápido -->
     <section class="quick-access-grid mb-6">
+      <a href="wiki/index.html" class="quick-card">
+        <div class="quick-icon">📚</div>
+        <div class="quick-title">Wiki</div>
+        <div class="quick-desc">Páginas, lore, regras da casa, sessões jogadas</div>
+      </a>
       <a href="meus-personagens.html" class="quick-card">
         <div class="quick-icon">🧙</div>
         <div class="quick-title">Personagens</div>
@@ -32,11 +37,6 @@
         <div class="quick-title">Criar sala</div>
         <div class="quick-desc">Para mestres: abra uma sala nova pro grupo</div>
       </a>
-      <a href="edit.html" class="quick-card">
-        <div class="quick-icon">📝</div>
-        <div class="quick-title">Nova página wiki</div>
-        <div class="quick-desc">Escreva lore, locais, itens e regras da casa</div>
-      </a>
       <a href="admin.html" id="quick-admin" class="quick-card hidden">
         <div class="quick-icon">⚙️</div>
         <div class="quick-title">Painel admin</div>
@@ -44,51 +44,18 @@
       </a>
     </section>
 
-    <!-- Seção WIKI -->
+    <!-- Atalho de entrada em sala -->
     <section class="mb-6">
-      <div class="section-divider">
-        <h2>📚 Wiki</h2>
-        <span class="muted text-sm">Páginas, lore, regras da casa</span>
-      </div>
-
-      <div id="search-results" class="hidden">
-        <h3 class="mb-4" style="font-family: var(--font-serif); font-size: 20px;">Resultados da busca</h3>
-        <div id="search-results-list"></div>
-        <hr class="mt-6">
-      </div>
-
-      <div class="mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <h3 style="font-family: var(--font-serif); font-size: 20px; margin: 0;">Alterações recentes</h3>
-          <button class="btn btn-ghost btn-sm" id="btn-random">Página aleatória</button>
-        </div>
-        <div id="recent-list" class="card">
-          <div class="muted text-sm" style="padding: var(--space-3)">Carregando…</div>
-        </div>
-      </div>
-
-      <div>
-        <h3 style="font-family: var(--font-serif); font-size: 20px;" class="mb-4">Todas as páginas</h3>
-        <div class="flex gap-2 flex-wrap mb-4" id="category-filter"></div>
-        <div id="pages-list" class="card">
-          <div class="muted text-sm" style="padding: var(--space-3)">Carregando…</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Seção SALA DE JOGO -->
-    <section class="mb-6" id="home-rooms-section">
       <div class="section-divider">
         <h2>🎲 Sala de Jogo</h2>
         <span class="muted text-sm">Sessão ao vivo com mestre + jogadores</span>
       </div>
-
       <div class="grid-2">
         <div class="card">
           <h3 style="margin-top:0; font-size: 18px;">🔗 Entrar numa sala</h3>
           <p class="text-sm muted mb-4">Para jogadores. Precisa do código que o mestre compartilhou (ex: <code>K7P3M2</code>).</p>
           <div class="flex gap-2">
-            <input type="text" id="join-code-input" placeholder="CÓDIGO" maxlength="6" style="flex:1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; font-family: var(--font-mono); font-size: 16px; text-transform: uppercase; letter-spacing: 0.1em; outline: none;">
+            <input type="text" id="join-code-input" placeholder="CÓDIGO" maxlength="6" style="flex:1; background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 8px 12px; font-family: var(--font-mono); font-size: 16px; text-transform: uppercase; letter-spacing: 0.1em; outline: none;">
             <button class="btn btn-primary" id="btn-join">Entrar</button>
           </div>
         </div>
@@ -114,20 +81,16 @@
         return;
       }
 
-      // Mostra card de admin se for admin
       if (sess.user.role === "admin") {
         document.getElementById("quick-admin").classList.remove("hidden");
       }
-      // Mostra card de criar sala se for mestre
       if (sess.user.isGameMaster || sess.user.role === "admin") {
         document.getElementById("quick-create-room").classList.remove("hidden");
       } else {
-        // Não-mestre não vê o card "Criar nova sala" na seção de Sala de Jogo
         const c = document.getElementById("home-create-room-card");
         if (c) c.classList.add("hidden");
       }
 
-      // ---- Entrar em sala (botão da home) ----
       document.getElementById("btn-join").addEventListener("click", () => {
         const code = document.getElementById("join-code-input").value.trim().toUpperCase();
         if (!code) { alert("Digite o código da sala."); return; }
@@ -136,99 +99,7 @@
       document.getElementById("join-code-input").addEventListener("keydown", (e) => {
         if (e.key === "Enter") document.getElementById("btn-join").click();
       });
-
-      // ---- Carrega wiki ----
-      const params = new URLSearchParams(location.search);
-      const q = params.get("q");
-
-      try {
-        const url = q ? `/api/pages?q=${encodeURIComponent(q)}` : `/api/pages`;
-        const data = await window.api.get(url);
-
-        // Busca
-        if (q && data.results) {
-          document.getElementById("search-results").classList.remove("hidden");
-          const list = document.getElementById("search-results-list");
-          if (!data.results.length) {
-            list.innerHTML = `<div class="alert alert-info">Nenhuma página encontrada para "<strong>${escapeHtml(q)}</strong>".</div>`;
-          } else {
-            list.innerHTML = data.results.map(p => `
-              <a class="page-list-item" href="page.html?slug=${encodeURIComponent(p.slug)}">
-                <div class="title">${escapeHtml(p.title)}</div>
-                <div class="meta">${escapeHtml(p.category)} · atualizada em ${formatDate(p.updated_at)}</div>
-              </a>
-            `).join("");
-          }
-        }
-
-        // Alterações recentes
-        const recent = document.getElementById("recent-list");
-        if (!data.recent || data.recent.length === 0) {
-          recent.innerHTML = `<div class="muted text-sm" style="padding: var(--space-3)">Ainda não há edições. Crie a primeira página!</div>`;
-        } else {
-          recent.innerHTML = data.recent.map(r => `
-            <a class="page-list-item" href="page.html?slug=${encodeURIComponent(r.page_slug)}">
-              <div class="title">${escapeHtml(r.page_title)}</div>
-              <div class="meta">editada por ${escapeHtml(r.editor)} · ${formatDate(r.created_at)}${r.comment ? " · " + escapeHtml(r.comment) : ""}</div>
-            </a>
-          `).join("");
-        }
-
-        // Categorias (filtro)
-        const cats = data.categories || [];
-        const filterEl = document.getElementById("category-filter");
-        const activeCat = params.get("category") || "";
-        filterEl.innerHTML = `<button class="btn btn-sm ${!activeCat ? "btn-primary" : ""}" data-cat="">Todas</button>` +
-          cats.map(c => `<button class="btn btn-sm ${activeCat === c ? "btn-primary" : ""}" data-cat="${escapeAttr(c)}">${escapeHtml(c)}</button>`).join("");
-        filterEl.querySelectorAll("button").forEach(b => {
-          b.addEventListener("click", () => {
-            const cat = b.getAttribute("data-cat");
-            const u = new URL(location.href);
-            if (cat) u.searchParams.set("category", cat); else u.searchParams.delete("category");
-            location.href = u.toString();
-          });
-        });
-
-        // Lista de páginas (com filtro de categoria se houver)
-        const pagesEl = document.getElementById("pages-list");
-        let pages = data.pages || [];
-        if (activeCat) pages = pages.filter(p => p.category === activeCat);
-        if (!pages.length) {
-          pagesEl.innerHTML = `<div class="muted text-sm" style="padding: var(--space-3)">Nenhuma página ainda.</div>`;
-        } else {
-          pagesEl.innerHTML = pages.map(p => `
-            <a class="page-list-item" href="page.html?slug=${encodeURIComponent(p.slug)}">
-              <div class="title">${escapeHtml(p.title)}</div>
-              <div class="meta">${escapeHtml(p.category)} · por ${escapeHtml(p.author)} · ${formatDate(p.updated_at)}</div>
-            </a>
-          `).join("");
-        }
-      } catch (e) {
-        const pagesEl = document.getElementById("pages-list");
-        pagesEl.innerHTML = `<div class="alert alert-error">Erro ao carregar: ${escapeHtml(e.message)}</div>`;
-      }
-
-      // Página aleatória
-      document.getElementById("btn-random").addEventListener("click", async () => {
-        try {
-          const data = await window.api.get("/api/pages");
-          const pages = data.pages || [];
-          if (!pages.length) { alert("Nenhuma página ainda."); return; }
-          const p = pages[Math.floor(Math.random() * pages.length)];
-          location.href = `page.html?slug=${encodeURIComponent(p.slug)}`;
-        } catch (e) { alert(e.message); }
-      });
     })();
-
-    function escapeHtml(s) {
-      return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-    }
-    function escapeAttr(s) { return escapeHtml(s).replace(/`/g, "&#96;"); }
-    function formatDate(s) {
-      if (!s) return "—";
-      const d = new Date(s.endsWith("Z") ? s : s.replace(" ", "T") + "Z");
-      return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-    }
   </script>
 </body>
 </html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wiki — Rpg dos Cria</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../css/style.css?v=202607232121">
+  <link rel="stylesheet" href="../css/theme-custom.css?v=202607232121">
+  <link rel="stylesheet" href="css/wiki-style.css?v=202607232121">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <div class="flex items-center justify-between mb-4">
+      <h1 style="font-family: var(--font-serif); font-size: 32px; margin: 0;">Wiki</h1>
+      <a href="editar.html?new=true" class="btn btn-primary btn-sm" id="btn-new-page">+ Nova página</a>
+    </div>
+
+    <div class="wiki-search-bar">
+      <input type="search" id="wiki-search" placeholder="Buscar na wiki…" autocomplete="off">
+      <button class="btn btn-primary" id="btn-search">Buscar</button>
+    </div>
+
+    <div id="search-results" class="hidden mb-6">
+      <h3 class="wiki-section-title">Resultados da busca</h3>
+      <div id="search-results-list"></div>
+    </div>
+
+    <h3 class="wiki-section-title">Categorias</h3>
+    <div id="category-grid" class="wiki-category-grid"></div>
+
+    <h3 class="wiki-section-title">Últimas alterações</h3>
+    <div id="recent-list" class="card"></div>
+
+    <h3 class="wiki-section-title" id="all-pages-title">Todas as páginas</h3>
+    <div class="flex gap-2 flex-wrap mb-4" id="category-filter"></div>
+    <div id="pages-list" class="card"></div>
+  </main>
+
+  <script src="../vendor/marked.min.js"></script>
+  <script src="../vendor/purify.min.js"></script>
+  <script src="../js/config.js?v=202607232121"></script>
+  <script src="../js/api.js?v=202607232121"></script>
+  <script src="../js/auth.js?v=202607232121"></script>
+  <script src="../js/markdown.js?v=202607232121"></script>
+  <script src="../js/wiki/wiki-core.js?v=202607232121"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "wiki");
+      const sess = window.auth.currentSession();
+      if (!sess) {
+        const next = encodeURIComponent(location.pathname + location.search);
+        location.href = `../login.html?next=${next}`;
+        return;
+      }
+      // Esconde botão "Nova página" se não for editor+
+      if (sess.user.role === "viewer") {
+        document.getElementById("btn-new-page").classList.add("hidden");
+      }
+
+      const params = new URLSearchParams(location.search);
+      const q = params.get("q");
+
+      try {
+        const url = q ? `/api/pages?q=${encodeURIComponent(q)}` : `/api/pages`;
+        const data = await window.api.get(url);
+
+        // Busca
+        if (q && data.results) {
+          document.getElementById("search-results").classList.remove("hidden");
+          const list = document.getElementById("search-results-list");
+          if (!data.results.length) {
+            list.innerHTML = `<div class="alert alert-info">Nenhuma página encontrada para "<strong>${wikiCore.escapeHtml(q)}</strong>".</div>`;
+          } else {
+            list.innerHTML = data.results.map(p => `
+              <a class="page-list-item" href="${wikiCore.pageUrl(p.slug)}">
+                <div class="title">${wikiCore.escapeHtml(p.title)}</div>
+                <div class="meta">${wikiCore.escapeHtml(p.category)} · atualizada em ${wikiCore.formatDate(p.updated_at)}</div>
+              </a>
+            `).join("");
+          }
+        }
+
+        // Categorias como cards
+        const cats = data.categories || [];
+        const catCounts = {};
+        (data.pages || []).forEach(p => { catCounts[p.category] = (catCounts[p.category] || 0) + 1; });
+        document.getElementById("category-grid").innerHTML = cats.map(c => `
+          <div class="wiki-category-card" data-cat="${wikiCore.escapeHtml(c)}">
+            <div class="cat-name">${wikiCore.escapeHtml(c)}</div>
+            <div class="cat-count">${catCounts[c] || 0} página(s)</div>
+          </div>
+        `).join("");
+        document.querySelectorAll(".wiki-category-card").forEach(el => {
+          el.addEventListener("click", () => {
+            const cat = el.dataset.cat;
+            const u = new URL(location.href);
+            u.searchParams.set("category", cat);
+            u.searchParams.delete("q");
+            location.href = u.toString();
+          });
+        });
+
+        // Alterações recentes
+        const recent = document.getElementById("recent-list");
+        if (!data.recent || data.recent.length === 0) {
+          recent.innerHTML = `<div class="muted text-sm" style="padding: var(--space-3)">Ainda não há edições. Crie a primeira página!</div>`;
+        } else {
+          recent.innerHTML = data.recent.map(r => `
+            <a class="page-list-item" href="${wikiCore.pageUrl(r.page_slug)}">
+              <div class="title">${wikiCore.escapeHtml(r.page_title)}</div>
+              <div class="meta">editada por ${wikiCore.escapeHtml(r.editor)} · ${wikiCore.formatDate(r.created_at)}${r.comment ? " · " + wikiCore.escapeHtml(r.comment) : ""}</div>
+            </a>
+          `).join("");
+        }
+
+        // Filtro de categoria
+        const activeCat = params.get("category") || "";
+        const filterEl = document.getElementById("category-filter");
+        filterEl.innerHTML = `<button class="btn btn-sm ${!activeCat ? "btn-primary" : ""}" data-cat="">Todas</button>` +
+          cats.map(c => `<button class="btn btn-sm ${activeCat === c ? "btn-primary" : ""}" data-cat="${wikiCore.escapeHtml(c)}">${wikiCore.escapeHtml(c)}</button>`).join("");
+        filterEl.querySelectorAll("button").forEach(b => {
+          b.addEventListener("click", () => {
+            const cat = b.getAttribute("data-cat");
+            const u = new URL(location.href);
+            if (cat) u.searchParams.set("category", cat); else u.searchParams.delete("category");
+            u.searchParams.delete("q");
+            location.href = u.toString();
+          });
+        });
+
+        // Lista de páginas
+        let pages = data.pages || [];
+        if (activeCat) pages = pages.filter(p => p.category === activeCat);
+        const pagesEl = document.getElementById("pages-list");
+        if (!pages.length) {
+          pagesEl.innerHTML = `<div class="muted text-sm" style="padding: var(--space-3)">Nenhuma página ${activeCat ? "nesta categoria" : "ainda"}.</div>`;
+        } else {
+          pagesEl.innerHTML = pages.map(p => `
+            <a class="page-list-item" href="${wikiCore.pageUrl(p.slug)}">
+              <div class="title">${wikiCore.escapeHtml(p.title)}</div>
+              <div class="meta">${wikiCore.escapeHtml(p.category)} · por ${wikiCore.escapeHtml(p.author)} · ${wikiCore.formatDate(p.updated_at)}</div>
+            </a>
+          `).join("");
+        }
+      } catch (e) {
+        document.getElementById("pages-list").innerHTML = `<div class="alert alert-error">Erro: ${wikiCore.escapeHtml(e.message)}</div>`;
+      }
+
+      // Busca
+      document.getElementById("btn-search").addEventListener("click", () => {
+        const q = document.getElementById("wiki-search").value.trim();
+        if (q) location.href = `index.html?q=${encodeURIComponent(q)}`;
+      });
+      document.getElementById("wiki-search").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") document.getElementById("btn-search").click();
+      });
+      if (q) document.getElementById("wiki-search").value = q;
+    })();
+  </script>
+</body>
+</html>
