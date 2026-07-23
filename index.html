@@ -14,27 +14,83 @@
   <div id="header-mount"></div>
 
   <main class="container wide">
-    <section id="search-results" class="hidden">
-      <h2 class="mb-4" style="font-family: var(--font-serif); font-size: 24px;">Resultados da busca</h2>
-      <div id="search-results-list"></div>
-      <hr class="mt-6">
+    <!-- Cards de acesso rápido às duas seções -->
+    <section class="quick-access-grid mb-6">
+      <a href="meus-personagens.html" class="quick-card">
+        <div class="quick-icon">🧙</div>
+        <div class="quick-title">Personagens</div>
+        <div class="quick-desc">Crie e gerencie suas fichas para usar nas sessões</div>
+      </a>
+      <a href="sala-criar.html" class="quick-card">
+        <div class="quick-icon">🎪</div>
+        <div class="quick-title">Sala de Jogo</div>
+        <div class="quick-desc">Crie uma sala ao vivo ou entre em uma existente</div>
+      </a>
+      <a href="edit.html" class="quick-card">
+        <div class="quick-icon">📝</div>
+        <div class="quick-title">Nova página wiki</div>
+        <div class="quick-desc">Escreva lore, locais, itens e regras da casa</div>
+      </a>
+      <a href="admin.html" id="quick-admin" class="quick-card hidden">
+        <div class="quick-icon">⚙️</div>
+        <div class="quick-title">Painel admin</div>
+        <div class="quick-desc">Gerencie usuários e veja logs de auditoria</div>
+      </a>
     </section>
 
+    <!-- Seção WIKI -->
     <section class="mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 style="font-family: var(--font-serif); font-size: 24px; margin: 0;">Alterações recentes</h2>
-        <button class="btn btn-ghost btn-sm" id="btn-random">Página aleatória</button>
+      <div class="section-divider">
+        <h2>📚 Wiki</h2>
+        <span class="muted text-sm">Páginas, lore, regras da casa</span>
       </div>
-      <div id="recent-list" class="card">
-        <div class="muted text-sm" style="padding: var(--space-3)">Carregando…</div>
+
+      <div id="search-results" class="hidden">
+        <h3 class="mb-4" style="font-family: var(--font-serif); font-size: 20px;">Resultados da busca</h3>
+        <div id="search-results-list"></div>
+        <hr class="mt-6">
+      </div>
+
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 style="font-family: var(--font-serif); font-size: 20px; margin: 0;">Alterações recentes</h3>
+          <button class="btn btn-ghost btn-sm" id="btn-random">Página aleatória</button>
+        </div>
+        <div id="recent-list" class="card">
+          <div class="muted text-sm" style="padding: var(--space-3)">Carregando…</div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="font-family: var(--font-serif); font-size: 20px;" class="mb-4">Todas as páginas</h3>
+        <div class="flex gap-2 flex-wrap mb-4" id="category-filter"></div>
+        <div id="pages-list" class="card">
+          <div class="muted text-sm" style="padding: var(--space-3)">Carregando…</div>
+        </div>
       </div>
     </section>
 
-    <section>
-      <h2 style="font-family: var(--font-serif); font-size: 24px;" class="mb-4">Todas as páginas</h2>
-      <div class="flex gap-2 flex-wrap mb-4" id="category-filter"></div>
-      <div id="pages-list" class="card">
-        <div class="muted text-sm" style="padding: var(--space-3)">Carregando…</div>
+    <!-- Seção SALA DE JOGO -->
+    <section class="mb-6">
+      <div class="section-divider">
+        <h2>🎲 Sala de Jogo</h2>
+        <span class="muted text-sm">Sessão ao vivo com mestre + jogadores</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="margin-top:0; font-size: 18px;">🎪 Criar nova sala</h3>
+          <p class="text-sm muted mb-4">Para mestres. Selecione os personagens que vão participar e gere um código de 6 caracteres para compartilhar com o grupo.</p>
+          <a href="sala-criar.html" class="btn btn-primary">Criar sala →</a>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0; font-size: 18px;">🔗 Entrar numa sala</h3>
+          <p class="text-sm muted mb-4">Para jogadores. Precisa do código que o mestre compartilhou (ex: <code>K7P3M2</code>).</p>
+          <div class="flex gap-2">
+            <input type="text" id="join-code-input" placeholder="CÓDIGO" maxlength="6" style="flex:1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; font-family: var(--font-mono); font-size: 16px; text-transform: uppercase; letter-spacing: 0.1em; outline: none;">
+            <button class="btn btn-primary" id="btn-join">Entrar</button>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -52,6 +108,22 @@
         return;
       }
 
+      // Mostra card de admin se for admin
+      if (sess.user.role === "admin") {
+        document.getElementById("quick-admin").classList.remove("hidden");
+      }
+
+      // ---- Entrar em sala (botão da home) ----
+      document.getElementById("btn-join").addEventListener("click", () => {
+        const code = document.getElementById("join-code-input").value.trim().toUpperCase();
+        if (!code) { alert("Digite o código da sala."); return; }
+        location.href = `sala-jogador.html?code=${encodeURIComponent(code)}`;
+      });
+      document.getElementById("join-code-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") document.getElementById("btn-join").click();
+      });
+
+      // ---- Carrega wiki ----
       const params = new URLSearchParams(location.search);
       const q = params.get("q");
 

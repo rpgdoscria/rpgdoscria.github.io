@@ -69,6 +69,7 @@
     const user = sess ? sess.user : null;
     const links = [
       { href: "index.html", label: "Início", key: "home" },
+      { href: "meus-personagens.html", label: "Personagens", key: "characters" },
       { href: "sala-criar.html", label: "Sala", key: "rooms" },
       { href: "edit.html", label: "Nova página", key: "new", minRole: "editor" },
       { href: "admin.html", label: "Admin", key: "admin", minRole: "admin" },
