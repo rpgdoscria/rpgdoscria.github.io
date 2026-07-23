@@ -26,13 +26,12 @@ adminRoutes.get("/users", async (c) => {
     last_login: string | null;
     created_at: string;
     deleted_at: string | null;
-    is_game_master: number;
   }>(
     c.env.DB,
     includeDeleted
-      ? `SELECT id, username, role, active, must_change_password, last_login, created_at, deleted_at, is_game_master
+      ? `SELECT id, username, role, active, must_change_password, last_login, created_at, deleted_at
          FROM users ORDER BY deleted_at IS NULL DESC, created_at ASC`
-      : `SELECT id, username, role, active, must_change_password, last_login, created_at, deleted_at, is_game_master
+      : `SELECT id, username, role, active, must_change_password, last_login, created_at, deleted_at
          FROM users WHERE deleted_at IS NULL ORDER BY created_at ASC`
   );
   return c.json({ users: rows });

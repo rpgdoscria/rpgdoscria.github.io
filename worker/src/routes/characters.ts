@@ -232,11 +232,12 @@ characterRoutes.patch("/:id/stat/:statId", async (c) => {
   const ch = await queryFirst<{ owner: number }>(c.env.DB, `SELECT owner_user_id AS owner FROM characters WHERE id = ?`, id);
   if (!ch) return c.json({ error: "Personagem não encontrado." }, 404);
 
-  // Mestre pode editar qualquer um; jogador só o próprio
-  const userRow = await queryFirst<{ is_game_master: number; role: string }>(
-    c.env.DB, `SELECT is_game_master, role FROM users WHERE id = ?`, user.sub
+  // Admin (mestre) pode editar qualquer um; jogador só o próprio.
+  // Desde a migration 0005, mestre === admin (não há mais is_game_master).
+  const userRow = await queryFirst<{ role: string }>(
+    c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub
   );
-  const isMaster = userRow && (userRow.role === "admin" || userRow.is_game_master === 1);
+  const isMaster = userRow && userRow.role === "admin";
   if (!isMaster && ch.owner !== user.sub) {
     return c.json({ error: "Sem permissão." }, 403);
   }

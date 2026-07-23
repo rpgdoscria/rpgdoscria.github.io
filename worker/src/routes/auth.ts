@@ -49,10 +49,9 @@ authRoutes.post("/login", async (c) => {
     role: "admin" | "editor" | "viewer";
     active: number;
     must_change_password: number;
-    is_game_master: number;
   }>(
     env.DB,
-    `SELECT id, username, password_hash, salt, role, active, must_change_password, is_game_master
+    `SELECT id, username, password_hash, salt, role, active, must_change_password
      FROM users WHERE username = ? COLLATE NOCASE`,
     username
   );
@@ -83,7 +82,9 @@ authRoutes.post("/login", async (c) => {
     token,
     role: user!.role,
     username: user!.username,
-    isGameMaster: user!.role === "admin" || user!.is_game_master === 1,
+    // Mestre e admin são o mesmo cargo desde a migration 0005 — o frontend
+    // continua recebendo isGameMaster pra compat, mas agora é só role === 'admin'.
+    isGameMaster: user!.role === "admin",
     mustChangePassword: user!.must_change_password === 1,
     expiresAt,
   });
@@ -102,10 +103,9 @@ authRoutes.get("/me", async (c) => {
     last_login: string | null;
     created_at: string;
     must_change_password: number;
-    is_game_master: number;
   }>(
     c.env.DB,
-    `SELECT id, username, role, active, last_login, created_at, must_change_password, is_game_master FROM users WHERE id = ?`,
+    `SELECT id, username, role, active, last_login, created_at, must_change_password FROM users WHERE id = ?`,
     user.sub
   );
   if (!row || row.active !== 1) return c.json({ error: "Conta inativa." }, 403);
@@ -114,7 +114,7 @@ authRoutes.get("/me", async (c) => {
     id: row.id,
     username: row.username,
     role: row.role,
-    isGameMaster: row.role === "admin" || row.is_game_master === 1,
+    isGameMaster: row.role === "admin",
     lastLogin: row.last_login,
     createdAt: row.created_at,
     mustChangePassword: row.must_change_password === 1,

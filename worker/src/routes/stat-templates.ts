@@ -11,18 +11,19 @@ import { audit, queryAll, queryFirst, queryRun } from "../lib/db";
 
 export const statTemplateRoutes = new Hono<{ Bindings: Env; Variables: { user?: JwtPayload } }>();
 
-// Middleware: só mestre (is_game_master=1) ou admin pode mexer.
+// Middleware: só admin pode mexer em stat_templates (status base do jogo).
+// Desde a migration 0005, mestre e admin são o mesmo cargo.
 async function requireMaster(c: any, next: any) {
   const user = c.get("user") as JwtPayload | undefined;
   if (!user) return c.json({ error: "Não autenticado." }, 401);
-  const row = await queryFirst<{ is_game_master: number; role: string; active: number }>(
+  const row = await queryFirst<{ role: string; active: number }>(
     c.env.DB,
-    `SELECT is_game_master, role, active FROM users WHERE id = ?`,
+    `SELECT role, active FROM users WHERE id = ?`,
     user.sub
   );
   if (!row || row.active !== 1) return c.json({ error: "Conta inativa." }, 403);
-  if (row.role !== "admin" && row.is_game_master !== 1) {
-    return c.json({ error: "Apenas mestres podem gerenciar status base." }, 403);
+  if (row.role !== "admin") {
+    return c.json({ error: "Apenas administradores podem gerenciar status base." }, 403);
   }
   await next();
 }

@@ -30,16 +30,16 @@ roomRoutes.post("/", async (c) => {
   const user = c.get("user") as JwtPayload | undefined;
   if (!user) return c.json({ error: "Não autenticado." }, 401);
 
-  // Apenas usuários com is_game_master=1 OU role=admin podem criar sala.
-  // Admin do site é considerado master também (facilita pra grupo pequeno).
-  const userRow = await queryFirst<{ is_game_master: number; role: string; active: number }>(
+  // Apenas admins podem criar/hospedar sala. Desde a migration 0005, mestre
+  // e admin são o mesmo cargo — não existe mais is_game_master separado.
+  const userRow = await queryFirst<{ role: string; active: number }>(
     c.env.DB,
-    `SELECT is_game_master, role, active FROM users WHERE id = ?`,
+    `SELECT role, active FROM users WHERE id = ?`,
     user.sub
   );
   if (!userRow || userRow.active !== 1) return c.json({ error: "Conta inativa." }, 403);
-  if (userRow.role !== "admin" && userRow.is_game_master !== 1) {
-    return c.json({ error: "Você não tem permissão de mestre. Peça a um admin para habilitar." }, 403);
+  if (userRow.role !== "admin") {
+    return c.json({ error: "Apenas administradores podem criar salas." }, 403);
   }
 
   let body: { characterIds?: number[] } = {};

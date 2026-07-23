@@ -57,7 +57,6 @@
               ${escapeHtml(u.username)}
               ${isSelf ? `<span class="tag" style="margin-left:8px">você</span>` : ""}
               ${isDeleted ? `<span class="tag tag-off" style="margin-left:8px">excluída ${formatDate(u.deleted_at)}</span>` : ""}
-              ${u.is_game_master ? `<span class="tag" style="margin-left:8px">mestre</span>` : ""}
             </div>
             <div class="meta">criado em ${formatDate(u.created_at)} · último login ${formatDate(u.last_login)}</div>
           </div>

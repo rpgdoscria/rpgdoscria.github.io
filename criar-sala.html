@@ -48,9 +48,9 @@
       const sess = window.auth.requireAuth("viewer");
       if (!sess) return;
 
-      // Apenas mestres podem criar sala
-      if (!sess.user.isGameMaster) {
-        document.body.innerHTML = `<div class="alert alert-error" style="margin:32px">Acesso restrito a mestres.</div>`;
+      // Apenas admins podem criar sala (mestre === admin desde a migration 0005)
+      if (!sess.user.isGameMaster && sess.user.role !== "admin") {
+        document.body.innerHTML = `<div class="alert alert-error" style="margin:32px">Acesso restrito a administradores.</div>`;
         return;
       }
 

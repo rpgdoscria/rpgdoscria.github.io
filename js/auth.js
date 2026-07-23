@@ -21,24 +21,24 @@
   async function login(username, password) {
     const data = await window.api.post("/api/auth/login", { username, password });
     window.api.setToken(data.token);
+    // Desde a migration 0005, mestre === admin (mesmo cargo). isGameMaster no
+    // objeto do user é mantido por compat com checagens existentes no frontend,
+    // mas agora é só um alias de role === 'admin'.
     window.api.setUser({
-      id: 0, // preenchido por /me na sequência
+      id: 0,
       username: data.username,
       role: data.role,
-      isGameMaster: !!data.isGameMaster, // pode vir do login se o backend enviar
+      isGameMaster: data.role === "admin",
       mustChangePassword: !!data.mustChangePassword,
       expiresAt: data.expiresAt,
     });
-    // Busca dados completos (inclui isGameMaster via is_game_master no banco)
     try {
       const me = await window.api.get("/api/auth/me");
-      // /me retorna role, username, etc. mas não isGameMaster ainda.
-      // Pra ter isGameMaster, fazemos uma query indireta: se /api/stat-templates
-      // funcionar pra esse user, ele é mestre. Mais simples: admin sempre é mestre.
-      const isMaster = me.role === "admin" || !!data.isGameMaster;
-      window.api.setUser(Object.assign({}, window.api.getUser(), me, { isGameMaster: isMaster }));
+      window.api.setUser(Object.assign({}, window.api.getUser(), me, {
+        isGameMaster: me.role === "admin",
+      }));
     } catch (e) {
-      // silencioso: ainda temos o básico
+      // silencioso: ainda temos o básico do login
     }
     return data;
   }
