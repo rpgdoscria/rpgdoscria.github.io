@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editar — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container full">
+    <div id="alert-mount"></div>
+
+    <form id="edit-form">
+      <div class="grid-2 mb-4">
+        <div class="field">
+          <label for="title">Título</label>
+          <input type="text" id="title" required>
+        </div>
+        <div class="field">
+          <label for="category">Categoria</label>
+          <select id="category"></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Conteúdo (Markdown)</label>
+        <div class="editor-split">
+          <div class="editor-pane">
+            <div class="pane-header">
+              <span>Markdown</span>
+              <span style="float:right">
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-upload">📷 Inserir imagem</button>
+                <input type="file" id="img-input" accept="image/*" class="hidden">
+              </span>
+            </div>
+            <textarea id="content" placeholder="Escreva em Markdown… use [[Nome da Página]] para links internos."></textarea>
+          </div>
+          <div class="editor-pane">
+            <div class="pane-header">Pré-visualização</div>
+            <div class="preview prose" id="preview"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="comment">Comentário da edição (opcional)</label>
+        <input type="text" id="comment" placeholder="Ex.: adicionada seção de histórico.">
+      </div>
+
+      <div class="flex gap-3">
+        <button type="submit" class="btn btn-primary" id="save-btn">Salvar página</button>
+        <a class="btn btn-ghost" id="cancel-btn" href="index.html">Cancelar</a>
+      </div>
+    </form>
+  </main>
+
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/purify.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/markdown.js"></script>
+  <script src="js/editor.js"></script>
+</body>
+</html>

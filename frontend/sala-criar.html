@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criar Sala — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0 0 var(--space-2) 0;">Criar sala de jogo</h1>
+    <p class="muted text-sm mb-6">Selecione os personagens que vão participar desta sessão. Você poderá adicionar mais depois via WebSocket.</p>
+
+    <div id="alert-mount"></div>
+
+    <section>
+      <h2 style="font-size: 18px; margin: 0 0 var(--space-3) 0;">Personagens disponíveis</h2>
+      <div id="characters-list" class="create-room-grid">
+        <div class="muted text-sm">Carregando…</div>
+      </div>
+    </section>
+
+    <section class="mt-6">
+      <div class="flex gap-2 items-center flex-wrap">
+        <button class="btn btn-primary" id="btn-create" disabled>Criar sala com os selecionados</button>
+        <a href="index.html" class="btn btn-ghost">Cancelar</a>
+      </div>
+    </section>
+
+    <section class="mt-6 hidden" id="existing-rooms">
+      <h2 style="font-size: 18px; margin: 0 0 var(--space-3) 0;">Suas salas ativas</h2>
+      <div id="rooms-list" class="card"></div>
+    </section>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "rooms");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const alertMount = document.getElementById("alert-mount");
+      function showAlert(type, msg) {
+        alertMount.innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
+      }
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+      }
+
+      const selected = new Set();
+
+      // Carrega personagens
+      try {
+        const data = await window.api.get("/api/rooms/characters");
+        const list = document.getElementById("characters-list");
+        if (!data.characters || data.characters.length === 0) {
+          list.innerHTML = `<div class="alert alert-info">Você ainda não tem personagens. Crie um primeiro (link abaixo).</div>`;
+        } else {
+          list.innerHTML = data.characters.map(c => `
+            <div class="character-pick ${selected.has(c.id) ? "selected" : ""}" data-id="${c.id}">
+              <div class="name">${escapeHtml(c.name)}</div>
+              <div class="meta">HP ${c.hpCurrent}/${c.hpMax} · ${c.money} moedas</div>
+            </div>
+          `).join("");
+          list.querySelectorAll(".character-pick").forEach(el => {
+            el.addEventListener("click", () => {
+              const id = Number(el.dataset.id);
+              if (selected.has(id)) { selected.delete(id); el.classList.remove("selected"); }
+              else { selected.add(id); el.classList.add("selected"); }
+              document.getElementById("btn-create").disabled = selected.size === 0;
+            });
+          });
+        }
+      } catch (e) {
+        showAlert("error", `Erro ao carregar personagens: ${e.message}`);
+      }
+
+      // Carrega salas ativas
+      try {
+        const data = await window.api.get("/api/rooms");
+        if (data.rooms && data.rooms.length > 0) {
+          document.getElementById("existing-rooms").classList.remove("hidden");
+          const rl = document.getElementById("rooms-list");
+          rl.innerHTML = data.rooms.map(r => `
+            <div class="list-row">
+              <div>
+                <div class="title"><code style="font-size: 16px; color: var(--accent); letter-spacing: 0.05em">${escapeHtml(r.code)}</code></div>
+                <div class="meta">${r.participantCount} personagens · ${r.enemyCount} inimigos · ${r.diceCount} rolagens · ${r.locked ? "🔒 travada" : "🔓 aberta"}</div>
+              </div>
+              <div class="spacer"></div>
+              <a class="btn btn-sm btn-primary" href="sala-mestre.html?code=${encodeURIComponent(r.code)}">Reabrir como mestre</a>
+              <button class="btn btn-sm btn-danger" data-end-code="${escapeHtml(r.code)}">Encerrar</button>
+            </div>
+          `).join("");
+          rl.querySelectorAll('button[data-end-code]').forEach(b => {
+            b.addEventListener("click", async () => {
+              if (!confirm("Encerrar a sala definitivamente? Todo mundo será desconectado.")) return;
+              try {
+                await window.api.post(`/api/rooms/${encodeURIComponent(b.dataset.endCode)}/end`, {});
+                location.reload();
+              } catch (e) { alert(e.message); }
+            });
+          });
+        }
+      } catch { /* sem salas — OK */ }
+
+      // Criar sala
+      document.getElementById("btn-create").addEventListener("click", async () => {
+        const btn = document.getElementById("btn-create");
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Criando…';
+        try {
+          const res = await window.api.post("/api/rooms", { characterIds: Array.from(selected) });
+          location.href = `sala-mestre.html?code=${encodeURIComponent(res.code)}`;
+        } catch (e) {
+          showAlert("error", e.message);
+          btn.disabled = false;
+          btn.textContent = "Criar sala com os selecionados";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

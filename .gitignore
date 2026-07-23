@@ -1,0 +1,20 @@
+# Dependências
+worker/node_modules/
+worker/.wrangler/
+worker/.dev.vars
+
+# Builds locais
+_site/
+*.tgz
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.log
+
+# Não comitar secrets reais — wrangler.toml tem só placeholders.
+# Se for usar .dev.vars para ambiente local, NUNCA comite.
+.dev.vars
+.dev.vars.*

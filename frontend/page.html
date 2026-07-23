@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Página — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container" id="page-mount">
+    <div class="muted text-sm" style="padding: var(--space-6) 0;">Carregando página…</div>
+  </main>
+
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/purify.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/markdown.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount");
+
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const params = new URLSearchParams(location.search);
+      const slug = params.get("slug");
+      const mount = document.getElementById("page-mount");
+
+      if (!slug) {
+        mount.innerHTML = `<div class="alert alert-error">Slug ausente na URL.</div>`;
+        return;
+      }
+
+      let page;
+      try {
+        page = await window.api.get(`/api/pages/${encodeURIComponent(slug)}`);
+      } catch (e) {
+        if (e.status === 404) {
+          // Página não existe — oferece criar (se editor+)
+          const canEdit = window.auth.roleRank(sess.user.role) >= 2;
+          mount.innerHTML = `
+            <div class="alert alert-warning">
+              A página "<strong>${escapeHtml(slug)}</strong>" ainda não existe.
+            </div>
+            ${canEdit
+              ? `<a class="btn btn-primary" href="edit.html?title=${encodeURIComponent(slug)}">Criar esta página</a>`
+              : `<p class="muted">Peça a um editor para criá-la.</p>`}
+          `;
+          return;
+        }
+        mount.innerHTML = `<div class="alert alert-error">Erro ao carregar: ${escapeHtml(e.message)}</div>`;
+        return;
+      }
+
+      // Carrega lista de slugs conhecidos (para marcar wikilinks como missing ou não)
+      let knownSlugs = new Set();
+      try {
+        const all = await window.api.get("/api/pages");
+        (all.pages || []).forEach(p => knownSlugs.add(p.slug));
+      } catch { /* opcional, sem problema se falhar */ }
+
+      // Renderiza
+      document.title = `${page.title} — Crônicas RPG`;
+      const canEdit = window.auth.roleRank(sess.user.role) >= 2;
+      const isAdmin = sess.user.role === "admin";
+
+      const rendered = window.md.render(page.content_md || "", knownSlugs);
+      mount.innerHTML = `
+        <h1 class="page-title">${escapeHtml(page.title)}</h1>
+        <div class="page-meta">
+          <span class="category-pill">${escapeHtml(page.category)}</span>
+          <span>por ${escapeHtml(page.author)}</span>
+          <span>criada em ${formatDate(page.created_at)}</span>
+          <span>atualizada em ${formatDate(page.updated_at)}</span>
+        </div>
+
+        <div class="flex gap-2 mb-6 flex-wrap">
+          ${canEdit ? `<a class="btn btn-sm" href="edit.html?slug=${encodeURIComponent(page.slug)}">✎ Editar</a>` : ""}
+          <a class="btn btn-sm" href="history.html?slug=${encodeURIComponent(page.slug)}">📜 Histórico</a>
+          <button class="btn btn-sm" id="btn-backlinks">↶ O que aponta pra cá</button>
+          ${isAdmin ? `<button class="btn btn-sm btn-danger" id="btn-delete">🗑 Excluir</button>` : ""}
+        </div>
+
+        <article class="prose">${rendered}</article>
+
+        <div id="backlinks-mount" class="mt-6 hidden">
+          <h3 style="font-family: var(--font-sans); font-size: 18px;">Páginas que apontam para esta</h3>
+          <div id="backlinks-list" class="card mt-2"></div>
+        </div>
+      `;
+
+      // Backlinks
+      const blBtn = document.getElementById("btn-backlinks");
+      if (blBtn) {
+        blBtn.addEventListener("click", async () => {
+          const blMount = document.getElementById("backlinks-mount");
+          const blList = document.getElementById("backlinks-list");
+          blMount.classList.remove("hidden");
+          blList.innerHTML = `<div class="muted text-sm">Carregando…</div>`;
+          try {
+            const data = await window.api.get(`/api/pages/${encodeURIComponent(slug)}/backlinks`);
+            const bl = data.backlinks || [];
+            if (!bl.length) {
+              blList.innerHTML = `<div class="muted text-sm">Nenhuma página aponta para esta.</div>`;
+            } else {
+              blList.innerHTML = bl.map(p => `
+                <a class="page-list-item" href="page.html?slug=${encodeURIComponent(p.slug)}">
+                  <div class="title">${escapeHtml(p.title)}</div>
+                  <div class="meta">atualizada em ${formatDate(p.updated_at)}</div>
+                </a>
+              `).join("");
+            }
+          } catch (e) {
+            blList.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+          }
+        });
+      }
+
+      // Delete (admin)
+      const delBtn = document.getElementById("btn-delete");
+      if (delBtn) {
+        delBtn.addEventListener("click", async () => {
+          if (!confirm(`Excluir definitivamente a página "${page.title}"?\n\nTodo o histórico de revisões também será removido.`)) return;
+          try {
+            await window.api.del(`/api/pages/${encodeURIComponent(slug)}`);
+            location.href = "index.html";
+          } catch (e) {
+            alert(e.message);
+          }
+        });
+      }
+
+      // Intercepta cliques em wikilinks "missing" para ir direto p/ criação
+      mount.querySelectorAll("a.wikilink-missing").forEach(a => {
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          const title = a.getAttribute("data-wiki-title");
+          if (canEdit) {
+            location.href = `edit.html?title=${encodeURIComponent(title)}`;
+          } else {
+            alert(`A página "${title}" ainda não existe. Peça a um editor para criá-la.`);
+          }
+        });
+      });
+    })();
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+    }
+    function formatDate(s) {
+      if (!s) return "—";
+      const d = new Date(s.endsWith("Z") ? s : s.replace(" ", "T") + "Z");
+      return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+  </script>
+</body>
+</html>

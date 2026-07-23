@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wiki — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <section id="search-results" class="hidden">
+      <h2 class="mb-4" style="font-family: var(--font-serif); font-size: 24px;">Resultados da busca</h2>
+      <div id="search-results-list"></div>
+      <hr class="mt-6">
+    </section>
+
+    <section class="mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 style="font-family: var(--font-serif); font-size: 24px; margin: 0;">Alterações recentes</h2>
+        <button class="btn btn-ghost btn-sm" id="btn-random">Página aleatória</button>
+      </div>
+      <div id="recent-list" class="card">
+        <div class="muted text-sm" style="padding: var(--space-3)">Carregando…</div>
+      </div>
+    </section>
+
+    <section>
+      <h2 style="font-family: var(--font-serif); font-size: 24px;" class="mb-4">Todas as páginas</h2>
+      <div class="flex gap-2 flex-wrap mb-4" id="category-filter"></div>
+      <div id="pages-list" class="card">
+        <div class="muted text-sm" style="padding: var(--space-3)">Carregando…</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "home");
+      const sess = window.auth.currentSession();
+      if (!sess) {
+        const next = encodeURIComponent(location.pathname + location.search);
+        location.href = `login.html?next=${next}`;
+        return;
+      }
+
+      const params = new URLSearchParams(location.search);
+      const q = params.get("q");
+
+      try {
+        const url = q ? `/api/pages?q=${encodeURIComponent(q)}` : `/api/pages`;
+        const data = await window.api.get(url);
+
+        // Busca
+        if (q && data.results) {
+          document.getElementById("search-results").classList.remove("hidden");
+          const list = document.getElementById("search-results-list");
+          if (!data.results.length) {
+            list.innerHTML = `<div class="alert alert-info">Nenhuma página encontrada para "<strong>${escapeHtml(q)}</strong>".</div>`;
+          } else {
+            list.innerHTML = data.results.map(p => `
+              <a class="page-list-item" href="page.html?slug=${encodeURIComponent(p.slug)}">
+                <div class="title">${escapeHtml(p.title)}</div>
+                <div class="meta">${escapeHtml(p.category)} · atualizada em ${formatDate(p.updated_at)}</div>
+              </a>
+            `).join("");
+          }
+        }
+
+        // Alterações recentes
+        const recent = document.getElementById("recent-list");
+        if (!data.recent || data.recent.length === 0) {
+          recent.innerHTML = `<div class="muted text-sm" style="padding: var(--space-3)">Ainda não há edições. Crie a primeira página!</div>`;
+        } else {
+          recent.innerHTML = data.recent.map(r => `
+            <a class="page-list-item" href="page.html?slug=${encodeURIComponent(r.page_slug)}">
+              <div class="title">${escapeHtml(r.page_title)}</div>
+              <div class="meta">editada por ${escapeHtml(r.editor)} · ${formatDate(r.created_at)}${r.comment ? " · " + escapeHtml(r.comment) : ""}</div>
+            </a>
+          `).join("");
+        }
+
+        // Categorias (filtro)
+        const cats = data.categories || [];
+        const filterEl = document.getElementById("category-filter");
+        const activeCat = params.get("category") || "";
+        filterEl.innerHTML = `<button class="btn btn-sm ${!activeCat ? "btn-primary" : ""}" data-cat="">Todas</button>` +
+          cats.map(c => `<button class="btn btn-sm ${activeCat === c ? "btn-primary" : ""}" data-cat="${escapeAttr(c)}">${escapeHtml(c)}</button>`).join("");
+        filterEl.querySelectorAll("button").forEach(b => {
+          b.addEventListener("click", () => {
+            const cat = b.getAttribute("data-cat");
+            const u = new URL(location.href);
+            if (cat) u.searchParams.set("category", cat); else u.searchParams.delete("category");
+            location.href = u.toString();
+          });
+        });
+
+        // Lista de páginas (com filtro de categoria se houver)
+        const pagesEl = document.getElementById("pages-list");
+        let pages = data.pages || [];
+        if (activeCat) pages = pages.filter(p => p.category === activeCat);
+        if (!pages.length) {
+          pagesEl.innerHTML = `<div class="muted text-sm" style="padding: var(--space-3)">Nenhuma página ainda.</div>`;
+        } else {
+          pagesEl.innerHTML = pages.map(p => `
+            <a class="page-list-item" href="page.html?slug=${encodeURIComponent(p.slug)}">
+              <div class="title">${escapeHtml(p.title)}</div>
+              <div class="meta">${escapeHtml(p.category)} · por ${escapeHtml(p.author)} · ${formatDate(p.updated_at)}</div>
+            </a>
+          `).join("");
+        }
+      } catch (e) {
+        const pagesEl = document.getElementById("pages-list");
+        pagesEl.innerHTML = `<div class="alert alert-error">Erro ao carregar: ${escapeHtml(e.message)}</div>`;
+      }
+
+      // Página aleatória
+      document.getElementById("btn-random").addEventListener("click", async () => {
+        try {
+          const data = await window.api.get("/api/pages");
+          const pages = data.pages || [];
+          if (!pages.length) { alert("Nenhuma página ainda."); return; }
+          const p = pages[Math.floor(Math.random() * pages.length)];
+          location.href = `page.html?slug=${encodeURIComponent(p.slug)}`;
+        } catch (e) { alert(e.message); }
+      });
+    })();
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+    }
+    function escapeAttr(s) { return escapeHtml(s).replace(/`/g, "&#96;"); }
+    function formatDate(s) {
+      if (!s) return "—";
+      const d = new Date(s.endsWith("Z") ? s : s.replace(" ", "T") + "Z");
+      return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    }
+  </script>
+</body>
+</html>

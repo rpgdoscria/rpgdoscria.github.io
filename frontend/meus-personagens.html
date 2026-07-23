@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meus personagens — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <div class="flex items-center justify-between mb-4">
+      <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0;">Meus personagens</h1>
+      <button class="btn btn-primary" id="btn-new">+ Novo personagem</button>
+    </div>
+
+    <div id="alert-mount"></div>
+
+    <div id="chars-list" class="card">
+      <div class="muted text-sm">Carregando…</div>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 id="modal-title">Novo personagem</h3>
+      <div id="modal-alert"></div>
+      <div class="field">
+        <label>Nome</label>
+        <input type="text" id="m-name">
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>HP atual</label>
+          <input type="number" id="m-hp-current" value="0">
+        </div>
+        <div class="field">
+          <label>HP máximo</label>
+          <input type="number" id="m-hp-max" value="0">
+        </div>
+      </div>
+      <div class="field">
+        <label>Dinheiro</label>
+        <input type="number" id="m-money" value="0">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="modal-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      let editingId = null;
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+      }
+      function showAlert(type, msg) {
+        document.getElementById("alert-mount").innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
+      }
+
+      async function load() {
+        try {
+          const data = await window.api.get("/api/rooms/characters");
+          const list = document.getElementById("chars-list");
+          if (!data.characters || data.characters.length === 0) {
+            list.innerHTML = `<div class="muted text-sm" style="padding: var(--space-3)">Você ainda não tem personagens. Clique em "Novo personagem" para criar um.</div>`;
+            return;
+          }
+          list.innerHTML = data.characters.map(c => `
+            <div class="list-row" data-id="${c.id}">
+              <div>
+                <div class="title">${escapeHtml(c.name)}</div>
+                <div class="meta">HP ${c.hpCurrent}/${c.hpMax} · ${c.money} moedas</div>
+              </div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" data-edit="${c.id}">Editar</button>
+              <button class="btn btn-sm btn-danger" data-del="${c.id}">Apagar</button>
+            </div>
+          `).join("");
+          list.querySelectorAll('button[data-edit]').forEach(b => {
+            b.addEventListener("click", () => openModal(Number(b.dataset.edit)));
+          });
+          list.querySelectorAll('button[data-del]').forEach(b => {
+            b.addEventListener("click", async () => {
+              if (!confirm("Apagar este personagem?")) return;
+              try {
+                await window.api.del(`/api/rooms/characters/${b.dataset.del}`);
+                load();
+              } catch (e) { alert(e.message); }
+            });
+          });
+        } catch (e) {
+          showAlert("error", e.message);
+        }
+      }
+
+      function openModal(id) {
+        editingId = id;
+        if (id) {
+          const row = document.querySelector(`[data-id="${id}"]`);
+          document.getElementById("modal-title").textContent = "Editar personagem";
+          // Busca dados atuais
+          window.api.get("/api/rooms/characters").then(data => {
+            const c = data.characters.find(x => x.id === id);
+            if (!c) return;
+            document.getElementById("m-name").value = c.name;
+            document.getElementById("m-hp-current").value = c.hpCurrent;
+            document.getElementById("m-hp-max").value = c.hpMax;
+            document.getElementById("m-money").value = c.money;
+          });
+        } else {
+          document.getElementById("modal-title").textContent = "Novo personagem";
+          document.getElementById("m-name").value = "";
+          document.getElementById("m-hp-current").value = 0;
+          document.getElementById("m-hp-max").value = 0;
+          document.getElementById("m-money").value = 0;
+        }
+        document.getElementById("modal-alert").innerHTML = "";
+        document.getElementById("modal").classList.remove("hidden");
+      }
+
+      document.getElementById("btn-new").addEventListener("click", () => openModal(null));
+      document.getElementById("modal-cancel").addEventListener("click", () => {
+        document.getElementById("modal").classList.add("hidden");
+      });
+      document.getElementById("modal-save").addEventListener("click", async () => {
+        const payload = {
+          name: document.getElementById("m-name").value.trim(),
+          hpCurrent: parseInt(document.getElementById("m-hp-current").value, 10),
+          hpMax: parseInt(document.getElementById("m-hp-max").value, 10),
+          money: parseInt(document.getElementById("m-money").value, 10),
+        };
+        if (!payload.name) {
+          document.getElementById("modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`;
+          return;
+        }
+        try {
+          if (editingId) {
+            await window.api.put(`/api/rooms/characters/${editingId}`, payload);
+          } else {
+            await window.api.post("/api/rooms/characters", payload);
+          }
+          document.getElementById("modal").classList.add("hidden");
+          load();
+        } catch (e) {
+          document.getElementById("modal-alert").innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+        }
+      });
+
+      load();
+    })();
+  </script>
+</body>
+</html>

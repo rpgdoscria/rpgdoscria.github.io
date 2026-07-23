@@ -1,0 +1,53 @@
+/* ============================================================
+   Tema customizado — sobrescreve variáveis do style.css
+   ------------------------------------------------------------
+   Este arquivo JÁ É LINKADO em todos os HTMLs (logo após style.css).
+   Por padrão ele não faz nada (o bloco :root está vazio, só com
+   comentários de exemplo). Para mudar o tema:
+
+   1. Descomente uma das paletas de exemplo abaixo (verde-floresta,
+      vermelho-sangue ou azul-real), OU
+   2. Edite as variáveis com seus próprios valores, OU
+   3. Combinado: troque cores aqui E mantenha fontes do style.css.
+
+   O tema default (preto) continua funcionando se este arquivo
+   não sobrescrever nada.
+   ============================================================ */
+
+:root {
+  /* Exemplo: tema verde-floresta (RPG natural)
+  --bg: #0d1410;
+  --bg-elev: #131c17;
+  --surface: #1a2520;
+  --border: #243029;
+  --accent: #6ee7a3;
+  --accent-hover: #8af0b6;
+  --accent-fg: #0d1410;
+  */
+
+  /* Exemplo: tema vermelho-sangue (RPG sombrio)
+  --bg: #100808;
+  --bg-elev: #1a0e0e;
+  --surface: #21110f;
+  --border: #34191a;
+  --accent: #ef4444;
+  --accent-hover: #f87171;
+  --accent-fg: #100808;
+  */
+
+  /* Exemplo: tema azul-real (RPG clássico)
+  --bg: #0a0f1c;
+  --bg-elev: #111827;
+  --surface: #1a2233;
+  --border: #283449;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-fg: #0a0f1c;
+  */
+
+  /* Fonte diferente:
+  --font-serif: 'EB Garamond', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  */
+}

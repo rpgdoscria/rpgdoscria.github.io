@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administração — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0 0 var(--space-5) 0;">Painel de administração</h1>
+    <div id="alert-mount"></div>
+
+    <section class="mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 style="font-size: 20px; margin: 0;">Usuários</h2>
+        <button class="btn btn-primary btn-sm" id="btn-new-user">+ Novo usuário</button>
+      </div>
+
+      <div id="new-user-form" class="card hidden">
+        <h3 style="margin-top:0">Criar usuário</h3>
+        <div class="grid-2">
+          <div class="field">
+            <label>Usuário</label>
+            <input type="text" id="nu-username" minlength="3" required>
+          </div>
+          <div class="field">
+            <label>Senha temporária (mín. 8 caracteres)</label>
+            <input type="text" id="nu-password" minlength="8" required>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Papel</label>
+            <select id="nu-role">
+              <option value="viewer">viewer (apenas leitura)</option>
+              <option value="editor" selected>editor (ler e editar)</option>
+              <option value="admin">admin (controle total)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Forçar troca de senha no próximo login?</label>
+            <select id="nu-must-change">
+              <option value="1" selected>Sim</option>
+              <option value="0">Não</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-primary" id="btn-create-user">Criar</button>
+          <button class="btn btn-ghost" id="btn-cancel-new-user">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="users-list" class="muted text-sm">Carregando…</div>
+      </div>
+    </section>
+
+    <section>
+      <h2 style="font-size: 20px; margin: 0 0 var(--space-4) 0;">Log de auditoria</h2>
+      <div class="card">
+        <div id="audit-list" class="muted text-sm">Carregando…</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de edição de usuário -->
+  <div id="edit-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:grid;place-items:center;z-index:100;padding:var(--space-4)">
+    <div class="card" style="width:100%;max-width:480px">
+      <h3 style="margin-top:0">Editar usuário</h3>
+      <div id="em-alert"></div>
+      <div class="field">
+        <label>Usuário</label>
+        <input type="text" id="em-username" readonly>
+      </div>
+      <div class="field">
+        <label>Papel</label>
+        <select id="em-role">
+          <option value="viewer">viewer</option>
+          <option value="editor">editor</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Ativo?</label>
+        <select id="em-active">
+          <option value="1">Ativo</option>
+          <option value="0">Desativado</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Nova senha (deixe em branco para manter)</label>
+        <input type="text" id="em-password" placeholder="mín. 8 caracteres">
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary" id="em-save">Salvar</button>
+        <button class="btn btn-ghost" id="em-cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

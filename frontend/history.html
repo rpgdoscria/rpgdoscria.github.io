@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Histórico — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <div class="flex items-center justify-between mb-4">
+      <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0;" id="title-mount">Histórico</h1>
+      <a class="btn btn-ghost btn-sm" id="back-link" href="#">← Voltar à página</a>
+    </div>
+
+    <div id="alert-mount"></div>
+
+    <div class="grid-2 mb-4">
+      <div class="card">
+        <h3 style="margin:0 0 var(--space-3) 0; font-size: 16px;">Revisões</h3>
+        <div id="revisions-list" class="muted text-sm">Carregando…</div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 var(--space-3) 0; font-size: 16px;">Comparar versões</h3>
+        <p class="muted text-sm mb-2">Selecione duas revisões na lista ao lado para ver o diff.</p>
+        <div id="diff-mount" class="hidden">
+          <div class="diff-container">
+            <div>
+              <div class="text-xs muted mb-2" id="diff-left-label">—</div>
+              <div class="diff-pane" id="diff-left"></div>
+            </div>
+            <div>
+              <div class="text-xs muted mb-2" id="diff-right-label">—</div>
+              <div class="diff-pane" id="diff-right"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal de visualização de revisão -->
+  <div id="view-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:grid;place-items:center;z-index:100;padding:var(--space-4)">
+    <div class="card" style="width:100%;max-width:720px;max-height:85vh;overflow-y:auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 style="margin:0">Visualizar revisão</h3>
+        <button class="btn btn-ghost btn-sm" id="view-modal-close">Fechar</button>
+      </div>
+      <div id="view-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/purify.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/markdown.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const params = new URLSearchParams(location.search);
+      const slug = params.get("slug");
+      const canEdit = window.auth.roleRank(sess.user.role) >= 2;
+
+      const titleMount = document.getElementById("title-mount");
+      const listEl = document.getElementById("revisions-list");
+      const diffMount = document.getElementById("diff-mount");
+      const alertMount = document.getElementById("alert-mount");
+      const backLink = document.getElementById("back-link");
+
+      backLink.href = `page.html?slug=${encodeURIComponent(slug)}`;
+
+      function showAlert(type, msg) {
+        alertMount.innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
+      }
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+      }
+      function formatDate(s) {
+        if (!s) return "—";
+        const d = new Date(s.endsWith("Z") ? s : s.replace(" ", "T") + "Z");
+        return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      }
+
+      let revisions = [];
+      let selected = []; // até 2 IDs
+
+      try {
+        // Título da página
+        const page = await window.api.get(`/api/pages/${encodeURIComponent(slug)}`);
+        titleMount.textContent = `Histórico — ${page.title}`;
+        document.title = `Histórico — ${page.title}`;
+
+        const data = await window.api.get(`/api/pages/${encodeURIComponent(slug)}/revisions`);
+        revisions = data.revisions || [];
+        renderList();
+      } catch (e) {
+        showAlert("error", e.message);
+      }
+
+      function renderList() {
+        if (!revisions.length) {
+          listEl.innerHTML = `<div class="muted">Nenhuma revisão.</div>`;
+          return;
+        }
+        listEl.innerHTML = revisions.map((r, i) => `
+          <div class="list-row" style="cursor:pointer" data-id="${r.id}">
+            <input type="checkbox" data-id="${r.id}" ${selected.includes(r.id) ? "checked" : ""}>
+            <div>
+              <div class="title">#${revisions.length - i} · ${escapeHtml(r.comment || "sem comentário")}</div>
+              <div class="meta">${escapeHtml(r.editor)} · ${formatDate(r.created_at)}</div>
+            </div>
+            <div class="spacer"></div>
+            ${canEdit ? `<button class="btn btn-sm btn-ghost" data-revert="${r.id}">Reverter para esta</button>` : ""}
+            <button class="btn btn-sm btn-ghost" data-view="${r.id}">Ver conteúdo</button>
+          </div>
+        `).join("");
+
+        // checkboxes
+        listEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener("click", e => e.stopPropagation());
+          cb.addEventListener("change", () => {
+            const id = Number(cb.dataset.id);
+            if (cb.checked) {
+              selected.push(id);
+              if (selected.length > 2) selected.shift(); // mantém só 2
+            } else {
+              selected = selected.filter(x => x !== id);
+            }
+            renderList();
+            if (selected.length === 2) showDiff();
+            else diffMount.classList.add("hidden");
+          });
+        });
+
+        // revert
+        listEl.querySelectorAll('button[data-revert]').forEach(b => {
+          b.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const id = Number(b.dataset.revert);
+            if (!confirm("Reverter a página para esta revisão? Uma nova revisão será criada com o conteúdo restaurado.")) return;
+            try {
+              await window.api.post(`/api/pages/${encodeURIComponent(slug)}/revert/${id}`, {});
+              showAlert("success", "Página revertida. Recarregando…");
+              setTimeout(() => location.reload(), 600);
+            } catch (err) { showAlert("error", err.message); }
+          });
+        });
+
+        // BUG CORRIGIDO: botão "Ver conteúdo" antes tinha data-view mas nenhum
+        // handler registrado — clique não fazia nada. Agora abre um modal com
+        // o conteúdo da revisão específica (usando endpoint /revisions/:revId).
+        listEl.querySelectorAll('button[data-view]').forEach(b => {
+          b.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const id = Number(b.dataset.view);
+            const modal = document.getElementById("view-modal");
+            const modalBody = document.getElementById("view-modal-body");
+            modal.classList.remove("hidden");
+            modal.style.display = "grid";
+            modalBody.innerHTML = `<div class="muted text-sm">Carregando revisão #${id}…</div>`;
+            try {
+              const rev = await window.api.get(`/api/pages/${encodeURIComponent(slug)}/revisions/${id}`);
+              const html = window.md.render(rev.content_md || "", new Set());
+              modalBody.innerHTML = `
+                <div class="text-sm muted mb-4">
+                  Revisão #${id} · ${escapeHtml(rev.editor)} · ${formatDate(rev.created_at)}
+                  ${rev.comment ? `<br>Comentário: ${escapeHtml(rev.comment)}` : ""}
+                </div>
+                <div class="prose">${html}</div>
+              `;
+            } catch (err) {
+              modalBody.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+            }
+          });
+        });
+      }
+
+      async function showDiff() {
+        const [aId, bId] = selected;
+        const a = revisions.find(r => r.id === aId);
+        const b = revisions.find(r => r.id === bId);
+        // Por convenção: o mais antigo na esquerda, mais novo na direita.
+        const left = a.created_at < b.created_at ? a : b;
+        const right = a.created_at < b.created_at ? b : a;
+        const diff = window.md.diffHtml(left.content_md, right.content_md);
+        document.getElementById("diff-left-label").textContent = `${formatDate(left.created_at)} · ${left.editor}`;
+        document.getElementById("diff-right-label").textContent = `${formatDate(right.created_at)} · ${right.editor}`;
+        document.getElementById("diff-left").innerHTML = diff.left;
+        document.getElementById("diff-right").innerHTML = diff.right;
+        diffMount.classList.remove("hidden");
+      }
+
+      // Fecha o modal de visualização
+      document.getElementById("view-modal-close").addEventListener("click", () => {
+        const modal = document.getElementById("view-modal");
+        modal.classList.add("hidden");
+        modal.style.display = "";
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sala do Mestre — Crônicas RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/theme-custom.css">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="sala-layout">
+    <div class="sala-main">
+      <div class="sala-header">
+        <h1>Sala do Mestre</h1>
+        <span class="room-code" id="room-code" title="Clique para copiar o código e mandar pros jogadores">-------</span>
+        <span id="conn-mount"></span>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn btn-sm btn-ghost" id="btn-lock">🔒 Travar sala</button>
+        <button class="btn btn-sm btn-danger" id="btn-end">Encerrar sala</button>
+      </div>
+
+      <div id="alert-mount"></div>
+
+      <section>
+        <div class="flex items-center justify-between mb-2">
+          <h2 style="font-size: 18px; margin: 0;">Personagens na sala</h2>
+          <button class="btn btn-sm btn-ghost" id="btn-refresh-characters" title="Recarregar lista do servidor">↻</button>
+        </div>
+        <div id="characters-grid" class="characters-grid">
+          <div class="muted text-sm">Aguardando conexão…</div>
+        </div>
+      </section>
+
+      <section class="mt-6">
+        <div class="flex items-center justify-between mb-2">
+          <h2 style="font-size: 18px; margin: 0;">Inimigos</h2>
+          <button class="btn btn-sm btn-primary" id="btn-add-enemy">+ Criar inimigo</button>
+        </div>
+        <div id="enemies-grid" class="enemies-grid">
+          <div class="muted text-sm">Nenhum inimigo ainda.</div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="sala-side">
+      <div class="side-panel">
+        <h3>🎲 Dados</h3>
+        <div class="dice-quick-row">
+          <button class="dice-btn" data-formula="1d20">d20</button>
+          <button class="dice-btn" data-formula="1d12">d12</button>
+          <button class="dice-btn" data-formula="1d10">d10</button>
+          <button class="dice-btn" data-formula="1d8">d8</button>
+          <button class="dice-btn" data-formula="1d6">d6</button>
+          <button class="dice-btn" data-formula="1d4">d4</button>
+          <button class="dice-btn" data-formula="1d100">d100</button>
+          <button class="dice-btn" data-formula="2d20kh1">Vant.</button>
+        </div>
+        <div class="dice-formula-row">
+          <input type="text" id="dice-input" placeholder="Ex: 1d20+5 ou 2d6+3" autocomplete="off">
+          <button class="btn btn-primary" id="btn-roll">Rolar</button>
+        </div>
+        <div class="dice-formula-feedback" id="dice-feedback"></div>
+        <input type="text" id="dice-label" placeholder="Label opcional (ex: Ataque com espada)" class="mb-2" style="width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; font-size: 13px;">
+        <div class="dice-result-display" id="dice-result-display">As rolagens vão aparecer aqui em destaque — todos os jogadores verão ao mesmo tempo.</div>
+
+        <details class="mt-2">
+          <summary class="text-xs muted">Meus presets</summary>
+          <div id="presets-list" class="mt-2"></div>
+          <div class="dice-formula-row mt-2">
+            <input type="text" id="preset-label" placeholder="Label" style="font-size: 12px;">
+            <input type="text" id="preset-formula" placeholder="1d20+5" style="font-size: 12px;">
+            <button class="btn btn-sm" id="btn-save-preset">+</button>
+          </div>
+        </details>
+      </div>
+
+      <div class="side-panel">
+        <h3>💡 Sugestões dos jogadores</h3>
+        <div id="suggestions-list">
+          <div class="muted text-sm">Nenhuma sugestão ainda.</div>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <h3>📜 Histórico de rolagens</h3>
+        <div id="dice-log" class="dice-log-list">
+          <div class="muted text-sm">Nenhuma rolagem ainda.</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Modal de edição de personagem -->
+  <div id="character-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 id="char-modal-title">Editar personagem</h3>
+      <div id="char-modal-alert"></div>
+      <div class="field">
+        <label>Nome</label>
+        <input type="text" id="char-name">
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>HP atual</label>
+          <input type="number" id="char-hp-current">
+        </div>
+        <div class="field">
+          <label>HP máximo</label>
+          <input type="number" id="char-hp-max">
+        </div>
+      </div>
+      <div class="field">
+        <label>Dinheiro</label>
+        <input type="number" id="char-money">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="char-modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="char-modal-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de criação/edição de inimigo -->
+  <div id="enemy-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 id="enemy-modal-title">Criar inimigo</h3>
+      <div id="enemy-modal-alert"></div>
+      <div class="field">
+        <label>Nome</label>
+        <input type="text" id="enemy-name">
+      </div>
+      <div class="field">
+        <label>Modo de vida</label>
+        <select id="enemy-hp-mode">
+          <option value="numeric">HP numérico</option>
+          <option value="description">Descrição qualitativa</option>
+        </select>
+      </div>
+      <div id="enemy-numeric-fields" class="grid-2">
+        <div class="field">
+          <label>HP atual</label>
+          <input type="number" id="enemy-hp-current">
+        </div>
+        <div class="field">
+          <label>HP máximo</label>
+          <input type="number" id="enemy-hp-max">
+        </div>
+      </div>
+      <div id="enemy-desc-fields" class="field hidden">
+        <label>Descrição</label>
+        <select id="enemy-preset-select">
+          <option value="">— presets —</option>
+        </select>
+        <input type="text" id="enemy-desc" placeholder="Ou digite uma descrição customizada" class="mt-2">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="enemy-modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="enemy-modal-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de adicionar status -->
+  <div id="status-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3>Adicionar status</h3>
+      <div class="field">
+        <label>Texto do status (máx 200 caracteres)</label>
+        <textarea id="status-text" placeholder="Ex: Envenenado, -2 de velocidade"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="status-modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="status-modal-save">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/purify.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/room-ws.js"></script>
+  <script src="js/dice-ui.js"></script>
+  <script src="js/room-render.js"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "rooms");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const params = new URLSearchParams(location.search);
+      const code = params.get("code");
+      if (!code) {
+        document.getElementById("alert-mount").innerHTML = `<div class="alert alert-error">Código de sala ausente na URL. <a href="sala-criar.html">Criar nova sala</a></div>`;
+        return;
+      }
+
+      // Preenche presets do select de inimigo
+      const presetSelect = document.getElementById("enemy-preset-select");
+      window.roomRender.ENEMY_PRESETS.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p; opt.textContent = p;
+        presetSelect.appendChild(opt);
+      });
+
+      // Conecta ao RoomDO via WebSocket
+      const client = new window.RoomClient(code);
+      let currentState = null;
+
+      client.onConnectivity = (status) => {
+        document.getElementById("conn-mount").innerHTML = window.roomRender.renderConnectivity(status);
+      };
+      client.onStateChange = (state) => {
+        if (!state) return;
+        currentState = state;
+        render(state);
+      };
+      client.onEvent = (msg) => {
+        if (msg.type === "dice_result") {
+          window.diceUI.flashDiceResult(
+            document.getElementById("dice-result-display"),
+            window.diceUI.formatResult(msg.payload)
+          );
+        } else if (msg.type === "room_closed") {
+          document.getElementById("alert-mount").innerHTML = `<div class="alert alert-warning">A sala foi encerrada. <a href="sala-criar.html">Criar nova sala</a></div>`;
+          document.getElementById("characters-grid").innerHTML = "";
+          document.getElementById("enemies-grid").innerHTML = "";
+        } else if (msg.type === "error") {
+          document.getElementById("alert-mount").innerHTML = `<div class="alert alert-error">${escapeHtml(msg.payload?.message || "Erro")}</div>`;
+          setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 4000);
+        } else if (msg.type === "fatal") {
+          document.getElementById("alert-mount").innerHTML = `<div class="alert alert-error">${escapeHtml(msg.payload?.message || "Erro fatal")}</div>`;
+        }
+      };
+
+      client.connect();
+
+      function render(state) {
+        document.getElementById("room-code").textContent = state.code;
+        const lockBtn = document.getElementById("btn-lock");
+        lockBtn.textContent = state.locked ? "🔓 Destravar sala" : "🔒 Travar sala";
+
+        // Personagens
+        const cg = document.getElementById("characters-grid");
+        if (!state.characters || state.characters.length === 0) {
+          cg.innerHTML = `<div class="muted text-sm">Nenhum personagem na sala ainda. Jogadores podem entrar com seus personagens via sala-jogador.html?code=${encodeURIComponent(state.code)}</div>`;
+        } else {
+          cg.innerHTML = state.characters.map(ch => window.roomRender.renderCharacter(ch, {
+            editable: false, isMaster: true, isOwn: false,
+          })).join("");
+        }
+
+        // Inimigos
+        const eg = document.getElementById("enemies-grid");
+        if (!state.enemies || state.enemies.length === 0) {
+          eg.innerHTML = `<div class="muted text-sm">Nenhum inimigo ainda. Clique em "+ Criar inimigo".</div>`;
+        } else {
+          eg.innerHTML = state.enemies.map(en => window.roomRender.renderEnemy(en, { isMaster: true })).join("");
+        }
+
+        // Sugestões
+        const sl = document.getElementById("suggestions-list");
+        if (!state.suggestions || state.suggestions.length === 0) {
+          sl.innerHTML = `<div class="muted text-sm">Nenhuma sugestão ainda.</div>`;
+        } else {
+          sl.innerHTML = window.roomRender.renderSuggestions(state.suggestions, { isMaster: true });
+        }
+
+        // Log
+        const dl = document.getElementById("dice-log");
+        if (!state.diceLog || state.diceLog.length === 0) {
+          dl.innerHTML = `<div class="muted text-sm">Nenhuma rolagem ainda.</div>`;
+        } else {
+          dl.innerHTML = window.roomRender.renderDiceLog(state.diceLog);
+        }
+
+        // Re-bind botões de ação
+        bindActionButtons();
+      }
+
+      function bindActionButtons() {
+        // Editar personagem (como mestre)
+        document.querySelectorAll('button[data-action="gm-edit-character"], button[data-action="edit-character"]').forEach(b => {
+          b.addEventListener("click", () => openCharacterModal(Number(b.dataset.characterId)));
+        });
+        // Editar inimigo
+        document.querySelectorAll('button[data-action="edit-enemy"]').forEach(b => {
+          b.addEventListener("click", () => openEnemyModal(b.dataset.enemyId));
+        });
+        // Deletar inimigo
+        document.querySelectorAll('button[data-action="delete-enemy"]').forEach(b => {
+          b.addEventListener("click", () => {
+            if (!confirm("Remover este inimigo?")) return;
+            client.send("delete_enemy", { enemyId: b.dataset.enemyId });
+          });
+        });
+        // Adicionar status
+        document.querySelectorAll('button[data-action="add-status"]').forEach(b => {
+          b.addEventListener("click", () => openStatusModal(b.dataset.targetType, b.dataset.targetId));
+        });
+        // Remover status
+        document.querySelectorAll('button[data-action="remove-status"]').forEach(b => {
+          b.addEventListener("click", () => {
+            client.send("remove_status_effect", {
+              targetType: b.dataset.targetType,
+              targetId: b.dataset.targetType === "character" ? Number(b.dataset.targetId) : b.dataset.targetId,
+              statusId: b.dataset.statusId,
+            });
+          });
+        });
+        // Aceitar sugestão
+        document.querySelectorAll('button[data-action="accept-suggestion"]').forEach(b => {
+          b.addEventListener("click", () => {
+            client.send("roll_dice", { formula: b.dataset.formula, label: b.dataset.label });
+          });
+        });
+        // Dispensar sugestão (só some do estado local — não há endpoint pra isso)
+        document.querySelectorAll('button[data-action="dismiss-suggestion"]').forEach(b => {
+          b.addEventListener("click", () => {
+            if (currentState) {
+              currentState.suggestions = currentState.suggestions.filter(s => s.id !== b.dataset.suggestionId);
+              render(currentState);
+            }
+          });
+        });
+      }
+
+      // ----- Dados -----
+      function updateDiceFeedback() {
+        const input = document.getElementById("dice-input");
+        const fb = document.getElementById("dice-feedback");
+        const v = input.value.trim();
+        if (!v) { fb.textContent = ""; fb.className = "dice-formula-feedback"; input.classList.remove("invalid"); return; }
+        const r = window.diceUI.previewParse(v);
+        if (r.ok) {
+          fb.textContent = "✓ Fórmula válida";
+          fb.className = "dice-formula-feedback valid";
+          input.classList.remove("invalid");
+        } else {
+          fb.textContent = "✗ " + r.error;
+          fb.className = "dice-formula-feedback invalid";
+          input.classList.add("invalid");
+        }
+      }
+      document.getElementById("dice-input").addEventListener("input", updateDiceFeedback);
+      document.getElementById("dice-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); rollFromInput(); }
+      });
+      document.querySelectorAll(".dice-btn").forEach(b => {
+        b.addEventListener("click", () => {
+          document.getElementById("dice-input").value = b.dataset.formula;
+          updateDiceFeedback();
+          rollFromInput();
+        });
+      });
+      document.getElementById("btn-roll").addEventListener("click", rollFromInput);
+
+      function rollFromInput() {
+        const formula = document.getElementById("dice-input").value.trim();
+        const label = document.getElementById("dice-label").value.trim();
+        if (!formula) return;
+        if (!window.diceUI.isValid(formula)) {
+          document.getElementById("alert-mount").innerHTML = `<div class="alert alert-error">Fórmula inválida.</div>`;
+          setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 3000);
+          return;
+        }
+        client.send("roll_dice", { formula, label: label || undefined });
+        document.getElementById("dice-label").value = "";
+      }
+
+      // ----- Lock / End -----
+      document.getElementById("btn-lock").addEventListener("click", () => {
+        if (!currentState) return;
+        client.send("lock_room", { locked: !currentState.locked });
+      });
+      document.getElementById("btn-end").addEventListener("click", async () => {
+        if (!confirm("Encerrar a sala definitivamente? Todos serão desconectados.")) return;
+        try {
+          await window.api.post(`/api/rooms/${encodeURIComponent(code)}/end`, {});
+          location.href = "sala-criar.html";
+        } catch (e) { alert(e.message); }
+      });
+
+      // ----- Copiar código -----
+      document.getElementById("room-code").addEventListener("click", () => {
+        navigator.clipboard.writeText(code).then(() => {
+          document.getElementById("alert-mount").innerHTML = `<div class="alert alert-success">Código ${escapeHtml(code)} copiado! Mande pros jogadores.</div>`;
+          setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 3000);
+        });
+      });
+
+      // ----- Modal personagem -----
+      let editingCharacterId = null;
+      function openCharacterModal(id) {
+        if (!currentState) return;
+        const ch = currentState.characters.find(c => c.id === id);
+        if (!ch) return;
+        editingCharacterId = id;
+        document.getElementById("char-modal-title").textContent = `Editar: ${ch.name}`;
+        document.getElementById("char-name").value = ch.name;
+        document.getElementById("char-hp-current").value = ch.hpCurrent;
+        document.getElementById("char-hp-max").value = ch.hpMax;
+        document.getElementById("char-money").value = ch.money;
+        document.getElementById("char-modal-alert").innerHTML = "";
+        document.getElementById("character-modal").classList.remove("hidden");
+      }
+      document.getElementById("char-modal-cancel").addEventListener("click", () => {
+        document.getElementById("character-modal").classList.add("hidden");
+      });
+      document.getElementById("char-modal-save").addEventListener("click", () => {
+        const payload = {
+          characterId: editingCharacterId,
+          hpCurrent: parseInt(document.getElementById("char-hp-current").value, 10),
+          hpMax: parseInt(document.getElementById("char-hp-max").value, 10),
+          money: parseInt(document.getElementById("char-money").value, 10),
+          name: document.getElementById("char-name").value.trim(),
+        };
+        client.send("update_character", payload);
+        document.getElementById("character-modal").classList.add("hidden");
+      });
+
+      // ----- Modal inimigo -----
+      let editingEnemyId = null;
+      function openEnemyModal(enemyId) {
+        editingEnemyId = enemyId;
+        const en = enemyId ? currentState?.enemies.find(e => e.id === enemyId) : null;
+        document.getElementById("enemy-modal-title").textContent = en ? `Editar: ${en.name}` : "Criar inimigo";
+        document.getElementById("enemy-name").value = en?.name ?? "";
+        document.getElementById("enemy-hp-mode").value = en?.hpMode ?? "numeric";
+        document.getElementById("enemy-hp-current").value = en?.hpCurrent ?? 10;
+        document.getElementById("enemy-hp-max").value = en?.hpMax ?? 10;
+        document.getElementById("enemy-desc").value = en?.description ?? "";
+        document.getElementById("enemy-preset-select").value = en?.description && window.roomRender.ENEMY_PRESETS.includes(en.description) ? en.description : "";
+        toggleEnemyFields();
+        document.getElementById("enemy-modal-alert").innerHTML = "";
+        document.getElementById("enemy-modal").classList.remove("hidden");
+      }
+      function toggleEnemyFields() {
+        const mode = document.getElementById("enemy-hp-mode").value;
+        document.getElementById("enemy-numeric-fields").classList.toggle("hidden", mode !== "numeric");
+        document.getElementById("enemy-desc-fields").classList.toggle("hidden", mode !== "description");
+      }
+      document.getElementById("enemy-hp-mode").addEventListener("change", toggleEnemyFields);
+      document.getElementById("enemy-preset-select").addEventListener("change", (e) => {
+        document.getElementById("enemy-desc").value = e.target.value;
+      });
+      document.getElementById("btn-add-enemy").addEventListener("click", () => openEnemyModal(null));
+      document.getElementById("enemy-modal-cancel").addEventListener("click", () => {
+        document.getElementById("enemy-modal").classList.add("hidden");
+      });
+      document.getElementById("enemy-modal-save").addEventListener("click", () => {
+        const name = document.getElementById("enemy-name").value.trim();
+        if (!name) {
+          document.getElementById("enemy-modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`;
+          return;
+        }
+        const mode = document.getElementById("enemy-hp-mode").value;
+        const payload = {
+          name,
+          hpMode: mode,
+          hpCurrent: parseInt(document.getElementById("enemy-hp-current").value, 10),
+          hpMax: parseInt(document.getElementById("enemy-hp-max").value, 10),
+          description: document.getElementById("enemy-desc").value.trim() || "Ileso",
+        };
+        if (editingEnemyId) {
+          payload.enemyId = editingEnemyId;
+          client.send("update_enemy", payload);
+        } else {
+          client.send("create_enemy", payload);
+        }
+        document.getElementById("enemy-modal").classList.add("hidden");
+      });
+
+      // ----- Modal status -----
+      let statusTarget = null;
+      function openStatusModal(targetType, targetId) {
+        statusTarget = { targetType, targetId };
+        document.getElementById("status-text").value = "";
+        document.getElementById("status-modal").classList.remove("hidden");
+        setTimeout(() => document.getElementById("status-text").focus(), 50);
+      }
+      document.getElementById("status-modal-cancel").addEventListener("click", () => {
+        document.getElementById("status-modal").classList.add("hidden");
+      });
+      document.getElementById("status-modal-save").addEventListener("click", () => {
+        const text = document.getElementById("status-text").value.trim();
+        if (!text) return;
+        client.send("add_status_effect", {
+          targetType: statusTarget.targetType,
+          targetId: statusTarget.targetType === "character" ? Number(statusTarget.targetId) : statusTarget.targetId,
+          text,
+        });
+        document.getElementById("status-modal").classList.add("hidden");
+      });
+
+      // ----- Presets -----
+      async function loadPresets() {
+        try {
+          const data = await window.api.get("/api/rooms/dice-presets");
+          const pl = document.getElementById("presets-list");
+          if (!data.presets || data.presets.length === 0) {
+            pl.innerHTML = `<div class="muted text-xs">Sem presets. Crie abaixo.</div>`;
+            return;
+          }
+          pl.innerHTML = data.presets.map(p => `
+            <div class="list-row" style="padding: 4px 0; border: none">
+              <div>
+                <div class="text-sm">${escapeHtml(p.label)}</div>
+                <code class="text-xs">${escapeHtml(p.formula)}</code>
+              </div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm btn-ghost" data-preset-formula="${escapeHtml(p.formula)}" data-preset-label="${escapeHtml(p.label)}">Rolar</button>
+            </div>
+          `).join("");
+          pl.querySelectorAll('button[data-preset-formula]').forEach(b => {
+            b.addEventListener("click", () => {
+              client.send("roll_dice", { formula: b.dataset.presetFormula, label: b.dataset.presetLabel });
+            });
+          });
+        } catch { /* ignore */ }
+      }
+      loadPresets();
+
+      document.getElementById("btn-save-preset").addEventListener("click", async () => {
+        const label = document.getElementById("preset-label").value.trim();
+        const formula = document.getElementById("preset-formula").value.trim();
+        if (!label || !formula) return;
+        try {
+          await window.api.post("/api/rooms/dice-presets", { label, formula, isPublic: true });
+          document.getElementById("preset-label").value = "";
+          document.getElementById("preset-formula").value = "";
+          loadPresets();
+        } catch (e) { alert(e.message); }
+      });
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+      }
+    })();
+  </script>
+</body>
+</html>
