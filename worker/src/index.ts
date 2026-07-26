@@ -16,6 +16,7 @@ import { roomRoutes } from "./routes/rooms";
 import { characterRoutes } from "./routes/characters";
 import { statTemplateRoutes } from "./routes/stat-templates";
 import { ruleSetRoutes } from "./routes/rule-sets";
+import { pollRoutes } from "./routes/polls";
 
 // Re-export da classe RoomDO — o Wrangler precisa encontrar a classe aqui.
 export { RoomDO } from "./durable-objects/RoomDO";
@@ -62,6 +63,7 @@ app.route("/api/rooms", roomRoutes);           // salas + presets de dados
 app.route("/api/characters", characterRoutes); // personagens + stats (homebrew)
 app.route("/api/stat-templates", statTemplateRoutes); // status base (mestre+)
 app.route("/api/rule-sets", ruleSetRoutes);           // sets de regras (mestre+)
+app.route("/api/polls", pollRoutes);                  // enquetes (polls)
 
 // 404 genérico para /api/*
 app.notFound((c) => c.json({ error: "Rota não encontrada." }, 404));

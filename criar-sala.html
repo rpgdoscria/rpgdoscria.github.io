@@ -29,7 +29,7 @@
 
     <section class="mt-6">
       <div class="flex gap-2 items-center flex-wrap">
-        <button class="btn btn-primary" id="btn-create" disabled>Criar sala com os selecionados</button>
+        <button class="btn btn-primary" id="btn-create">Criar sala</button>
         <a href="index.html" class="btn btn-ghost">Cancelar</a>
       </div>
     </section>
@@ -83,7 +83,7 @@
               const id = Number(el.dataset.id);
               if (selected.has(id)) { selected.delete(id); el.classList.remove("selected"); }
               else { selected.add(id); el.classList.add("selected"); }
-              document.getElementById("btn-create").disabled = selected.size === 0;
+              // Botão sempre habilitado — mestre pode criar sala sem personagens
             });
           });
         }
@@ -137,6 +137,7 @@
         btn.innerHTML = '<span class="spinner"></span> Criando…';
         try {
           const res = await window.api.post("/api/rooms", { characterIds: Array.from(selected) });
+          // characterIds pode ser vazio — jogadores entram depois com seus próprios personagens
           // Redireciona IMEDIATAMENTE para o endereço real da sala (sala.html).
           // Não fica preso na tela de criação. O papel (mestre/jogador) será
           // decidido pelo servidor quando sala.html chamar /api/rooms/:code/status.
@@ -144,7 +145,7 @@
         } catch (e) {
           showAlert("error", e.message);
           btn.disabled = false;
-          btn.textContent = "Criar sala com os selecionados";
+          btn.textContent = "Criar sala";
         }
       });
     })();
