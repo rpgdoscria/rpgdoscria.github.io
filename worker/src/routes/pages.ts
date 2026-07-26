@@ -101,6 +101,7 @@ pageRoutes.get("/", async (c) => {
 // GET /api/pages/:slug
 pageRoutes.get("/:slug", async (c) => {
   const slug = c.req.param("slug");
+  const user = c.get("user") as JwtPayload | undefined;
   const page = await queryFirst<{
     id: number;
     slug: string;
@@ -110,22 +111,47 @@ pageRoutes.get("/:slug", async (c) => {
     created_at: string;
     updated_at: string;
     author: string;
+    secret: number;
+    revealed: number;
   }>(
     c.env.DB,
     `SELECT p.id, p.slug, p.title, p.category, p.content_md,
-            p.created_at, p.updated_at, u.username AS author
+            p.created_at, p.updated_at, u.username AS author,
+            p.secret, p.revealed
      FROM pages p JOIN users u ON u.id = p.created_by
      WHERE p.slug = ?`,
     slug
   );
   if (!page) return c.json({ error: "Página não encontrada." }, 404);
-  return c.json(page);
+
+  // Documentos secretos: se secret=1 e revealed=0, só admin pode ver o conteúdo
+  const isAdmin = user && user.role === "admin";
+  if (page.secret === 1 && page.revealed === 0 && !isAdmin) {
+    return c.json({
+      id: page.id,
+      slug: page.slug,
+      title: "🔒 Documento secreto",
+      category: page.category,
+      content_md: "",
+      created_at: page.created_at,
+      updated_at: page.updated_at,
+      author: "???",
+      secret: true,
+      revealed: false,
+    });
+  }
+
+  return c.json({
+    ...page,
+    secret: page.secret === 1,
+    revealed: page.revealed === 1,
+  });
 });
 
 // POST /api/pages  — criação (editor+)
 pageRoutes.post("/", requireRole("editor"), async (c) => {
   const user = c.get("user") as JwtPayload;
-  let body: { title?: string; category?: string; content_md?: string; comment?: string };
+  let body: { title?: string; category?: string; content_md?: string; comment?: string; secret?: boolean };
   try {
     body = await c.req.json();
   } catch {
@@ -135,15 +161,14 @@ pageRoutes.post("/", requireRole("editor"), async (c) => {
   const content_md = body.content_md ?? "";
   const category = (body.category ?? "Lore/História").trim() || "Lore/História";
   const comment = (body.comment ?? "").trim() || "Criação da página";
+  // Só admin pode criar página secreta
+  const isSecret = body.secret === true && user.role === "admin" ? 1 : 0;
 
   if (title.length < 1) return c.json({ error: "Título obrigatório." }, 400);
 
   let slug = slugify(title);
   if (!slug) slug = `pagina-${Date.now()}`;
 
-  // Garante slug único. BUG CORRIGIDO: antes, se o slug colidisse, gerávamos
-  // um sufixo aleatório de 4 chars sem checar se ELE também colidia (raro,
-  // mas possível). Agora tentamos até 5x com sufixo maior.
   let attempt = 0;
   while (attempt < 5) {
     const clash = await queryFirst<{ id: number }>(c.env.DB, `SELECT id FROM pages WHERE slug = ?`, slug);
@@ -152,14 +177,11 @@ pageRoutes.post("/", requireRole("editor"), async (c) => {
     attempt++;
   }
 
-  // BUG CORRIGIDO: antes fazíamos INSERT page seguido de INSERT revision em
-  // duas chamadas separadas; se a segunda falhasse, a página ficava sem
-  // revisão inicial (inconsistência). Agora usamos batch (transação atômica).
   const result = await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO pages (slug, title, category, content_md, created_by)
-       VALUES (?, ?, ?, ?, ?)`
-    ).bind(slug, title, category, content_md, user.sub),
+      `INSERT INTO pages (slug, title, category, content_md, created_by, secret, revealed)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`
+    ).bind(slug, title, category, content_md, user.sub, isSecret),
     // Segunda statement usa last_insert_rowid() para referenciar a page recém-criada
     c.env.DB.prepare(
       `INSERT INTO revisions (page_id, content_md, editor_id, comment)
@@ -362,3 +384,44 @@ pageRoutes.get("/:slug/backlinks", async (c) => {
   );
   return c.json({ backlinks: rows });
 });
+
+// GET /api/pages/secrets/list — lista documentos secretos (admin only)
+pageRoutes.get("/secrets/list", requireRole("admin"), async (c) => {
+  const rows = await queryAll<{
+    id: number; slug: string; title: string; category: string;
+    secret: number; revealed: number; updated_at: string;
+  }>(
+    c.env.DB,
+    `SELECT id, slug, title, category, secret, revealed, updated_at
+     FROM pages WHERE secret = 1 ORDER BY revealed ASC, updated_at DESC`
+  );
+  return c.json({ secrets: rows.map(r => ({
+    id: r.id, slug: r.slug, title: r.title, category: r.category,
+    secret: r.secret === 1, revealed: r.revealed === 1, updatedAt: r.updated_at,
+  })) });
+});
+
+// POST /api/pages/:slug/reveal — marca documento como revelado (admin only)
+pageRoutes.post("/:slug/reveal", requireRole("admin"), async (c) => {
+  const user = c.get("user") as JwtPayload;
+  const slug = c.req.param("slug");
+  const page = await queryFirst<{ id: number; title: string; content_md: string; secret: number }>(
+    c.env.DB,
+    `SELECT id, title, content_md, secret FROM pages WHERE slug = ?`,
+    slug
+  );
+  if (!page) return c.json({ error: "Página não encontrada." }, 404);
+  if (page.secret !== 1) return c.json({ error: "Esta página não é secreta." }, 400);
+
+  await c.env.DB.prepare(`UPDATE pages SET revealed = 1, updated_at = datetime('now') WHERE id = ?`)
+    .bind(page.id).run();
+  await audit(c.env.DB, user.sub, "page.reveal", slug, `title="${page.title}"`);
+
+  return c.json({
+    ok: true,
+    slug,
+    title: page.title,
+    content_md: page.content_md,
+  });
+});
+
