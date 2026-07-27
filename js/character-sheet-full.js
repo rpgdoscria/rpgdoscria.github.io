@@ -129,7 +129,7 @@
           ${avatar}
           <div>
             <h2 class="sheet-full-name">${escapeHtml(ch.name)}</h2>
-            <div class="sheet-full-owner">jogador: ${escapeHtml(ch.ownerUsername)}${ch.pageId ? ` · <a href="page.html?id=${ch.pageId}">ver lore</a>` : ""}</div>
+            <div class="sheet-full-owner">jogador: ${escapeHtml(ch.ownerUsername)}${ch.pageId ? ` · <a href="/page?id=${ch.pageId}">ver lore</a>` : ""}</div>
           </div>
           <div class="sheet-full-bars-featured">
             ${featuredBarsHtml}

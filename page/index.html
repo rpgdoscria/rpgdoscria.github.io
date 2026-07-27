@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202607271519">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271519">
+  <link rel="stylesheet" href="/css/style.css?v=202607271620">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271620">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -20,10 +20,10 @@
 
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/purify.min.js"></script>
-  <script src="/js/config.js?v=202607271519"></script>
-  <script src="/js/api.js?v=202607271519"></script>
-  <script src="/js/auth.js?v=202607271519"></script>
-  <script src="/js/markdown.js?v=202607271519"></script>
+  <script src="/js/config.js?v=202607271620"></script>
+  <script src="/js/api.js?v=202607271620"></script>
+  <script src="/js/auth.js?v=202607271620"></script>
+  <script src="/js/markdown.js?v=202607271620"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount");
@@ -132,7 +132,7 @@
           if (!confirm(`Excluir definitivamente a página "${page.title}"?\n\nTodo o histórico de revisões também será removido.`)) return;
           try {
             await window.api.del(`/api/pages/${encodeURIComponent(slug)}`);
-            location.href = "index.html";
+            location.href = "/";
           } catch (e) {
             alert(e.message);
           }
@@ -145,7 +145,7 @@
           e.preventDefault();
           const title = a.getAttribute("data-wiki-title");
           if (canEdit) {
-            location.href = `edit?title=${encodeURIComponent(title)}`;
+            location.href = `/edit?title=${encodeURIComponent(title)}`;
           } else {
             alert(`A página "${title}" ainda não existe. Peça a um editor para criá-la.`);
           }

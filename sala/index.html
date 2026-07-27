@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202607271519">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271519">
+  <link rel="stylesheet" href="/css/style.css?v=202607271620">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271620">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -347,26 +347,26 @@
 
   <script src="/vendor/purify.min.js"></script>
   <script src="/vendor/marked.min.js"></script>
-  <script src="/js/config.js?v=202607271519"></script>
-  <script src="/js/api.js?v=202607271519"></script>
-  <script src="/js/auth.js?v=202607271519"></script>
-  <script src="/js/markdown.js?v=202607271519"></script>
-  <script src="/js/room-ws.js?v=202607271519"></script>
-  <script src="/js/dice-ui.js?v=202607271519"></script>
-  <script src="/js/dice-visual.js?v=202607271519"></script>
-  <script src="/js/dice-tutorial.js?v=202607271519"></script>
-  <script src="/js/room-render.js?v=202607271519"></script>
-  <script src="/js/character-render.js?v=202607271519"></script>
-  <script src="/js/character-sheet-full.js?v=202607271519"></script>
-  <script src="/js/room-chat.js?v=202607271519"></script>
-  <script src="/js/damage-system.js?v=202607271519"></script>
-  <script src="/js/formula-builder.js?v=202607271519"></script>
-  <script src="/js/poll.js?v=202607271519"></script>
-  <script src="/js/reveal-animations.js?v=202607271519"></script>
-  <script src="/js/trade.js?v=202607271519"></script>
-  <script src="/js/levelup.js?v=202607271519"></script>
-  <script src="/js/purchase.js?v=202607271519"></script>
-  <script src="/js/master-planning.js?v=202607271519"></script>
+  <script src="/js/config.js?v=202607271620"></script>
+  <script src="/js/api.js?v=202607271620"></script>
+  <script src="/js/auth.js?v=202607271620"></script>
+  <script src="/js/markdown.js?v=202607271620"></script>
+  <script src="/js/room-ws.js?v=202607271620"></script>
+  <script src="/js/dice-ui.js?v=202607271620"></script>
+  <script src="/js/dice-visual.js?v=202607271620"></script>
+  <script src="/js/dice-tutorial.js?v=202607271620"></script>
+  <script src="/js/room-render.js?v=202607271620"></script>
+  <script src="/js/character-render.js?v=202607271620"></script>
+  <script src="/js/character-sheet-full.js?v=202607271620"></script>
+  <script src="/js/room-chat.js?v=202607271620"></script>
+  <script src="/js/damage-system.js?v=202607271620"></script>
+  <script src="/js/formula-builder.js?v=202607271620"></script>
+  <script src="/js/poll.js?v=202607271620"></script>
+  <script src="/js/reveal-animations.js?v=202607271620"></script>
+  <script src="/js/trade.js?v=202607271620"></script>
+  <script src="/js/levelup.js?v=202607271620"></script>
+  <script src="/js/purchase.js?v=202607271620"></script>
+  <script src="/js/master-planning.js?v=202607271620"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -1172,7 +1172,7 @@
 
       // Copiar link da sala — todo mundo pode
       document.getElementById("btn-copy-link").addEventListener("click", () => {
-        const link = `${location.origin}${location.pathname.replace(/[^/]*$/, "")}sala?code=${encodeURIComponent(code)}`;
+        const link = `${location.origin}/sala?code=${encodeURIComponent(code)}`;
         navigator.clipboard.writeText(link).then(() => {
           const btn = document.getElementById("btn-copy-link");
           btn.textContent = "✓ Copiado!";
@@ -1180,7 +1180,7 @@
         });
       });
       document.getElementById("room-code").addEventListener("click", () => {
-        const link = `${location.origin}${location.pathname.replace(/[^/]*$/, "")}sala?code=${encodeURIComponent(code)}`;
+        const link = `${location.origin}/sala?code=${encodeURIComponent(code)}`;
         navigator.clipboard.writeText(link).then(() => {
           showAlert("success", `Link copiado: ${link}`);
           setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 4000);

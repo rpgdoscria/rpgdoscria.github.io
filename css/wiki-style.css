@@ -1,6 +1,11 @@
-/* wiki/css/wiki-style.css — estilos específicos da Wiki
+/* css/wiki-style.css — estilos específicos da Wiki
    Herda tudo de style.css (importado nos HTMLs da wiki).
-   Apenas adiciona toques de identidade própria pra diferenciar do resto do site. */
+   Apenas adiciona toques de identidade própria pra diferenciar do resto do site.
+
+   v10 (este patch): este arquivo foi MOVIDO de /wiki/css/wiki-style.css para
+   /css/wiki-style.css, que é o path que todos os HTMLs da wiki já referenciavam.
+   Antes ele estava em local errado e devolvia 404, deixando a wiki sem estilos
+   (sidebar, breadcrumb, page-view, backlinks — tudo sem estilo). */
 
 /* ============================================================
    LAYOUT COM SIDEBAR — wiki/index.html

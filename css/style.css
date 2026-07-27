@@ -3617,19 +3617,20 @@ textarea {
   max-width: 100%;
 }
 
-/* ===== Wiki responsiva ===== */
-.wiki-layout {
-  grid-template-columns: 1fr !important;
-}
-.wiki-sidebar {
-  position: static !important;
-  width: 100% !important;
-  max-height: none !important;
-  margin-bottom: var(--space-3);
-}
-
 /* ===== Breakpoint 768px (tablet) ===== */
 @media (max-width: 768px) {
+  /* Wiki responsiva — só empilha sidebar/conteúdo em telas pequenas.
+     Antes este bloco estava FORA do media query, o que forçava 1 coluna
+     e position:static na sidebar mesmo em desktop, quebrando o layout. */
+  .wiki-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .wiki-sidebar {
+    position: static !important;
+    width: 100% !important;
+    max-height: none !important;
+    margin-bottom: var(--space-3);
+  }
   .container, .container.wide {
     padding: 0 var(--space-2);
   }
