@@ -278,6 +278,12 @@
           s.participantColors[userId] = { ...existing, color };
           break;
         }
+        // ===== Tarefa 3: Lista de participantes atualizada =====
+        case "participants_updated":
+          // Não precisa atualizar estado local — onEvent cuida de re-renderizar.
+          // Mas guardamos no estado pra que outros componentes possam acessar.
+          if (s) s.participants = msg.payload.participants || [];
+          break;
       }
     }
 

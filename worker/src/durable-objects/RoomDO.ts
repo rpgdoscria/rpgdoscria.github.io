@@ -415,7 +415,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     }
     this.broadcast({ type: "participant_joined", payload: { userId: payload.sub, username: payload.username, isMaster, isSpectator: conn.isSpectator } }, server);
 
-    // ===== Tarefa 2: Se o jogador tem characterId e o personagem ainda não está
+    // ===== Tarefa 3: Se o jogador tem characterId e o personagem ainda não está
     // no estado da sala, carrega do D1 e adiciona — depois faz broadcast pra todos. =====
     if (characterId && !isMaster && !isSpectator && !this.state!.characters[characterId]) {
       try {
@@ -444,7 +444,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
           this.state!.characters[characterId] = ch;
           // Broadcast pra TODOS (incluindo o recém-conectado) que o personagem entrou
           this.broadcast({ type: "character_updated", payload: ch });
-          // Atualiza participantColors com o nome/foto do personagem
+          // Tarefa 3: atualiza participantColors com o nome/foto do personagem
           if (!this.state!.participantColors) this.state!.participantColors = {};
           const existing = this.state!.participantColors[payload.sub] || {};
           this.state!.participantColors[payload.sub] = {
@@ -453,6 +453,8 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
             photoUrl: ch.photoUrl,
           };
           await this.persistState(true);
+          // Tarefa 3: broadcast da lista completa de participantes pra todos
+          this.broadcastParticipantsList();
         }
       } catch (e) {
         // best-effort — não falha a conexão se não conseguir carregar o personagem
@@ -1451,6 +1453,8 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       type: "player_color_set",
       payload: { userId: conn.userId, username: conn.username, color, characterId: conn.characterId },
     });
+    // Tarefa 3: atualiza lista de participantes com a nova cor
+    this.broadcastParticipantsList();
   }
 
   private onClose(ws: WebSocket) {
@@ -1458,7 +1462,40 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     this.connections.delete(ws);
     if (conn) {
       this.broadcast({ type: "participant_left", payload: { userId: conn.userId, username: conn.username, isMaster: conn.isMaster } });
+      // Tarefa 3: atualiza lista de participantes pra todos
+      this.broadcastParticipantsList();
     }
+  }
+
+  // Tarefa 3: Monta e faz broadcast da lista completa de participantes
+  // com informações de personagem (nome, foto, cor, status, is_spectator).
+  private broadcastParticipantsList() {
+    if (!this.state) return;
+    const participants = [];
+    for (const [ws, conn] of this.connections) {
+      const info = this.state.participantColors?.[conn.userId] || {};
+      let characterName: string | null = null;
+      let photoUrl: string | null | undefined = null;
+      let stats: any[] | null = null;
+      if (conn.characterId && this.state.characters[conn.characterId]) {
+        const ch = this.state.characters[conn.characterId];
+        characterName = ch.name;
+        photoUrl = ch.photoUrl;
+        stats = ch.stats;
+      }
+      participants.push({
+        userId: conn.userId,
+        username: conn.username,
+        isMaster: conn.isMaster,
+        isSpectator: conn.isSpectator,
+        characterId: conn.characterId ?? null,
+        characterName,
+        photoUrl,
+        color: info.color || null,
+        stats,
+      });
+    }
+    this.broadcast({ type: "participants_updated", payload: { participants } });
   }
 
   // ---------- Persistência ----------

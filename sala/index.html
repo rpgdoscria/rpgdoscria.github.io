@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sala — Rpg dos Cria</title>
-  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="../css/style.css?v=202607271440">
-  <link rel="stylesheet" href="../css/theme-custom.css?v=202607271440">
+  <link rel="stylesheet" href="/css/style.css?v=202607271519">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271519">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -345,28 +345,28 @@
     </div>
   </div>
 
-  <script src="../vendor/purify.min.js"></script>
-  <script src="../vendor/marked.min.js"></script>
-  <script src="../js/config.js?v=202607271440"></script>
-  <script src="../js/api.js?v=202607271440"></script>
-  <script src="../js/auth.js?v=202607271440"></script>
-  <script src="../js/markdown.js?v=202607271440"></script>
-  <script src="../js/room-ws.js?v=202607271440"></script>
-  <script src="../js/dice-ui.js?v=202607271440"></script>
-  <script src="../js/dice-visual.js?v=202607271440"></script>
-  <script src="../js/dice-tutorial.js?v=202607271440"></script>
-  <script src="../js/room-render.js?v=202607271440"></script>
-  <script src="../js/character-render.js?v=202607271440"></script>
-  <script src="../js/character-sheet-full.js?v=202607271440"></script>
-  <script src="../js/room-chat.js?v=202607271440"></script>
-  <script src="../js/damage-system.js?v=202607271440"></script>
-  <script src="../js/formula-builder.js?v=202607271440"></script>
-  <script src="../js/poll.js?v=202607271440"></script>
-  <script src="../js/reveal-animations.js?v=202607271440"></script>
-  <script src="../js/trade.js?v=202607271440"></script>
-  <script src="../js/levelup.js?v=202607271440"></script>
-  <script src="../js/purchase.js?v=202607271440"></script>
-  <script src="../js/master-planning.js?v=202607271440"></script>
+  <script src="/vendor/purify.min.js"></script>
+  <script src="/vendor/marked.min.js"></script>
+  <script src="/js/config.js?v=202607271519"></script>
+  <script src="/js/api.js?v=202607271519"></script>
+  <script src="/js/auth.js?v=202607271519"></script>
+  <script src="/js/markdown.js?v=202607271519"></script>
+  <script src="/js/room-ws.js?v=202607271519"></script>
+  <script src="/js/dice-ui.js?v=202607271519"></script>
+  <script src="/js/dice-visual.js?v=202607271519"></script>
+  <script src="/js/dice-tutorial.js?v=202607271519"></script>
+  <script src="/js/room-render.js?v=202607271519"></script>
+  <script src="/js/character-render.js?v=202607271519"></script>
+  <script src="/js/character-sheet-full.js?v=202607271519"></script>
+  <script src="/js/room-chat.js?v=202607271519"></script>
+  <script src="/js/damage-system.js?v=202607271519"></script>
+  <script src="/js/formula-builder.js?v=202607271519"></script>
+  <script src="/js/poll.js?v=202607271519"></script>
+  <script src="/js/reveal-animations.js?v=202607271519"></script>
+  <script src="/js/trade.js?v=202607271519"></script>
+  <script src="/js/levelup.js?v=202607271519"></script>
+  <script src="/js/purchase.js?v=202607271519"></script>
+  <script src="/js/master-planning.js?v=202607271519"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -598,8 +598,12 @@
             incrementChatBadge();
           }
         } else if (msg.type === "participant_joined" || msg.type === "participant_left") {
-          // Notificação silenciosa na Visão Geral
-          // (não mostramos toast — já aparece no chat via sistema)
+          // Notificação silenciosa — a lista de participantes é atualizada via participants_updated
+        } else if (msg.type === "participants_updated") {
+          // Tarefa 3: re-renderiza a lista de participantes na Visão Geral
+          if (msg.payload && msg.payload.participants) {
+            renderParticipantsList(msg.payload.participants);
+          }
         } else if (msg.type === "reveal_document") {
           // Documento secreto revelado pelo mestre — dispara a animação pra todos
           if (window.revealAnimations && msg.payload) {
@@ -853,6 +857,47 @@
           opt.value = p; opt.textContent = p;
           presetSelect.appendChild(opt);
         });
+      }
+
+      // Tarefa 3: Render da lista de participantes (recebida via participants_updated)
+      function renderParticipantsList(participants) {
+        const container = document.getElementById("characters-grid-compact");
+        if (!container) return;
+        if (!participants || participants.length === 0) {
+          container.innerHTML = `<div class="muted text-sm">Ninguém na sala ainda.</div>`;
+          return;
+        }
+        container.innerHTML = participants.map(p => {
+          const name = p.characterName || (p.isMaster ? "Mestre" : p.isSpectator ? "Espectador" : p.username);
+          const photo = p.photoUrl
+            ? `<img src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(name)}" style="width:100%;height:100%;object-fit:cover">`
+            : escapeHtml((name || "?").charAt(0).toUpperCase());
+          // Barras de status (até 2) — só para não-espectadores
+          let barsHtml = "";
+          if (p.stats && !p.isSpectator) {
+            const bars = p.stats.filter(s => s.type === "bar").slice(0, 2);
+            barsHtml = bars.map(b => {
+              const cur = Number(b.valueCurrent ?? 0);
+              const max = Number(b.valueMax ?? 0);
+              const pct = max > 0 ? Math.max(0, Math.min(100, (cur / max) * 100)) : 0;
+              const color = cur > max * 0.6 ? "var(--success)" : cur > max * 0.3 ? "var(--warning)" : "var(--danger)";
+              return `<div class="compact-bar" title="${escapeHtml(b.name)}: ${cur}/${max}"><div class="compact-bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
+            }).join("");
+          }
+          if (!barsHtml) {
+            barsHtml = p.isSpectator ? '<div class="text-xs muted">👁 espectador</div>' : '<div class="text-xs muted">sem barras</div>';
+          }
+          const borderColor = p.color || "var(--border-soft)";
+          const roleTag = p.isMaster ? '<span class="tag" style="font-size:9px;background:var(--accent);color:var(--accent-fg)">MESTRE</span>' :
+                          p.isSpectator ? '<span class="tag tag-off" style="font-size:9px">ESPECTADOR</span>' : '';
+          return `<div class="compact-char-card" style="border-color:${escapeHtml(borderColor)}" title="${escapeHtml(name)}">
+            <div class="compact-char-avatar">${photo}</div>
+            <div class="compact-char-info">
+              <div class="compact-char-name">${escapeHtml(name)} ${roleTag}</div>
+              <div class="compact-char-bars">${barsHtml}</div>
+            </div>
+          </div>`;
+        }).join("");
       }
 
       // Render de card compacto para a Visão Geral (Tarefa 1)
