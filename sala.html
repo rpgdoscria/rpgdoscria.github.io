@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=202607271019">
-  <link rel="stylesheet" href="css/theme-custom.css?v=202607271019">
+  <link rel="stylesheet" href="css/style.css?v=202607271115">
+  <link rel="stylesheet" href="css/theme-custom.css?v=202607271115">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -83,6 +83,10 @@
         <button class="room-tab hidden" id="tab-docs" data-tab="secrets" role="tab" aria-selected="false" aria-controls="panel-docs">
           <span class="room-tab-icon">📜</span>
           <span class="room-tab-label">Documentos</span>
+        </button>
+        <button class="room-tab hidden" id="tab-planning" data-tab="planning" role="tab" aria-selected="false" aria-controls="panel-planning">
+          <span class="room-tab-icon">🛠</span>
+          <span class="room-tab-label">Planejamento</span>
         </button>
       </nav>
 
@@ -227,6 +231,26 @@
           </div>
         </div>
       </section>
+
+      <!-- Aba Planejamento (mestre only) — Tarefa 5 -->
+      <section class="room-tab-panel" id="panel-planning" data-tab-panel="planning" role="tabpanel" aria-labelledby="tab-planning">
+        <div class="planning-section">
+          <h4>📝 Anotações da sessão</h4>
+          <textarea class="planning-textarea" id="planning-notes" placeholder="Notas privadas da sessão: o que aconteceu, o que planeja pro próximo encontro, ganchos de história…"></textarea>
+          <div class="planning-save-status" id="planning-notes-status">—</div>
+        </div>
+        <div class="planning-section">
+          <h4>⚔️ Inimigos pré-prontos</h4>
+          <p class="text-sm muted mb-2">Inimigos salvos pra lançar na aba Inimigos durante o combate.</p>
+          <textarea class="planning-textarea" id="planning-enemies" placeholder="Um inimigo por linha, formato livre. Ex:&#10;Goblin Chefe — HP 25, CA 14, ataque +5 (1d6+3)&#10;Orc Xamã — HP 18, CA 12, magia 2x/dia (Raio de Fogo 3d6)"></textarea>
+          <div class="planning-save-status" id="planning-enemies-status">—</div>
+        </div>
+        <div class="planning-section">
+          <h4>🗺️ Cenários / NPCs / Locais</h4>
+          <textarea class="planning-textarea" id="planning-scenarios" placeholder="Cenários, NPCs, locais, eventos futuros…"></textarea>
+          <div class="planning-save-status" id="planning-scenarios-status">—</div>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -315,25 +339,26 @@
 
   <script src="vendor/purify.min.js"></script>
   <script src="vendor/marked.min.js"></script>
-  <script src="js/config.js?v=202607271019"></script>
-  <script src="js/api.js?v=202607271019"></script>
-  <script src="js/auth.js?v=202607271019"></script>
-  <script src="js/markdown.js?v=202607271019"></script>
-  <script src="js/room-ws.js?v=202607271019"></script>
-  <script src="js/dice-ui.js?v=202607271019"></script>
-  <script src="js/dice-visual.js?v=202607271019"></script>
-  <script src="js/dice-tutorial.js?v=202607271019"></script>
-  <script src="js/room-render.js?v=202607271019"></script>
-  <script src="js/character-render.js?v=202607271019"></script>
-  <script src="js/character-sheet-full.js?v=202607271019"></script>
-  <script src="js/room-chat.js?v=202607271019"></script>
-  <script src="js/damage-system.js?v=202607271019"></script>
-  <script src="js/formula-builder.js?v=202607271019"></script>
-  <script src="js/poll.js?v=202607271019"></script>
-  <script src="js/reveal-animations.js?v=202607271019"></script>
-  <script src="js/trade.js?v=202607271019"></script>
-  <script src="js/levelup.js?v=202607271019"></script>
-  <script src="js/purchase.js?v=202607271019"></script>
+  <script src="js/config.js?v=202607271115"></script>
+  <script src="js/api.js?v=202607271115"></script>
+  <script src="js/auth.js?v=202607271115"></script>
+  <script src="js/markdown.js?v=202607271115"></script>
+  <script src="js/room-ws.js?v=202607271115"></script>
+  <script src="js/dice-ui.js?v=202607271115"></script>
+  <script src="js/dice-visual.js?v=202607271115"></script>
+  <script src="js/dice-tutorial.js?v=202607271115"></script>
+  <script src="js/room-render.js?v=202607271115"></script>
+  <script src="js/character-render.js?v=202607271115"></script>
+  <script src="js/character-sheet-full.js?v=202607271115"></script>
+  <script src="js/room-chat.js?v=202607271115"></script>
+  <script src="js/damage-system.js?v=202607271115"></script>
+  <script src="js/formula-builder.js?v=202607271115"></script>
+  <script src="js/poll.js?v=202607271115"></script>
+  <script src="js/reveal-animations.js?v=202607271115"></script>
+  <script src="js/trade.js?v=202607271115"></script>
+  <script src="js/levelup.js?v=202607271115"></script>
+  <script src="js/purchase.js?v=202607271115"></script>
+  <script src="js/master-planning.js?v=202607271115"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -586,6 +611,21 @@
         currentState = state;
         // Expõe o estado globalmente pra trade.js/purchase.js acessarem (contraproposta)
         window._roomState = state;
+        // Sincroniza cores dos participantes com o módulo de chat (Tarefa 2 + 4)
+        if (state.participantColors && window.roomChat) {
+          // Enriquece o mapa com characterName/photoUrl dos personagens na sala
+          const enriched = {};
+          Object.entries(state.participantColors).forEach(([uid, info]) => {
+            const userId = Number(uid);
+            const ch = (state.characters || []).find(c => c.ownerUserId === userId);
+            enriched[uid] = {
+              color: info.color,
+              characterName: ch ? ch.name : null,
+              photoUrl: ch ? ch.photoUrl : null,
+            };
+          });
+          window.roomChat.setParticipantColors(enriched);
+        }
         render(state, isMaster);
         // Renderiza histórico de chat quando disponível no estado
         if (state.chatLog && window.roomChat) {
@@ -593,6 +633,50 @@
         }
       };
       client.connect();
+
+      // === Tarefa 4: Envia cor do jogador ao conectar ===
+      // Lê cor do sessionStorage (definida em entrar-sala.html).
+      // Se não houver, gera uma cor aleatória baseada no userId.
+      // Só envia depois de receber o primeiro room_state (pra não enviar antes do connect).
+      const origOnStateChange2 = client.onStateChange;
+      let colorSent = false;
+      client.onStateChange = (state) => {
+        if (origOnStateChange2) origOnStateChange2(state);
+        if (!colorSent && state) {
+          colorSent = true;
+          let color;
+          try { color = sessionStorage.getItem("rpg_player_color"); } catch {}
+          if (!color || !/^#[0-9a-f]{6}$/i.test(color)) {
+            // Gera cor aleatória baseada no userId
+            const palette = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ec4899"];
+            color = palette[sess.user.id % palette.length];
+          }
+          // Mestre não envia cor (a dele é fixa vermelha tema no handleInit)
+          if (!isMaster) {
+            setTimeout(() => client.send("set_player_color", { color }), 200);
+          }
+        }
+      };
+
+      // Botão pra trocar cor durante a sessão (no header da sala, próximo ao badge)
+      const roleBadge = document.getElementById("role-badge");
+      if (roleBadge && !isMaster) {
+        // Torna o badge clicável pra abrir o color picker nativo
+        roleBadge.title = "Clique para trocar sua cor";
+        roleBadge.style.cursor = "pointer";
+        const colorInput = document.createElement("input");
+        colorInput.type = "color";
+        colorInput.style.display = "none";
+        colorInput.value = (() => { try { return sessionStorage.getItem("rpg_player_color") || "#a855f7"; } catch { return "#a855f7"; } })();
+        roleBadge.addEventListener("click", () => colorInput.click());
+        colorInput.addEventListener("input", () => {
+          const c = colorInput.value;
+          try { sessionStorage.setItem("rpg_player_color", c); } catch {}
+          client.send("set_player_color", { color: c });
+          roleBadge.style.background = c;
+        });
+        document.body.appendChild(colorInput);
+      }
 
       // Expõe o client globalmente pra os módulos (trade, purchase, levelup, poll) acessarem
       window._roomClient = client;
@@ -714,7 +798,9 @@
         document.getElementById("verifying-screen").classList.add("hidden");
         document.getElementById("room-screen").classList.remove("hidden");
         document.getElementById("room-code").textContent = st.code;
-        document.getElementById("room-title").textContent = isMaster ? "Sala do Mestre" : "Sala de Jogo";
+        document.getElementById("room-title").textContent = (st.name || "Sala") + (isMaster ? " — Mestre" : "");
+        // Atualiza título da aba do navegador
+        document.title = `${st.name || "Sala"} — Rpg dos Cria`;
         const roleBadge = document.getElementById("role-badge");
         roleBadge.textContent = isMaster ? "MESTRE" : "JOGADOR";
         roleBadge.style.background = isMaster ? "var(--accent)" : "var(--surface)";
@@ -729,6 +815,10 @@
           document.getElementById("suggestions-panel").classList.remove("hidden");
           // Aba Documentos Secretos só aparece pra mestre
           document.getElementById("tab-docs").classList.remove("hidden");
+          // Aba Planejamento só aparece pra mestre (Tarefa 5)
+          document.getElementById("tab-planning").classList.remove("hidden");
+          // Inicializa planejamento (carrega do backend) — só roda uma vez
+          try { window.masterPlanning.init(code); } catch (e) { console.warn("planning init:", e); }
           // Ações rápidas de mestre na Visão Geral
           document.getElementById("btn-create-purchase-overview").classList.remove("hidden");
           // Mestre não cria troca com ele mesmo, mas pode oferecer compra — esconde trade

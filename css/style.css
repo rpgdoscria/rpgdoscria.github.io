@@ -2777,3 +2777,462 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: var(--space
   .room-tab-icon { font-size: 18px; }
   .overview-cards { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   TAREFAS 2-7 — Novos estilos (chat com bolhas, cor do jogador,
+   dado visual melhorado, aba Planejamento, perfil, símbolo)
+   ============================================================ */
+
+/* ===== Tarefa 4: Color picker na tela de entrar ===== */
+.color-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.color-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--border-soft);
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  padding: 0;
+}
+.color-swatch:hover {
+  transform: scale(1.1);
+  border-color: var(--accent);
+}
+.color-swatch.selected {
+  border-color: var(--text);
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent);
+  transform: scale(1.15);
+}
+
+/* ===== Tarefa 2: Chat com bolhas (estilo messenger) ===== */
+.chat-bubble-row {
+  display: flex;
+  margin-bottom: 10px;
+  gap: 8px;
+  align-items: flex-end;
+}
+.chat-bubble-row.self {
+  flex-direction: row-reverse;
+}
+.chat-bubble-avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border-soft);
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+}
+.chat-bubble-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.chat-bubble-content {
+  max-width: 75%;
+  min-width: 0;
+}
+.chat-bubble-sender {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  opacity: 0.9;
+}
+.chat-bubble-row.self .chat-bubble-sender {
+  text-align: right;
+}
+.chat-bubble {
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 14px;
+  word-wrap: break-word;
+  word-break: break-word;
+  position: relative;
+  line-height: 1.4;
+}
+.chat-bubble-row:not(.self) .chat-bubble {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-bottom-left-radius: 4px;
+}
+.chat-bubble-row.self .chat-bubble {
+  border-bottom-right-radius: 4px;
+  color: #fff;
+}
+.chat-bubble-time {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+.chat-bubble-row.self .chat-bubble-time {
+  text-align: right;
+}
+.chat-bubble-system {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 8px 0;
+  padding: 4px 0;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* ===== Tarefa 3: Dado visual melhorado (gradientes, sombras, brilho) ===== */
+.dice-visual-bar {
+  background: linear-gradient(180deg, rgba(26, 26, 26, 0.85) 0%, rgba(18, 18, 18, 0.95) 100%);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  margin-bottom: var(--space-3);
+}
+.dice-visual-die {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 50%, #0f0f0f 100%);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  position: relative;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dice-visual-die.idle {
+  background: linear-gradient(135deg, #1a1a1a 0%, #121212 100%);
+  opacity: 0.6;
+}
+.dice-visual-die.rolling {
+  animation: dice-roll-spin 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.dice-visual-die.settled {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 16px var(--accent),
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.dice-visual-die-label {
+  position: absolute;
+  top: 4px;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+}
+.dice-visual-die-number {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-mono);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.dice-visual-die.settled .dice-visual-die-number {
+  color: var(--accent-fg);
+  animation: dice-number-glow 0.6s ease;
+}
+@keyframes dice-number-glow {
+  0% { transform: scale(1.5); text-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent); }
+  50% { transform: scale(1.2); text-shadow: 0 0 12px var(--accent); }
+  100% { transform: scale(1); text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); }
+}
+.dice-visual-die-group {
+  position: relative;
+  display: inline-block;
+}
+.dice-visual-die-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+.dice-visual-total {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  line-height: 1;
+  text-shadow: 0 0 16px rgba(179, 18, 28, 0.5);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.3s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dice-visual-total.revealed {
+  opacity: 1;
+  transform: scale(1);
+  animation: dice-total-pop 0.5s ease;
+}
+@keyframes dice-total-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== Tarefa 5: Aba Planejamento do mestre ===== */
+.planning-section {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.planning-section h4 {
+  margin: 0 0 var(--space-2) 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.planning-textarea {
+  width: 100%;
+  min-height: 180px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.planning-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.planning-save-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-align: right;
+}
+.planning-enemy-card {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.planning-enemy-card .enemy-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.planning-enemy-card .enemy-stats {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ===== Tarefa 6: Perfil / Dashboard ===== */
+.perfil-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+.perfil-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+.perfil-card h3 {
+  margin: 0 0 var(--space-3) 0;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.perfil-char-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  margin-bottom: 6px;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.perfil-char-mini:hover {
+  border-color: var(--accent);
+  transform: translateX(2px);
+}
+.perfil-char-mini-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.perfil-char-mini-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.perfil-char-mini-info {
+  flex: 1;
+  min-width: 0;
+}
+.perfil-char-mini-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.perfil-char-mini-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.perfil-list-item {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  margin-bottom: 6px;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+.perfil-list-item:hover {
+  border-color: var(--accent);
+}
+.perfil-list-item-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.perfil-list-item-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.perfil-room-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  margin-bottom: 6px;
+}
+.perfil-room-row.inactive {
+  opacity: 0.7;
+}
+.perfil-room-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+}
+.perfil-room-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+
+/* ===== Tarefa 7: Desenhista de símbolo (canvas) ===== */
+.symbol-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.symbol-drawer-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.symbol-drawer-card h3 {
+  margin: 0 0 12px 0;
+  font-family: var(--font-serif);
+}
+.symbol-drawer-canvas-wrap {
+  position: relative;
+  background:
+    linear-gradient(45deg, #1a1a1a 25%, transparent 25%),
+    linear-gradient(-45deg, #1a1a1a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1a1a1a 75%),
+    linear-gradient(-45deg, transparent 75%, #1a1a1a 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  background-color: #0f0f0f;
+  border: 2px solid var(--border-soft);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  display: grid;
+  place-items: center;
+}
+.symbol-drawer-canvas {
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+  background: transparent;
+}
+.symbol-drawer-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.symbol-drawer-tools label {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.symbol-drawer-tools input[type="range"] {
+  width: 80px;
+}
+.symbol-drawer-color-palette {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.symbol-drawer-color-palette button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border-soft);
+  cursor: pointer;
+  padding: 0;
+}
+.symbol-drawer-color-palette button.selected {
+  border-color: var(--accent);
+  transform: scale(1.15);
+}

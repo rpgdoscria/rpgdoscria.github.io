@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meu perfil — Rpg dos Cria</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=202607271115">
+  <link rel="stylesheet" href="css/theme-custom.css?v=202607271115">
+</head>
+<body>
+  <div id="header-mount"></div>
+
+  <main class="container wide">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
+      <div>
+        <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0;">Meu perfil</h1>
+        <p class="muted text-sm" id="user-info">Carregando…</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="criar-personagem.html" class="btn btn-primary btn-sm">+ Novo personagem</a>
+        <a href="wiki/editar.html?new=true" class="btn btn-ghost btn-sm">+ Nova página wiki</a>
+      </div>
+    </div>
+
+    <div id="alert-mount"></div>
+
+    <div class="perfil-grid" id="perfil-grid">
+      <div class="muted text-sm">Carregando dados…</div>
+    </div>
+  </main>
+
+  <script src="vendor/purify.min.js"></script>
+  <script src="vendor/marked.min.js"></script>
+  <script src="js/config.js?v=202607271115"></script>
+  <script src="js/api.js?v=202607271115"></script>
+  <script src="js/auth.js?v=202607271115"></script>
+  <script src="js/perfil.js?v=202607271115"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "perfil");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+      await window.perfil.init(sess);
+    })();
+  </script>
+</body>
+</html>

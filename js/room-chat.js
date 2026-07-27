@@ -1,7 +1,12 @@
-// frontend/js/room-chat.js — UI e lógica do chat da sala
+// frontend/js/room-chat.js — UI e lógica do chat da sala (versão bolhas)
 //
-// Conecta ao protocolo WebSocket existente (room-ws.js) pra enviar e receber
-// mensagens de chat. Sanitiza todo texto com DOMPurify antes de renderizar.
+// Reformulado (Tarefa 2): agora cada mensagem é uma bolha com:
+//   - Avatar do personagem (foto ou inicial) com borda na cor do jogador
+//   - Nome do personagem (ou username se mestre) na cor do jogador
+//   - Texto com fundo colorido pela cor do jogador (mensagens self)
+//   - Bolhas self alinhadas à direita, others à esquerda
+//   - Mensagens de sistema em estilo diferenciado (itálico, cinza, sem foto)
+//   - Scroll automático segue novas mensagens (exceto se usuário rolou pra cima)
 
 (function () {
   function escapeHtml(s) {
@@ -16,11 +21,24 @@
     return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }
 
+  // Mapa de cores dos participantes: userId -> { color, characterName, photoUrl }
+  // Populado por sala.html quando recebe eventos set_player_color ou room_state.
+  let participantColors = {};
+  let currentUserId = null;
+  let onSendCallback = null;
   let chatContainer = null;
   let chatInput = null;
   let chatSendBtn = null;
-  let currentUserId = null;
-  let onSendCallback = null;
+  let autoScrollEnabled = true;
+
+  // Atualiza as cores dos participantes — chamado externamente por sala.html
+  function setParticipantColors(map) {
+    participantColors = Object.assign({}, participantColors, map);
+  }
+
+  function getParticipantInfo(userId) {
+    return participantColors[userId] || { color: "#888888", characterName: null, photoUrl: null };
+  }
 
   function init(containerSelector, userId, sendCallback) {
     chatContainer = document.querySelector(containerSelector);
@@ -35,7 +53,7 @@
     chatContainer.innerHTML = `
       <div class="chat-container">
         <div class="chat-messages" id="chat-messages">
-          <div class="chat-msg chat-msg-system">Nenhuma mensagem ainda. Diga olá! 👋</div>
+          <div class="chat-bubble-system">Nenhuma mensagem ainda. Diga olá! 👋</div>
         </div>
         <div class="chat-input-row">
           <input type="text" id="chat-input" placeholder="Digite uma mensagem…" maxlength="500" autocomplete="off">
@@ -43,11 +61,17 @@
         </div>
       </div>
     `;
+    const msgs = document.getElementById("chat-messages");
     chatInput = document.getElementById("chat-input");
     chatSendBtn = document.getElementById("chat-send");
     chatSendBtn.addEventListener("click", sendMessage);
     chatInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); sendMessage(); }
+    });
+    // Detecta scroll pra desabilitar auto-scroll se usuário subiu
+    msgs.addEventListener("scroll", () => {
+      const atBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 60;
+      autoScrollEnabled = atBottom;
     });
   }
 
@@ -56,19 +80,57 @@
     if (!text || !onSendCallback) return;
     onSendCallback(text);
     chatInput.value = "";
+    autoScrollEnabled = true;  // reabilita auto-scroll após enviar
+  }
+
+  function maybeAutoScroll() {
+    if (!autoScrollEnabled) return;
+    const msgs = document.getElementById("chat-messages");
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
   }
 
   function renderMessage(msg) {
     const msgs = document.getElementById("chat-messages");
     if (!msgs) return;
+
+    // Mensagem de sistema (senderUserId === 0 ou senderUsername === "sistema")
+    if (msg.senderUserId === 0 || msg.senderUsername === "sistema") {
+      const sysDiv = document.createElement("div");
+      sysDiv.className = "chat-bubble-system";
+      sysDiv.textContent = msg.text;
+      msgs.appendChild(sysDiv);
+      maybeAutoScroll();
+      return;
+    }
+
     const isSelf = msg.senderUserId === currentUserId;
-    const cls = isSelf ? "chat-msg-self" : "chat-msg-other";
-    const senderHtml = isSelf ? "" : `<div class="chat-msg-sender">${escapeHtml(msg.senderUsername)}</div>`;
-    const div = document.createElement("div");
-    div.className = `chat-msg ${cls}`;
-    div.innerHTML = `${senderHtml}${sanitizeText(msg.text)}<div class="chat-msg-time">${formatTime(msg.timestamp)}</div>`;
-    msgs.appendChild(div);
-    msgs.scrollTop = msgs.scrollHeight;
+    const info = getParticipantInfo(msg.senderUserId);
+    const displayName = info.characterName || msg.senderUsername || "desconhecido";
+    const color = info.color || "#888888";
+    const initial = (displayName || "?").charAt(0).toUpperCase();
+
+    // Avatar
+    const avatarHtml = info.photoUrl
+      ? `<div class="chat-bubble-avatar" style="border-color:${escapeHtml(color)}"><img src="${escapeHtml(info.photoUrl)}" alt=""></div>`
+      : `<div class="chat-bubble-avatar" style="border-color:${escapeHtml(color)};background:${escapeHtml(color)}33;color:${escapeHtml(color)}">${escapeHtml(initial)}</div>`;
+
+    // Bolha — self usa cor do jogador como fundo, others usa surface
+    const bubbleStyle = isSelf
+      ? `background:${escapeHtml(color)};color:#fff`
+      : `background:var(--surface);border-left:3px solid ${escapeHtml(color)}`;
+
+    const row = document.createElement("div");
+    row.className = `chat-bubble-row ${isSelf ? "self" : ""}`;
+    row.innerHTML = `
+      ${avatarHtml}
+      <div class="chat-bubble-content">
+        <div class="chat-bubble-sender" style="color:${escapeHtml(color)}">${escapeHtml(displayName)}</div>
+        <div class="chat-bubble" style="${bubbleStyle}">${sanitizeText(msg.text)}</div>
+        <div class="chat-bubble-time" style="${isSelf ? "color:rgba(255,255,255,0.7)" : ""}">${formatTime(msg.timestamp)}</div>
+      </div>
+    `;
+    msgs.appendChild(row);
+    maybeAutoScroll();
   }
 
   function renderHistory(messages) {
@@ -76,11 +138,11 @@
     if (!msgs) return;
     msgs.innerHTML = "";
     if (!messages || messages.length === 0) {
-      msgs.innerHTML = `<div class="chat-msg chat-msg-system">Nenhuma mensagem ainda. Diga olá! 👋</div>`;
+      msgs.innerHTML = `<div class="chat-bubble-system">Nenhuma mensagem ainda. Diga olá! 👋</div>`;
       return;
     }
     messages.forEach(m => renderMessage(m));
   }
 
-  window.roomChat = { init, renderMessage, renderHistory, renderEmpty };
+  window.roomChat = { init, renderMessage, renderHistory, renderEmpty, setParticipantColors };
 })();

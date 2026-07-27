@@ -8,20 +8,30 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=202607271019">
-  <link rel="stylesheet" href="css/theme-custom.css?v=202607271019">
+  <link rel="stylesheet" href="css/style.css?v=202607271115">
+  <link rel="stylesheet" href="css/theme-custom.css?v=202607271115">
 </head>
 <body>
   <div id="header-mount"></div>
 
   <main class="container wide">
     <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0 0 var(--space-2) 0;">Criar sala de jogo</h1>
-    <p class="muted text-sm mb-6">Selecione os personagens que vão participar desta sessão. Depois de criar, você recebe um link único pra compartilhar com o grupo.</p>
+    <p class="muted text-sm mb-6">Dê um nome para a sala e selecione os personagens que vão participar desta sessão. Depois de criar, você recebe um link único pra compartilhar com o grupo.</p>
 
     <div id="alert-mount"></div>
 
+    <section class="mb-6">
+      <h2 style="font-size: 18px; margin: 0 0 var(--space-3) 0;">Nome da sala *</h2>
+      <div class="field">
+        <input type="text" id="room-name" maxlength="100" placeholder="Ex: A Mansão Assombrada — Sessão 3"
+               style="font-size: 16px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; color: var(--text);">
+        <p class="text-xs muted mt-2">O nome aparece no topo da sala e na sua lista de salas. Pode mudar depois.</p>
+      </div>
+    </section>
+
     <section>
-      <h2 style="font-size: 18px; margin: 0 0 var(--space-3) 0;">Personagens disponíveis</h2>
+      <h2 style="font-size: 18px; margin: 0 0 var(--space-3) 0;">Personagens disponíveis (opcional)</h2>
+      <p class="muted text-sm mb-3">Você pode criar a sala sem personagens — os jogadores entram depois com os próprios.</p>
       <div id="characters-list" class="create-room-grid">
         <div class="muted text-sm">Carregando…</div>
       </div>
@@ -29,20 +39,24 @@
 
     <section class="mt-6">
       <div class="flex gap-2 items-center flex-wrap">
-        <button class="btn btn-primary" id="btn-create">Criar sala</button>
+        <button class="btn btn-primary" id="btn-create" disabled>Criar sala</button>
         <a href="index.html" class="btn btn-ghost">Cancelar</a>
+        <span class="text-xs muted" id="create-hint">Digite um nome para a sala</span>
       </div>
     </section>
 
     <section class="mt-6 hidden" id="existing-rooms">
-      <h2 style="font-size: 18px; margin: 0 0 var(--space-3) 0;">Suas salas ativas</h2>
+      <div class="section-divider">
+        <h2 style="font-size: 18px; margin: 0;">Suas salas</h2>
+        <span class="muted text-sm">Ativas e encerradas (clique pra reabrir ou excluir)</span>
+      </div>
       <div id="rooms-list" class="card"></div>
     </section>
   </main>
 
-  <script src="js/config.js?v=202607271019"></script>
-  <script src="js/api.js?v=202607271019"></script>
-  <script src="js/auth.js?v=202607271019"></script>
+  <script src="js/config.js?v=202607271115"></script>
+  <script src="js/api.js?v=202607271115"></script>
+  <script src="js/auth.js?v=202607271115"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -64,6 +78,23 @@
       }
 
       const selected = new Set();
+      const nameInput = document.getElementById("room-name");
+      const btnCreate = document.getElementById("btn-create");
+      const createHint = document.getElementById("create-hint");
+
+      // Habilita botão Criar só quando tem nome
+      function updateCreateBtn() {
+        const name = nameInput.value.trim();
+        btnCreate.disabled = name.length === 0;
+        createHint.textContent = name.length === 0 ? "Digite um nome para a sala" : `Pronto pra criar "${name}"`;
+      }
+      nameInput.addEventListener("input", updateCreateBtn);
+      nameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !btnCreate.disabled) {
+          e.preventDefault();
+          btnCreate.click();
+        }
+      });
 
       // Carrega personagens
       try {
@@ -83,7 +114,6 @@
               const id = Number(el.dataset.id);
               if (selected.has(id)) { selected.delete(id); el.classList.remove("selected"); }
               else { selected.add(id); el.classList.add("selected"); }
-              // Botão sempre habilitado — mestre pode criar sala sem personagens
             });
           });
         }
@@ -91,7 +121,7 @@
         showAlert("error", `Erro ao carregar personagens: ${e.message}`);
       }
 
-      // Carrega salas ativas
+      // Carrega salas existentes (ativas E inativas)
       try {
         const data = await window.api.get("/api/rooms");
         if (data.rooms && data.rooms.length > 0) {
@@ -100,13 +130,22 @@
           rl.innerHTML = data.rooms.map(r => `
             <div class="list-row">
               <div>
-                <div class="title"><code style="font-size: 16px; color: var(--accent); letter-spacing: 0.05em">${escapeHtml(r.code)}</code></div>
-                <div class="meta">${r.participantCount} personagens · ${r.enemyCount} inimigos · ${r.diceCount} rolagens · ${r.locked ? "🔒 travada" : "🔓 aberta"}</div>
+                <div class="title">
+                  ${r.isActive ? "" : '<span class="tag tag-off" style="margin-right:6px">encerrada</span>'}
+                  <strong>${escapeHtml(r.name || "Sala sem nome")}</strong>
+                  <code style="font-size: 13px; color: var(--accent); letter-spacing: 0.05em; margin-left: 8px">${escapeHtml(r.code)}</code>
+                </div>
+                <div class="meta">criada ${escapeHtml(r.createdAt || "?")} · ${r.isActive ? "ativa" : "encerrada" + (r.endedAt ? " em " + escapeHtml(r.endedAt) : "")}</div>
               </div>
               <div class="spacer"></div>
-              <a class="btn btn-sm btn-primary" href="sala.html?code=${encodeURIComponent(r.code)}">Reabrir</a>
-              <button class="btn btn-sm" data-copy="${escapeHtml(r.code)}">Copiar link</button>
-              <button class="btn btn-sm btn-danger" data-end-code="${escapeHtml(r.code)}">Encerrar</button>
+              ${r.isActive ? `
+                <a class="btn btn-sm btn-primary" href="sala.html?code=${encodeURIComponent(r.code)}">Reabrir</a>
+                <button class="btn btn-sm" data-copy="${escapeHtml(r.code)}">Copiar link</button>
+                <button class="btn btn-sm btn-ghost" data-end-code="${escapeHtml(r.code)}">Encerrar</button>
+              ` : `
+                <a class="btn btn-sm btn-ghost" href="sala.html?code=${encodeURIComponent(r.code)}">Tentar reabrir</a>
+                <button class="btn btn-sm btn-danger" data-delete-code="${escapeHtml(r.code)}">Excluir</button>
+              `}
             </div>
           `).join("");
           rl.querySelectorAll('button[data-copy]').forEach(b => {
@@ -120,9 +159,18 @@
           });
           rl.querySelectorAll('button[data-end-code]').forEach(b => {
             b.addEventListener("click", async () => {
-              if (!confirm("Encerrar a sala definitivamente? Todo mundo será desconectado.")) return;
+              if (!confirm("Encerrar a sala? Ficará inativa mas não será excluída — você poderá reabrir depois.")) return;
               try {
                 await window.api.post(`/api/rooms/${encodeURIComponent(b.dataset.endCode)}/end`, {});
+                location.reload();
+              } catch (e) { alert(e.message); }
+            });
+          });
+          rl.querySelectorAll('button[data-delete-code]').forEach(b => {
+            b.addEventListener("click", async () => {
+              if (!confirm("EXCLUIR DEFINITIVAMENTE esta sala? Todos os dados (chat, snapshots, planejamento) serão perdidos. Esta ação não pode ser desfeita.")) return;
+              try {
+                await window.api.del(`/api/rooms/${encodeURIComponent(b.dataset.deleteCode)}`);
                 location.reload();
               } catch (e) { alert(e.message); }
             });
@@ -130,24 +178,29 @@
         }
       } catch { /* sem salas — OK */ }
 
-      // Criar sala
-      document.getElementById("btn-create").addEventListener("click", async () => {
-        const btn = document.getElementById("btn-create");
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Criando…';
+      // Criar sala — proteção contra duplo clique + idempotência backend
+      let createInFlight = false;
+      btnCreate.addEventListener("click", async () => {
+        if (createInFlight) return;  // proteção dupla no frontend
+        const name = nameInput.value.trim();
+        if (!name) { showAlert("error", "Digite um nome para a sala."); nameInput.focus(); return; }
+        createInFlight = true;
+        btnCreate.disabled = true;
+        btnCreate.innerHTML = '<span class="spinner"></span> Criando…';
         try {
-          const res = await window.api.post("/api/rooms", { characterIds: Array.from(selected) });
+          const res = await window.api.post("/api/rooms", { name, characterIds: Array.from(selected) });
           // characterIds pode ser vazio — jogadores entram depois com seus próprios personagens
           // Redireciona IMEDIATAMENTE para o endereço real da sala (sala.html).
-          // Não fica preso na tela de criação. O papel (mestre/jogador) será
-          // decidido pelo servidor quando sala.html chamar /api/rooms/:code/status.
           location.href = `sala.html?code=${encodeURIComponent(res.code)}`;
         } catch (e) {
           showAlert("error", e.message);
-          btn.disabled = false;
-          btn.textContent = "Criar sala";
+          btnCreate.disabled = false;
+          btnCreate.textContent = "Criar sala";
+          createInFlight = false;
         }
       });
+
+      updateCreateBtn();
     })();
   </script>
 </body>

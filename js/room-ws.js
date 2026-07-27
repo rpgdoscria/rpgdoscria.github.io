@@ -258,6 +258,14 @@
         case "participant_left":
           // Sem estado local pra atualizar — onEvent cuida da UI.
           break;
+        // ===== Tarefa 4: Cor do jogador — atualiza mapa participantColors =====
+        case "player_color_set": {
+          if (!s.participantColors) s.participantColors = {};
+          const { userId, color } = msg.payload;
+          const existing = s.participantColors[userId] || {};
+          s.participantColors[userId] = { ...existing, color };
+          break;
+        }
       }
     }
 

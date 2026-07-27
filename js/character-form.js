@@ -63,6 +63,7 @@
               </div>
               <input type="file" id="f-photo" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
               <button type="button" class="btn" id="btn-upload-photo">📷 Escolher foto</button>
+              <button type="button" class="btn btn-ghost" id="btn-draw-symbol">🎨 Desenhar símbolo</button>
               ${photoUrl ? `<button type="button" class="btn btn-ghost" id="btn-remove-photo">Remover</button>` : ""}
             </div>
           </div>
@@ -287,6 +288,17 @@
       });
       const rmBtn = document.getElementById("btn-remove-photo");
       if (rmBtn) rmBtn.addEventListener("click", () => { photoUrl = null; renderStep(1); });
+      // Botão "Desenhar símbolo" — abre o canvas modal
+      const drawBtn = document.getElementById("btn-draw-symbol");
+      if (drawBtn) {
+        drawBtn.addEventListener("click", () => {
+          if (!window.SymbolDrawer) { alert("Desenhista não disponível."); return; }
+          window.SymbolDrawer.open((url) => {
+            photoUrl = url;
+            renderStep(1);
+          });
+        });
+      }
     }
     if (step === 2) {
       const sel = document.getElementById("f-page");

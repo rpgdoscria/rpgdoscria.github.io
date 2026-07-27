@@ -189,6 +189,10 @@ interface RoomState {
   trades: Trade[];
   purchaseOffers: PurchaseOffer[];
   levelUpOffers: LevelUpOffer[];
+  // Tarefa 4: mapa userId -> ParticipantInfo (cor, characterName, photoUrl)
+  participantColors: Record<number, ParticipantInfo>;
+  // Tarefa 1: nome amigável da sala (vindo da tabela rooms)
+  name?: string;
 }
 
 // ---------- Conexão ----------
@@ -198,7 +202,16 @@ interface Connection {
   username: string;
   isMaster: boolean;
   characterId?: number;
+  color?: string;  // cor escolhida pelo jogador (hex)
   lastMsgAt: number;
+}
+
+// Mapa userId -> { color, characterName, photoUrl }
+// Atualizado quando jogador seta cor ou quando personagem é atualizado.
+interface ParticipantInfo {
+  color?: string | null;
+  characterName?: string | null;
+  photoUrl?: string | null;
 }
 
 const RATE_LIMIT_MS = 300;
@@ -282,12 +295,14 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     const code = url.searchParams.get("code");
     const masterUserId = Number(url.searchParams.get("masterUserId"));
     const masterUsername = url.searchParams.get("masterUsername") ?? "";
+    const roomName = url.searchParams.get("roomName") ?? "";
     if (!code || !masterUserId) return new Response("code e masterUserId são obrigatórios", { status: 400 });
     if (this.state) return new Response("Sala já inicializada", { status: 409 });
     this.state = {
       code,
       masterUserId,
       masterUsername: decodeURIComponent(masterUsername),
+      name: roomName ? decodeURIComponent(roomName) : "Sala",
       locked: false,
       createdAt: Date.now(),
       lastActivity: Date.now(),
@@ -300,6 +315,9 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       trades: [],
       purchaseOffers: [],
       levelUpOffers: [],
+      participantColors: {
+        [masterUserId]: { color: "#b3121c", characterName: null, photoUrl: null },  // mestre tem cor vermelha tema
+      },
     };
     await this.persistState(true);
     return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
@@ -450,6 +468,8 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         // ===== Documentos Secretos (Feature 3) =====
         case "reveal_document": await this.handleRevealDocument(conn, msg.payload); break;
         case "reveal_secret": await this.handleRevealDocument(conn, msg.payload); break; // alias legado
+        // ===== Tarefa 4: Cor pessoal do jogador =====
+        case "set_player_color": await this.handleSetPlayerColor(conn, msg.payload); break;
         default:
           this.sendTo(ws, { type: "error", payload: { message: `Tipo de mensagem desconhecido: ${msg.type}` } });
       }
@@ -1328,6 +1348,48 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     });
   }
 
+  // ============================================================
+  // TAREFA 4: Cor pessoal do jogador
+  // ============================================================
+  // Jogador envia { color: "#rrggbb" } — valida formato, armazena no
+  // estado participantColors[userId], atualiza a Connection, faz broadcast
+  // pra todos atualizarem chat/ficha/dado.
+  // Persiste em session_participants.color (D1) pra restaurar ao reconectar.
+  private async handleSetPlayerColor(conn: Connection, p: any) {
+    if (!this.state) return;
+    const color = String(p?.color ?? "").trim();
+    // Valida hex #rrggbb
+    if (!/^#[0-9a-f]{6}$/i.test(color)) {
+      throw new Error("Cor inválida — use formato #rrggbb (ex: #a855f7).");
+    }
+    conn.color = color;
+    if (!this.state.participantColors) this.state.participantColors = {};
+    // Preserva characterName/photoUrl se já existir
+    const existing = this.state.participantColors[conn.userId] || {};
+    this.state.participantColors[conn.userId] = {
+      ...existing,
+      color,
+      characterName: existing.characterName || (conn.characterId ? this.state.characters[conn.characterId]?.name : null),
+      photoUrl: existing.photoUrl || (conn.characterId ? this.state.characters[conn.characterId]?.photoUrl : null),
+    };
+
+    // Persiste em session_participants (upsert) — best-effort
+    try {
+      if (conn.characterId) {
+        await this.env.DB.prepare(
+          `INSERT INTO session_participants (room_code, user_id, character_id, color)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(room_code, user_id) DO UPDATE SET color = ?`
+        ).bind(this.state.code, conn.userId, conn.characterId, color, color).run();
+      }
+    } catch {}
+
+    this.broadcast({
+      type: "player_color_set",
+      payload: { userId: conn.userId, username: conn.username, color, characterId: conn.characterId },
+    });
+  }
+
   private onClose(ws: WebSocket) {
     const conn = this.connections.get(ws);
     this.connections.delete(ws);
@@ -1372,6 +1434,8 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       if (!Array.isArray(parsed.trades)) parsed.trades = [];
       if (!Array.isArray(parsed.purchaseOffers)) parsed.purchaseOffers = [];
       if (!Array.isArray(parsed.levelUpOffers)) parsed.levelUpOffers = [];
+      if (!parsed.participantColors) parsed.participantColors = {};
+      if (!parsed.name) parsed.name = "Sala";
       if (parsed.chatLog.length === 0) {
         const chatRows = await this.env.DB.prepare(
           `SELECT cl.id, cl.sender_user_id, cl.message, cl.created_at, u.username
@@ -1435,6 +1499,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     if (!this.state) return null;
     return {
       code: this.state.code,
+      name: this.state.name || "Sala",
       masterUserId: this.state.masterUserId,
       masterUsername: this.state.masterUsername,
       locked: this.state.locked,
@@ -1449,11 +1514,14 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       trades: this.state.trades,
       purchaseOffers: this.state.purchaseOffers,
       levelUpOffers: this.state.levelUpOffers,
+      // Tarefa 4: mapa userId -> { color, characterName, photoUrl }
+      participantColors: this.state.participantColors || {},
       you: {
         userId: conn.userId,
         username: conn.username,
         isMaster: conn.isMaster,
         characterId: conn.characterId,
+        color: conn.color,
       },
     };
   }

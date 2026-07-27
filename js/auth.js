@@ -102,10 +102,10 @@
     ).join("");
 
     const userChip = user
-      ? `<div class="user-chip">
+      ? `<a class="user-chip" href="${inWiki ? "../perfil.html" : "perfil.html"}" style="text-decoration:none;color:inherit">
            <span>${escapeHtml(user.username)}</span>
            <span class="role-badge ${user.role}">${user.role}</span>
-         </div>
+         </a>
          <button class="btn btn-ghost btn-sm" id="btn-logout">Sair</button>`
       : `<a class="btn btn-primary btn-sm" href="login.html">Entrar</a>`;
 
@@ -152,6 +152,7 @@
 
   // ---- redirect após login ----
   // Se o usuário tem mustChangePassword, força troca antes de ir ao destino.
+  // Padrão (sem ?next=): vai pra perfil.html (dashboard pessoal) em vez de index.html.
   function redirectToNext() {
     const sess = currentSession();
     if (sess && sess.user && sess.user.mustChangePassword) {
@@ -163,7 +164,7 @@
     if (next && next.startsWith("/") && !next.startsWith("//")) {
       location.href = next;
     } else {
-      location.href = "index.html";
+      location.href = "perfil.html";
     }
   }
 
