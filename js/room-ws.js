@@ -35,9 +35,9 @@
       const token = getToken();
       if (!token) {
         this._notify("error");
-        const parts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
-        const dp = parts.length > 0 ? "../".repeat(parts.length) : "";
-        location.href = dp + "login?next=" + encodeURIComponent(location.pathname + location.search);
+        
+        
+        location.href = "/login?next=" + encodeURIComponent(location.pathname + location.search);
         return;
       }
       const params = new URLSearchParams({ code: this.code, token });

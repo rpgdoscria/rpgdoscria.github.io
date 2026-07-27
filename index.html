@@ -17,32 +17,32 @@
   <main class="container wide">
     <!-- Cards de acesso rápido -->
     <section class="quick-access-grid mb-6">
-      <a href="perfil" class="quick-card">
+      <a href="/perfil" class="quick-card">
         <div class="quick-icon">👤</div>
         <div class="quick-title">Meu perfil</div>
         <div class="quick-desc">Personagens, edições recentes, salas</div>
       </a>
-      <a href="wiki/" class="quick-card">
+      <a href="/wiki" class="quick-card">
         <div class="quick-icon">📚</div>
         <div class="quick-title">Wiki</div>
         <div class="quick-desc">Páginas, lore, regras da casa, sessões jogadas</div>
       </a>
-      <a href="meus-personagens" class="quick-card">
+      <a href="/meus-personagens" class="quick-card">
         <div class="quick-icon">🧙</div>
         <div class="quick-title">Personagens</div>
         <div class="quick-desc">Crie e gerencie suas fichas para usar nas sessões</div>
       </a>
-      <a href="entrar-sala" class="quick-card">
+      <a href="/entrar-sala" class="quick-card">
         <div class="quick-icon">🔗</div>
         <div class="quick-title">Entrar em sala</div>
         <div class="quick-desc">Digite o código que o mestre compartilhou</div>
       </a>
-      <a href="criar-sala" id="quick-create-room" class="quick-card hidden">
+      <a href="/criar-sala" id="quick-create-room" class="quick-card hidden">
         <div class="quick-icon">🎪</div>
         <div class="quick-title">Criar sala</div>
         <div class="quick-desc">Para mestres: abra uma sala nova pro grupo</div>
       </a>
-      <a href="admin" id="quick-admin" class="quick-card hidden">
+      <a href="/admin" id="quick-admin" class="quick-card hidden">
         <div class="quick-icon">⚙️</div>
         <div class="quick-title">Painel admin</div>
         <div class="quick-desc">Gerencie usuários e veja logs de auditoria</div>
@@ -67,7 +67,7 @@
         <div class="card" id="home-create-room-card">
           <h3 style="margin-top:0; font-size: 18px;">🎪 Criar nova sala</h3>
           <p class="text-sm muted mb-4">Para mestres. Selecione os personagens que vão participar e gere um link para compartilhar com o grupo.</p>
-          <a href="criar-sala" class="btn btn-primary">Criar sala →</a>
+          <a href="/criar-sala" class="btn btn-primary">Criar sala →</a>
         </div>
       </div>
     </section>
@@ -82,7 +82,7 @@
       const sess = window.auth.currentSession();
       if (!sess) {
         const next = encodeURIComponent(location.pathname + location.search);
-        location.href = `login?next=${next}`;
+        location.href = `/login?next=${next}`;
         return;
       }
 
@@ -99,7 +99,7 @@
       document.getElementById("btn-join").addEventListener("click", () => {
         const code = document.getElementById("join-code-input").value.trim().toUpperCase();
         if (!code) { alert("Digite o código da sala."); return; }
-        location.href = `sala?code=${encodeURIComponent(code)}`;
+        location.href = `/sala?code=${encodeURIComponent(code)}`;
       });
       document.getElementById("join-code-input").addEventListener("keydown", (e) => {
         if (e.key === "Enter") document.getElementById("btn-join").click();

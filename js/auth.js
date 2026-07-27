@@ -4,13 +4,6 @@
   const cfg = window.WIKI_CONFIG || {};
   const SITE_NAME = cfg.SITE_NAME || "Wiki RPG";
 
-  // Helper: calcula prefixo de profundidade baseado no path atual.
-  // "/sala/" → "../", "/wiki/editar/" → "../../", "/" → ""
-  function depthPrefix() {
-    const parts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
-    return parts.length === 0 ? "" : "../".repeat(parts.length);
-  }
-
   // ---- sessão ----
   function currentSession() {
     const user = window.api.getUser();
@@ -22,7 +15,7 @@
   function logout() {
     window.api.setToken(null);
     window.api.setUser(null);
-    location.href = depthPrefix() + "login";
+    location.href = "/login";
   }
 
   async function login(username, password) {
@@ -57,7 +50,7 @@
     const RANK = { viewer: 1, editor: 2, admin: 3 };
     if (!sess) {
       const next = encodeURIComponent(location.pathname + location.search + location.hash);
-      location.href = depthPrefix() + `login?next=${next}`;
+      location.href = "/login?next=" + encodeURIComponent(location.pathname + location.search + location.hash);
       return null;
     }
     if (RANK[sess.user.role] < RANK[minRole]) {
@@ -69,60 +62,48 @@
     // de qualquer outra tela (exceto na própria tela de troca e no logout).
     const onChangePage = location.pathname.endsWith("change-password");
     if (sess.user.mustChangePassword && !onChangePage) {
-      location.href = depthPrefix() + "change-password";
+      location.href = "/change-password";
       return null;
     }
     return sess;
   }
 
   // ---- header comum ----
-  // Refatorado (v5): menu dropdown categorizado em vez de links soltos.
-  // Categorias: Wiki, Personagens, Salas, Admin (se admin), Conta.
-  // Em mobile (<768px), vira menu hamburguer.
+  // Refatorado (v8): usa caminhos ABSOLUTOS (/pagina) em todos os links.
+  // Resolve o bug de URLs relativas quebradas entre subpastas.
   function renderHeader(active = "") {
     const sess = currentSession();
     const user = sess ? sess.user : null;
-    const inWiki = location.pathname.includes("/wiki/");
-    // Calcula profundidade do path atual pra ajustar links relativos.
-    // Raiz "/" → depth 0; "/sala/" → depth 1; "/wiki/editar/" → depth 2
-    const pathParts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
-    // "/wiki/" → ["wiki"] → depth 1; "/sala/" → ["sala"] → depth 1; "/wiki/editar/" → ["wiki","editar"] → depth 2
-    // Mas "index.html" na raiz → [] → depth 0
-    const depth = pathParts.length;
-    const prefix = depth === 0 ? "" : "../".repeat(depth);
-    const wikiPrefix = (depth === 0 ? "" : prefix) + (inWiki ? "" : "wiki/");
-    const rel = (p) => prefix + p;
-    const wikiHref = inWiki ? (depth > 1 ? prefix + "index.html" : "index.html") : wikiPrefix;
 
     const isAdmin = user && user.role === "admin";
     const isMaster = user && (user.role === "admin" || user.isGameMaster);
 
-    // Definição das categorias com sub-itens
+    // Definição das categorias com sub-itens — TODOS os links são absolutos
     const categories = [];
     categories.push({
       key: "wiki",
       label: "Wiki",
       items: [
-        { href: wikiHref, label: "Página Inicial", key: "wiki" },
-        { href: wikiPrefix + "editar?new=true", label: "Criar Página", key: "new", minRole: "editor" },
+        { href: "/wiki", label: "Página Inicial", key: "wiki" },
+        { href: "/wiki/editar?new=true", label: "Criar Página", key: "new", minRole: "editor" },
       ],
     });
     categories.push({
       key: "characters",
       label: "Personagens",
       items: [
-        { href: rel("meus-personagens"), label: "Meus Personagens", key: "characters" },
-        { href: rel("criar-personagem"), label: "Criar Personagem" },
-        { href: rel("gerenciar-sets-regras"), label: "Sets de Regras", key: "rulesets", minMaster: true },
+        { href: "/meus-personagens", label: "Meus Personagens", key: "characters" },
+        { href: "/criar-personagem", label: "Criar Personagem" },
+        { href: "/gerenciar-sets-regras", label: "Sets de Regras", key: "rulesets", minMaster: true },
       ],
     });
     categories.push({
       key: "rooms",
       label: "Salas",
       items: [
-        { href: rel("criar-sala"), label: "Criar Sala", key: "rooms", minMaster: true },
-        { href: rel("entrar-sala"), label: "Entrar em Sala", key: "join" },
-        { href: rel("perfil"), label: "Minhas Salas", minMaster: true },
+        { href: "/criar-sala", label: "Criar Sala", key: "rooms", minMaster: true },
+        { href: "/entrar-sala", label: "Entrar em Sala", key: "join" },
+        { href: "/perfil", label: "Minhas Salas", minMaster: true },
       ],
     });
     if (isAdmin) {
@@ -130,8 +111,8 @@
         key: "admin",
         label: "Admin",
         items: [
-          { href: rel("admin"), label: "Painel Admin", key: "admin" },
-          { href: rel("gerenciar-status"), label: "Gerenciar Status", key: "stats" },
+          { href: "/admin", label: "Painel Admin", key: "admin" },
+          { href: "/gerenciar-status", label: "Gerenciar Status", key: "stats" },
         ],
       });
     }
@@ -164,16 +145,16 @@
 
     // User chip + conta (sempre visível, não em dropdown)
     const userChip = user
-      ? `<a class="user-chip" href="${rel("perfil")}" style="text-decoration:none;color:inherit">
+      ? `<a class="user-chip" href="/perfil" style="text-decoration:none;color:inherit">
            <span>${escapeHtml(user.username)}</span>
            <span class="role-badge ${user.role}">${user.role}</span>
          </a>
          <button class="btn btn-ghost btn-sm" id="btn-logout" title="Sair">⎋</button>`
-      : `<a class="btn btn-primary btn-sm" href="${rel("login")}">Entrar</a>`;
+      : `<a class="btn btn-primary btn-sm" href="/login">Entrar</a>`;
 
     return `
       <header class="site-header">
-        <a class="brand" href="${rel("") || "."}">
+        <a class="brand" href="/">
           <span class="mark">R</span>
           <span>${escapeHtml(SITE_NAME)}</span>
         </a>
@@ -205,7 +186,7 @@
         e.preventDefault();
         const q = document.getElementById("search-input").value.trim();
         if (q) {
-          location.href = wikiPrefix + `?q=${encodeURIComponent(q)}`;
+          location.href = "/wiki?q=" + encodeURIComponent(q);
         }
       });
     }
@@ -282,7 +263,7 @@
   function redirectToNext() {
     const sess = currentSession();
     if (sess && sess.user && sess.user.mustChangePassword) {
-      location.href = depthPrefix() + "change-password";
+      location.href = "/change-password";
       return;
     }
     const params = new URLSearchParams(location.search);
@@ -290,7 +271,7 @@
     if (next && next.startsWith("/") && !next.startsWith("//")) {
       location.href = next;
     } else {
-      location.href = depthPrefix() + "perfil";
+      location.href = "/perfil";
     }
   }
 

@@ -43,13 +43,13 @@
 
     if (res.status === 401) {
       // Token inválido ou expirado — limpa e redireciona para login
-      // (somente se não estivermos já em /login.html)
+      // (somente se não estivermos já em /login)
       setToken(null);
       setUser(null);
-      const onLoginPage = location.pathname.endsWith("login.html");
+      const onLoginPage = location.pathname.endsWith("login");
       if (!onLoginPage) {
         const next = encodeURIComponent(location.pathname + location.search + location.hash);
-        location.href = `login.html?next=${next}`;
+        location.href = `/login?next=${next}`;
         // Lança para parar o fluxo
         throw new ApiError("Sessão expirada.", 401);
       }

@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="../css/style.css?v=202607271331">
-  <link rel="stylesheet" href="../css/theme-custom.css?v=202607271331">
+  <link rel="stylesheet" href="../css/style.css?v=202607271440">
+  <link rel="stylesheet" href="../css/theme-custom.css?v=202607271440">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -39,9 +39,13 @@
             <button type="button" class="color-swatch" data-color="#3b82f6" style="background:#3b82f6" title="Azul"></button>
             <button type="button" class="color-swatch" data-color="#a855f7" style="background:#a855f7" title="Roxo"></button>
             <button type="button" class="color-swatch" data-color="#ec4899" style="background:#ec4899" title="Rosa"></button>
-            <input type="color" id="color-custom" value="#a855f7" title="Cor personalizada" style="width:40px;height:40px;border:1px solid var(--border-soft);border-radius:8px;background:transparent;cursor:pointer">
+            <!-- Quadrado de cor customizada — abre o seletor nativo -->
+            <button type="button" class="color-custom-square" id="color-custom-btn" title="Cor personalizada" style="background:#a855f7">
+              <span class="color-custom-icon">🎨</span>
+            </button>
+            <input type="color" id="color-custom" value="#a855f7" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none">
           </div>
-          <p class="text-xs muted mt-2">Cor atual: <code id="color-current">#a855f7</code></p>
+          <p class="text-xs muted mt-2">Cor atual: <code id="color-current">#a855f7</code> — clique no quadrado 🎨 para escolher qualquer cor</p>
         </div>
 
         <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center" id="btn-enter">
@@ -51,14 +55,14 @@
 
       <p class="muted text-xs mt-6" style="text-align:center">
         Não tem o código? Peça ao mestre.<br>
-        É mestre? <a href="criar-sala">Criar nova sala</a>
+        É mestre? <a href="/criar-sala">Criar nova sala</a>
       </p>
     </div>
   </main>
 
-  <script src="../js/config.js?v=202607271331"></script>
-  <script src="../js/api.js?v=202607271331"></script>
-  <script src="../js/auth.js?v=202607271331"></script>
+  <script src="../js/config.js?v=202607271440"></script>
+  <script src="../js/api.js?v=202607271440"></script>
+  <script src="../js/auth.js?v=202607271440"></script>
   <script>
     (function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -69,6 +73,7 @@
       const btn = document.getElementById("btn-enter");
       const form = document.getElementById("enter-form");
       const colorCustom = document.getElementById("color-custom");
+      const colorCustomBtn = document.getElementById("color-custom-btn");
       const colorCurrent = document.getElementById("color-current");
       let selectedColor = "#a855f7";
 
@@ -82,14 +87,17 @@
         sw.addEventListener("click", () => {
           selectedColor = sw.dataset.color;
           colorCustom.value = selectedColor;
+          colorCustomBtn.style.background = selectedColor;
           colorCurrent.textContent = selectedColor;
           document.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("selected"));
           sw.classList.add("selected");
         });
       });
-      // Input color customizado
+      // Quadrado de cor customizada — clique abre o seletor nativo
+      colorCustomBtn.addEventListener("click", () => colorCustom.click());
       colorCustom.addEventListener("input", () => {
         selectedColor = colorCustom.value;
+        colorCustomBtn.style.background = selectedColor;
         colorCurrent.textContent = selectedColor;
         document.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("selected"));
       });
@@ -111,7 +119,7 @@
         // Redireciona pro endereço real da sala. sala vai fazer a
         // verificação REST primeiro — se o código não existir, mostra
         // "sala não encontrada" em vez de cair numa tela de criação.
-        location.href = `sala?code=${encodeURIComponent(code)}`;
+        location.href = `/sala?code=${encodeURIComponent(code)}`;
       });
 
       // Se veio ?code= na URL, pré-preenche e tenta direto

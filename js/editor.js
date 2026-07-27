@@ -64,7 +64,7 @@
       if (opt) catEl.value = page.category; else catEl.value = "Lore/História";
       contentEl.value = page.content_md || "";
       // cancel-btn volta pra página
-      cancelBtn.href = `page.html?slug=${encodeURIComponent(slug)}`;
+      cancelBtn.href = `page?slug=${encodeURIComponent(slug)}`;
       renderPreview();
     } catch (e) {
       showAlert("error", `Erro ao carregar página: ${e.message}`);
@@ -100,13 +100,13 @@
           title, category, content_md, comment,
           expected_updated_at: pageUpdatedAt,
         });
-        location.href = `page.html?slug=${encodeURIComponent(originalSlug)}`;
+        location.href = `/page?slug=${encodeURIComponent(originalSlug)}`;
       } else {
         // Criação
         const res = await window.api.post("/api/pages", {
           title, category, content_md, comment,
         });
-        location.href = `page.html?slug=${encodeURIComponent(res.slug)}`;
+        location.href = `/page?slug=${encodeURIComponent(res.slug)}`;
       }
     } catch (e) {
       // Se for conflito de edição simultânea, oferece recarregar

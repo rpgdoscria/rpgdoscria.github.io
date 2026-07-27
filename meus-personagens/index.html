@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="../css/style.css?v=202607271331">
-  <link rel="stylesheet" href="../css/theme-custom.css?v=202607271331">
+  <link rel="stylesheet" href="../css/style.css?v=202607271440">
+  <link rel="stylesheet" href="../css/theme-custom.css?v=202607271440">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -17,7 +17,7 @@
   <main class="container wide">
     <div class="flex items-center justify-between mb-4">
       <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0;">Meus personagens</h1>
-      <a class="btn btn-primary" href="criar-personagem">+ Novo personagem</a>
+      <a class="btn btn-primary" href="/criar-personagem">+ Novo personagem</a>
     </div>
 
     <div id="alert-mount"></div>
@@ -28,10 +28,10 @@
   </main>
 
   <script src="../vendor/purify.min.js"></script>
-  <script src="../js/config.js?v=202607271331"></script>
-  <script src="../js/api.js?v=202607271331"></script>
-  <script src="../js/auth.js?v=202607271331"></script>
-  <script src="../js/character-render.js?v=202607271331"></script>
+  <script src="../js/config.js?v=202607271440"></script>
+  <script src="../js/api.js?v=202607271440"></script>
+  <script src="../js/auth.js?v=202607271440"></script>
+  <script src="../js/character-render.js?v=202607271440"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "characters");
@@ -56,7 +56,7 @@
                   <div style="font-size:48px;margin-bottom:16px">🧙</div>
                   <h3 style="margin:0 0 8px 0">Você ainda não tem personagens</h3>
                   <p class="muted text-sm mb-4">Crie seu primeiro personagem pra usar nas salas de jogo.</p>
-                  <a class="btn btn-primary" href="criar-personagem">+ Criar primeiro personagem</a>
+                  <a class="btn btn-primary" href="/criar-personagem">+ Criar primeiro personagem</a>
                 </div>
               </div>`;
             return;
@@ -72,7 +72,7 @@
               </div>
               <div class="text-xs muted">${(ch.stats || []).length} status · ${(ch.inventory || []).length} itens</div>
               <div class="flex gap-2 flex-wrap" style="margin-top:8px">
-                <a class="btn btn-sm btn-primary" href="criar-personagem?id=${ch.id}">Editar</a>
+                <a class="btn btn-sm btn-primary" href="/criar-personagem?id=${ch.id}">Editar</a>
                 ${!ch.isActive ? `<button class="btn btn-sm" data-activate="${ch.id}">Ativar</button>` : ""}
                 <button class="btn btn-sm btn-danger" data-del="${ch.id}">Apagar</button>
               </div>

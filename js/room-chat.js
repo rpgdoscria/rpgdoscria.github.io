@@ -105,7 +105,9 @@
 
     const isSelf = msg.senderUserId === currentUserId;
     const info = getParticipantInfo(msg.senderUserId);
-    const displayName = info.characterName || msg.senderUsername || "desconhecido";
+    // Tarefa 4: usa senderDisplayName (nome do personagem) se disponível;
+    // senão usa characterName do participantColors; senão username.
+    const displayName = msg.senderDisplayName || info.characterName || msg.senderUsername || "desconhecido";
     const color = info.color || "#888888";
     const initial = (displayName || "?").charAt(0).toUpperCase();
 

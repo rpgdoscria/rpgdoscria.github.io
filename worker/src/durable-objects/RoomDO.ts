@@ -89,6 +89,7 @@ interface ChatMessage {
   id: string;
   senderUserId: number;
   senderUsername: string;
+  senderDisplayName?: string;  // Tarefa 4: nome do personagem (ou "Mestre"/"Espectador")
   text: string;
   timestamp: number;
 }
@@ -414,6 +415,50 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     }
     this.broadcast({ type: "participant_joined", payload: { userId: payload.sub, username: payload.username, isMaster, isSpectator: conn.isSpectator } }, server);
 
+    // ===== Tarefa 2: Se o jogador tem characterId e o personagem ainda não está
+    // no estado da sala, carrega do D1 e adiciona — depois faz broadcast pra todos. =====
+    if (characterId && !isMaster && !isSpectator && !this.state!.characters[characterId]) {
+      try {
+        const r = await this.env.DB.prepare(
+          `SELECT c.id, c.owner_user_id, c.name, c.photo_url, c.page_id, c.symbol_url,
+                  c.inventory_json, c.status_effects_json, u.username AS owner_username
+           FROM characters c JOIN users u ON u.id = c.owner_user_id
+           WHERE c.id = ?`
+        ).bind(characterId).first<any>();
+        if (r) {
+          const stats = await this.env.DB.prepare(
+            `SELECT id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order
+             FROM character_stats WHERE character_id = ? ORDER BY display_order ASC, id ASC`
+          ).bind(characterId).all<any>();
+          const ch: CharacterState = {
+            id: Number(r.id),
+            ownerUserId: r.owner_user_id,
+            ownerUsername: r.owner_username ?? "",
+            name: r.name,
+            photoUrl: r.photo_url,
+            pageId: r.page_id ?? null,
+            stats: (stats.results || []).map((s: any) => sanitizeStat(s)).filter(Boolean) as CharacterStat[],
+            inventory: r.inventory_json ? JSON.parse(r.inventory_json) : [],
+            statusEffects: [],
+          };
+          this.state!.characters[characterId] = ch;
+          // Broadcast pra TODOS (incluindo o recém-conectado) que o personagem entrou
+          this.broadcast({ type: "character_updated", payload: ch });
+          // Atualiza participantColors com o nome/foto do personagem
+          if (!this.state!.participantColors) this.state!.participantColors = {};
+          const existing = this.state!.participantColors[payload.sub] || {};
+          this.state!.participantColors[payload.sub] = {
+            ...existing,
+            characterName: ch.name,
+            photoUrl: ch.photoUrl,
+          };
+          await this.persistState(true);
+        }
+      } catch (e) {
+        // best-effort — não falha a conexão se não conseguir carregar o personagem
+      }
+    }
+
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -737,10 +782,25 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     if (!text) throw new Error("Mensagem vazia.");
     if (text.length > 500) throw new Error("Mensagem muito longa (máx 500 caracteres).");
 
+    // Tarefa 4: determinar o nome de exibição (character name, "Mestre", ou "Espectador")
+    let senderDisplayName = conn.username;
+    if (conn.isMaster) {
+      senderDisplayName = "Mestre";
+    } else if (conn.isSpectator) {
+      senderDisplayName = "Espectador";
+    } else if (conn.characterId && this.state.characters[conn.characterId]) {
+      senderDisplayName = this.state.characters[conn.characterId].name;
+    } else if (conn.characterId) {
+      // Personagem pode não estar carregado ainda — tenta do estado
+      const ch = Object.values(this.state.characters).find(c => c.id === conn.characterId);
+      if (ch) senderDisplayName = ch.name;
+    }
+
     const msg: ChatMessage = {
       id: cryptoRandomId(),
       senderUserId: conn.userId,
       senderUsername: conn.username,
+      senderDisplayName,  // Tarefa 4: nome do personagem (ou "Mestre"/"Espectador")
       text,
       timestamp: Date.now(),
     };
