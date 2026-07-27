@@ -5193,4 +5193,467 @@ h1, h2, h3, .brand, .modal-card h3, .room-title, .planning-section h4 {
   50% { transform: scale(1.15); }
 }
 
+/* ============================================================
+   v13 — Refatoração visual: fichas limpas + inventário + gestão
+   ============================================================ */
+
+/* ===== Character card — header limpo, sem botões minúsculos ===== */
+.character-card .character-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: var(--space-2);
+}
+.character-card .character-header-left {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.character-card .character-header-info {
+  min-width: 0;
+  flex: 1;
+}
+.character-card .character-name {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--font-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.character-card .character-owner {
+  margin-top: 2px;
+}
+
+/* ===== Toolbar de ações do personagem (v13) ===== */
+.character-actions-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+.char-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+  min-height: 34px;
+  white-space: nowrap;
+}
+.char-action-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.char-action-btn:active {
+  transform: translateY(0);
+}
+.char-action-btn .char-action-label {
+  font-size: 12px;
+}
+.char-action-btn .inv-count-badge {
+  margin-left: 2px;
+}
+/* Em telas pequenas, esconde labels (só ícones) */
+@media (max-width: 600px) {
+  .char-action-btn .char-action-label {
+    display: none;
+  }
+  .char-action-btn {
+    padding: 6px 10px;
+  }
+}
+
+/* ===== Stat row LIMPA (v13) — sem botões minúsculos ===== */
+.stats-grid-compact .stat-row {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.stats-grid-compact .stat-row:hover {
+  background: var(--surface);
+  border-color: var(--border-soft);
+}
+.stats-grid-compact .stat-row .stat-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 3px;
+}
+.stats-grid-compact .stat-row .stat-label-name {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+/* Indicador de permissão (não é botão — só ícone informativo para o jogador) */
+.stat-perm-indicator {
+  font-size: 10px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.stat-perm-indicator.editable { color: var(--success); }
+.stat-perm-indicator.locked { color: var(--text-muted); }
+
+/* ===== Painel de Gestão de Personagem (v13) ===== */
+.manage-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.manage-panel-header {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+}
+.manage-panel-char-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.manage-panel-char-name {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-serif);
+}
+.manage-panel-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: var(--text);
+}
+.manage-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  transition: border-color 0.12s;
+}
+.manage-stat-row:hover {
+  border-color: var(--accent);
+}
+.manage-stat-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.manage-stat-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.manage-stat-type {
+  padding: 1px 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.manage-stat-value {
+  margin-left: auto;
+  font-family: var(--font-mono);
+}
+.manage-stat-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.manage-perm-btn, .manage-delete-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.manage-perm-btn.editable {
+  background: rgba(74, 222, 128, 0.15);
+  border-color: var(--success);
+  color: var(--success);
+}
+.manage-perm-btn.editable:hover {
+  background: rgba(74, 222, 128, 0.25);
+}
+.manage-perm-btn.locked {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.manage-perm-btn.locked:hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+.manage-delete-btn {
+  background: transparent;
+  border-color: var(--border-soft);
+  color: var(--text-muted);
+}
+.manage-delete-btn:hover {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+@media (max-width: 480px) {
+  .manage-stat-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .manage-stat-actions {
+    justify-content: flex-end;
+  }
+}
+
+/* ===== Inventário: topbar com toggle de visualização (v13) ===== */
+.inv-modal-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+.inv-modal-topbar h3 {
+  font-size: 18px;
+}
+.inv-modal-topbar-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.inv-view-toggle {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 2px;
+  gap: 2px;
+}
+.inv-view-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.inv-view-btn:hover {
+  color: var(--text);
+}
+.inv-view-btn.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+/* ===== Inventário: seção de criar item (colapsável v13) ===== */
+.inv-modal-add-section {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--border-soft);
+}
+.inv-add-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+.inv-add-section-header h4 {
+  font-size: 15px;
+  font-family: var(--font-serif);
+}
+
+/* ===== Inventário: visualização COMPACTA (lista) v13 ===== */
+.inv-modal-row-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px dashed var(--border-soft);
+}
+.inv-modal-row-compact:last-child {
+  border-bottom: none;
+}
+.inv-row-mini-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+}
+.inv-item-icon-mini {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 3px;
+}
+.inv-item-icon-mini-placeholder {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-radius: 3px;
+}
+.inv-row-mini-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inv-row-mini-qty {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.inv-row-mini-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.inv-row-mini-actions .btn {
+  padding: 4px 6px;
+  font-size: 12px;
+  min-width: 28px;
+}
+
+/* ===== Inventário: visualização DETALHADA refinada (v13) ===== */
+.inv-modal-row-detailed {
+  padding: 10px 8px;
+}
+.inv-modal-row-detailed .inv-modal-row-icon {
+  width: 44px;
+  height: 44px;
+}
+.inv-modal-row-detailed .inv-modal-row-name {
+  font-size: 15px;
+}
+.inv-modal-row-detailed .inv-modal-row-actions .btn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* ===== Criar-sala: lista de salas existentes refatorada (v13) ===== */
+.criar-sala-room-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.criar-sala-room-row.inactive {
+  opacity: 0.7;
+}
+.criar-sala-room-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 200px;
+}
+.criar-sala-room-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+.criar-sala-room-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.criar-sala-room-meta {
+  width: 100%;
+  margin-top: 4px;
+}
+.tag-on {
+  background: rgba(74, 222, 128, 0.2);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+/* ===== Perfil: lista de salas refatorada (v13) ===== */
+.perfil-room-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.perfil-room-row.inactive {
+  opacity: 0.7;
+}
+.perfil-room-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 150px;
+}
+.perfil-room-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.perfil-room-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.perfil-room-code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+
 

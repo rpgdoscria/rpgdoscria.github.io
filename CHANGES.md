@@ -1,228 +1,153 @@
-# Arquivos incluídos nesta entrega — Rpg dos Cria v12 (Embelezamento + NPCs Avançados + Propostas Colaborativas + Undo/Redo)
+# Arquivos incluídos nesta entrega — Rpg dos Cria v13 (Refatoração Visual + Delete Sala + Inventário Melhorado)
 
-Patch focado em 4 frentes pedidas pelo usuário:
+Patch focado em 4 problemas reportados pelo usuário Odilon:
 
-1. **Embelezamento visual** de fichas, criação de itens e popup de inventário
-2. **Criação colaborativa de itens** (jogador propõe → mestre aprova via WebSocket)
-3. **NPCs avançados funcionais** com ilustração (desenho/upload) e stats editáveis
-4. **Undo/Redo (Ctrl+Z/Ctrl+Y)** nas ferramentas de desenho
+1. **Configuração de fichas para admin/mestre feia** — botões minúsculos (🔒/🔓/×) ao lado de cada stat, botão "editar" sobrepondo o nome, coisas stackadas. **Refatoração visual completa.**
+2. **Sem função de deletar sala** — agora existe em `/criar-sala` e `/perfil`.
+3. **"Criar item" sempre visível no inventário** — agora é colapsável (só aparece ao clicar "+ Novo item").
+4. **Inventário sem opção de visualização** — agora tem toggle entre **Detalhado** (ícones grandes) e **Lista** (compacto).
 
 ---
 
 ## ✅ Validações rodadas
 
-- `tsc --noEmit` no worker → **zero erros**
-- `node -c` em todos os JS modificados → **todos OK** (8 arquivos)
-- Syntax check do script inline do `sala/index.html` → **OK**
-- Validação de chaves CSS → `style.css` 1080/1080 ✓
-- Cache-bust rodado → versão `?v=202607271819` aplicada em 18 HTMLs (133 substituições)
-
----
-
-## 🗄️ MIGRATION
-
-**Não há migration nova neste patch.** Os inimigos são mantidos em memória no RoomDO (persistidos via snapshots em `room_snapshots`), então estender a interface `EnemyState` com `illustrationUrl` e `stats` não exige mudança de schema D1.
-
-As propostas de itens também ficam em memória no RoomDO (`state.itemProposals`), e quando aprovadas, persistem o item final na tabela `character_inventory_items` (criada na migration 0013 do patch anterior).
-
-Se você ainda não rodou a migration 0013 do patch anterior, rode agora:
-```bash
-cd worker && npm run db:migrate:remote
-```
+- `tsc --noEmit` no worker → **zero erros** (sem mudanças no backend)
+- `node -c` em todos os JS modificados → **todos OK**
+- Syntax check dos scripts inline (sala + criar-sala) → **OK**
+- Validação de chaves CSS → `style.css` 1159/1159 ✓
+- Cache-bust rodado → versão `?v=202607271851` em 18 HTMLs
 
 ---
 
 ## ✏️ Arquivos MODIFICADOS
 
-### Backend (Worker)
+### Frontend — Refatoração Visual de Fichas
 
 | Caminho | Descrição |
 |---------|-----------|
-| `worker/src/durable-objects/RoomDO.ts` | **`EnemyState` estendida** com `illustrationUrl?` e `stats?: EnemyStat[]`. Nova interface `EnemyStat` (bar/number/text/tag_list/checkbox). Nova interface `ItemProposal`. `RoomState` ganha `itemProposals: ItemProposal[]`. `handleCreateEnemy`/`handleUpdateEnemy` aceitam `illustrationUrl` e `stats`. Novo método `sanitizeEnemyStats()` valida tipos/trunca strings. **3 novos handlers**: `handleUpdateEnemyStat` (mestre edita stat individual do inimigo inline), `handleItemProposal` (jogador propõe item → broadcast `item_proposal_received` + msg sistema no chat), `handleResolveItemProposal` (mestre aprova/rejeita → se aprovado, insere no D1 + atualiza estado + broadcast `item_proposal_resolved` + msg sistema). Estado inicial e snapshot incluem `itemProposals`. |
+| `js/character-render.js` | **Refatoração completa**: (1) Removidos botões minúsculos 🔒/🔓/× de cada stat row — stats agora são limpos (só nome + valor + botões +/- quando editável). (2) Indicador de permissão agora é só um ícone pequeno informativo (não-botão) que aparece APENAS para o jogador dono (mestre não precisa ver — ele gerencia via painel). (3) Header refatorado: avatar + nome + owner em coluna limpa, sem botões sobrepostos. (4) Toolbar de ações horizontal com botões de tamanho CONSISTENTE (min-height 34px) e labels claras: "Gerenciar" (mestre), "Editar" (jogador), "Propor item" (jogador), "Inventário" (todos). (5) Removidos "meta-pills" que flutuavam sem clareza. (6) **NOVA função `renderManagePanel(ch)`** — gera o HTML do painel de gestão de personagem (lista todos os stats com botões de permissão e delete, organizados em linhas com info + ações). |
 
-### Frontend — Drawers com Undo/Redo
-
-| Caminho | Descrição |
-|---------|-----------|
-| `js/symbol-drawer.js` | **Refatorado com UNDO/REDO**: pilha de 25 estados `ImageData`. Botões visuais ↶ (undo) e ↷ (redo) com tooltips. Atalhos: Ctrl+Z = undo, Ctrl+Y ou Ctrl+Shift+Z = redo. Snapshot salvo após cada stroke (não durante, pra não estourar memória). Botões desabilitados (opacity 0.4) quando pilha vazia. Cabeçalho com botão ✕ para fechar. |
-| `js/item-drawer.js` | **Mesmo tratamento de UNDO/REDO** do symbol-drawer. Color picker nativo mantido. Canvas 256×256. |
-| `js/enemy-illustration-drawer.js` | **NOVO**. Baseado no item-drawer mas com: canvas maior (512×512), **upload de imagem** (FileReader + drawImage com object-fit:contain), paleta de cores via color picker, undo/redo com 30 estados (mais pra ilustrações complexas). Salva PNG transparente no Cloudinary. |
-
-### Frontend — Embelezamento
+### Frontend — Painel de Gestão (novo modal)
 
 | Caminho | Descrição |
 |---------|-----------|
-| `js/character-render.js` | `renderCharacterCard` embelezado: header com `character-header-left` (avatar + info), pills de contadores rápidos (📊 status, ⚔️ equipados, 🎒 total). Botão "Propor item" (📦) aparece só para o jogador dono do personagem. Botões de ação com tooltips. |
-| `js/character-sheet-full.js` | Mantém layout compacto do v11 mas com classes CSS novas para embelezamento (gradient no header, text-fill transparente no nome, sombras nos atributos). |
-| `js/room-render.js` | `renderEnemy` refatorado: suporta `illustrationUrl` (imagem 56×56 no header) e `stats[]` (seção de stats avançados com botões +/- inline para o mestre). Nova função `renderEnemyStat()` renderiza cada stat do inimigo (bar/number/text/checkbox) com edição inline. Placeholder "+ ilustração" aparece quando não há imagem (mestre vê). |
-| `js/room-ws.js` | Despacha novos eventos `item_proposal_received` e `item_proposal_resolved` — guarda no estado local (`s.itemProposals`) para persistência após reconexão. |
+| `sala/index.html` | **Novo modal `#manage-character-modal`** — abre quando o mestre clica em "Gerenciar" no card do personagem. Mostra: avatar + nome + owner no header, seguido de lista de todos os stats com: nome, badge customizado (★), tipo, valor atual, e botões "🔓 Editável / 🔒 Bloqueado" (toggle permissão) + "🗑 Deletar". Botões têm tamanho decente (padding 6px 12px, font 12px) e labels claras. Otimismo: ao clicar em toggle, UI atualiza imediatamente (não espera WS round-trip). Ao deletar, linha desaparece do painel imediatamente. **Bindings atualizados**: `delete-stat` e `toggle-perm` agora são vinculados DENTRO do painel de gestão (não mais inline em cada stat). |
 
-### Frontend — Fluxo colaborativo de itens
+### Frontend — Inventário Refatorado
 
 | Caminho | Descrição |
 |---------|-----------|
-| `js/item-proposal.js` | **NOVO**. Gerencia 2 modais: (1) **Jogador propõe item** — form com nome, qty, equipado, descrição, ícone desenhado (usa ItemDrawer). Ao submeter, envia WS `item_proposal`. (2) **Mestre revisa propostas** — lista de propostas pendentes com ícone, nome, qty, descrição, nota opcional, botões aprovar/rejeitar. Mantém estado local (`pendingProposals`) sincronizado via WS. Atualiza badge de contagem no header. Mostra feedback ao jogador dono quando proposta é resolvida. |
+| `sala/index.html` | **Modal de inventário refatorado**: (1) **Topbar nova** com título + toggle de visualização (Detalhado / Lista) + botão "+ Novo item" + botão fechar. (2) **Form de criar item ESCONDIDO por padrão** — só aparece ao clicar "+ Novo item" (toggle com classe `hidden`). Tem botão "Cancelar" (✕) para fechar. Após salvar, form esconde automaticamente. (3) **Toggle de visualização**: "Detalhado" (ícone 44×44 + nome + qty + descrição + botões "🎨 Ícone" / "🗑 Remover") vs "Lista" (ícone mini 24×24 + nome + qty + botões compactos). Cache de itens (`inventoryModalItems`) permite trocar de view sem recarregar da API. (4) Botões de ação têm labels claras (não só ícones minúsculos). |
 
-### Frontend — Sala
+### Frontend — Delete Sala
 
 | Caminho | Descrição |
 |---------|-----------|
-| `sala/index.html` | **3 novos modais**: (1) Modal de proposta de item (`#item-proposal-modal`), (2) Modal de revisão de propostas (`#item-proposals-review-modal`), (3) Modal de inimigo expandido com seção de ilustração + editor de stats avançados. **Botão "📥 Propostas"** no header da sala (mestre only) com badge pulsante de contagem. **Bindings novos**: `edit-enemy-illustration` (abre EnemyIllustrationDrawer), `enemy-stat-quick` (botões +/- nos stats de inimigo), `propose-item` (jogador abre modal de proposta). `openEnemyModal` refatorado para carregar ilustração + stats existentes. `enemy-modal-save` envia `illustrationUrl` + `stats` no payload. Expõe `window.roomClient` para item-proposal.js enviar mensagens WS. Despacha `item_proposal_received`/`item_proposal_resolved` para o módulo itemProposal. |
+| `sala/index.html` | (sem mudanças relacionadas a delete de sala) |
+| `criar-sala/index.html` | **Botão "🗑 Excluir" agora aparece para TODAS as salas** (ativas e encerradas — antes só encerradas). Confirmação dupla para salas ativas: pede para digitar o nome da sala (mais seguro que só confirm). Layout refatorado: info da sala (nome + código + tag ativa/encerrada + data) agrupada à esquerda, ações agrupadas à direita. Tags visuais: verde "ativa" vs cinza "encerrada". |
+| `js/perfil.js` | **Botão "🗑" adicionado** na lista de salas do perfil. Mesma confirmação dupla para salas ativas. Após excluir, mostra alerta de sucesso e recarrega a lista. Layout refatorado: info + ações agrupadas, tags visuais de status. |
 
 ### CSS
 
 | Caminho | Descrição |
 |---------|-----------|
-| `css/style.css` | **+470 linhas** de CSS novo: `.drawer-header`/`.drawer-toolbar`/`.drawer-tool-btn` (cabeçalho e toolbar dos drawers com undo/redo), `.character-card` embelezado (hover lift, transitions), `.char-meta-pill` (pills de contadores), `.enemy-card` com `.enemy-illustration-wrap`/`.enemy-illustration-placeholder` (ilustração de inimigo), `.enemy-stats-section`, `.enemy-modal-illustration-section`/`.enemy-modal-stats-section`/`.enemy-stats-editor`/`.enemy-stat-editor-row` (modal de inimigo expandido), `.item-proposal-form`/`.ipa-icon-section`/`.ipa-icon-preview`/`.ipa-fields` (modal de proposta), `.ipr-list`/`.ipr-card`/`.ipr-card-header`/`.ipr-item-icon`/`.ipr-card-actions`/`.ipr-note-input` (modal de revisão), `.sheet-full-compact` embelezado (gradient bg, text-fill transparente no nome, sombras), `.stat-row` embelezado (hover bg, bar fill com box-shadow glow), `.inv-modal-row` embelezado (hover bg, icon scale), `#btn-item-proposals` com badge pulsante (animação `pulse-badge`). Responsivo: em ≤480px editor de stats vira coluna, form de proposta vira coluna. |
+| `css/style.css` | **+460 linhas** de CSS novo: `.character-actions-bar` / `.char-action-btn` (toolbar de ações com botões consistentes, hover lift, responsivo — labels somem em telas ≤600px), `.stat-perm-indicator` (ícone informativo não-botão), `.manage-panel-content` / `.manage-stat-row` / `.manage-perm-btn` / `.manage-delete-btn` (painel de gestão com linhas organizadas), `.inv-modal-topbar` / `.inv-view-toggle` / `.inv-view-btn` (topbar do inventário com toggle segmentado), `.inv-modal-row-compact` / `.inv-row-mini-*` / `.inv-item-icon-mini*` (visualização compacta), `.inv-modal-row-detailed` (visualização detalhada refinada), `.criar-sala-room-row` / `.criar-sala-room-info` / `.criar-sala-room-actions` (lista de salas refatorada), `.perfil-room-row` / `.perfil-room-info` / `.perfil-room-actions` (perfil refatorado), `.tag-on` (tag verde para salas ativas). Responsivo: em ≤480px manage-stat-row vira coluna; em ≤600px char-action-btn esconde labels. |
 
 ### Cache-bust (apenas `?v=` atualizado)
 
-| Caminho |
-|---------|
-| `index.html`, `admin/index.html`, `change-password/index.html`, `criar-personagem/index.html`, `criar-sala/index.html`, `edit/index.html`, `entrar-sala/index.html`, `gerenciar-sets-regras/index.html`, `gerenciar-status/index.html`, `history/index.html`, `login/index.html`, `meus-personagens/index.html`, `page/index.html`, `perfil/index.html`, `wiki/editar/index.html`, `wiki/historico/index.html`, `wiki/index.html`, `wiki/pagina/index.html` |
-
-### Arquivos de patches anteriores (v10/v11) ainda inclusos
-
-O `CHANGES.md` foi sobrescrito, mas os arquivos dos patches anteriores (v10: pathing/CSS wiki/breadcrumb; v11: permissões por stat/inventário popup/ficha compacta) estão inclusos neste ZIP para que o patch seja autossuficiente. Se você já aplicou v10/v11, pode ignorar esses arquivos — eles são idênticos.
+18 HTMLs com versão `?v=202607271851`.
 
 ---
 
 ## 📋 Lista completa de arquivos no patch
 
 ```
-CHANGES.md                                                              (este arquivo)
-_DELETE_ESTA_PASTA_wiki_css.txt                                         (marcador v10)
-css/style.css                                                           (modificado — CSS novo v12 + v11 + v10)
-css/wiki-style.css                                                      (NOVO v10 — movido de wiki/css/)
-js/character-render.js                                                  (modificado — embelezamento + botão propor)
-js/character-sheet-full.js                                              (modificado v11 — layout compacto)
-js/enemy-illustration-drawer.js                                         (NOVO v12 — drawer com cor + undo/redo + upload)
-js/item-drawer.js                                                       (modificado v12 — undo/redo)
-js/item-proposal.js                                                     (NOVO v12 — fluxo colaborativo)
-js/markdown.js                                                          (modificado v10 — wikilinks absolutos)
-js/master-planning.js                                                   (modificado v10 — link absoluto)
-js/perfil.js                                                            (modificado v10 — links absolutos)
-js/room-render.js                                                       (modificado v12 — enemy com ilustração + stats)
-js/room-ws.js                                                           (modificado v12 — despacha item_proposal events)
-js/symbol-drawer.js                                                     (modificado v12 — undo/redo)
-js/wiki/wiki-core.js                                                    (modificado v10 — URLs absolutas)
-sala/index.html                                                         (modificado v12 — modais + bindings + scripts)
-worker/src/durable-objects/RoomDO.ts                                    (modificado v12 — EnemyState + handlers)
-worker/src/migrations/0013_stat_permissions_and_inventory_icons.sql     (NOVO v11 — incluído por segurança)
-+ 18 HTMLs com cache-bust ?v=202607271819
+CHANGES.md                                                      (este arquivo)
+css/style.css                                                   (modificado — CSS novo v13)
+js/character-render.js                                          (modificado — refatoração visual + renderManagePanel)
+js/perfil.js                                                    (modificado — delete sala + layout)
+criar-sala/index.html                                           (modificado — delete sala + layout)
+sala/index.html                                                 (modificado — painel gestão + inventário refatorado)
++ 18 HTMLs com cache-bust ?v=202607271851
 ```
 
-**Total: 35 arquivos** (5 novos, 0 removidos, 12 modificados com features, 18 com cache-bust)
+**Total: 24 arquivos** (0 novos, 0 removidos, 5 modificados com features, 18 com cache-bust)
+
+> **Nota**: Este patch inclui apenas os arquivos modificados nesta versão. Se você não aplicou os patches anteriores (v10-v12), precisa aplicá-los primeiro (eles contêm pathing, CSS wiki, permissões por stat, inventário popup, NPCs avançados, undo/redo, etc.). Este patch v13 é incremental sobre o v12.
 
 ---
 
 ## 🚀 Como aplicar
 
-1. **Backup** (recomendado): `xcopy /E /I /Y . C:\Backup\rpg-wiki-antes-v12`
+1. **Backup** (recomendado): `xcopy /E /I /Y . C:\Backup\rpg-wiki-antes-v13`
 2. **Descompacte** este ZIP por cima da raiz do repositório (preserva estrutura de pastas)
-3. **Delete a pasta `wiki/css/`** se ainda existir (instruções no `_DELETE_ESTA_PASTA_wiki_css.txt` do v10)
-4. **RODE A MIGRATION 0013** se ainda não rodou (do patch v11):
-   ```bash
-   cd worker && npm run db:migrate:remote
-   ```
-5. **Typecheck + deploy worker**:
-   ```bash
-   cd worker && npx tsc --noEmit && npm run deploy
-   ```
-6. **Deploy frontend**:
-   ```bash
-   git add . && git commit -m "v12: embelezamento + NPCs avançados + propostas colaborativas + undo/redo" && git push
-   ```
-7. **Não precisa** rodar `node scripts/cache-bust.js` (já rodado, versão `?v=202607271819`)
+3. **Deploy frontend**: `git add . && git commit -m "v13: refatoração visual fichas + delete sala + inventário melhorado" && git push`
+4. **Não precisa** de migration nem deploy do worker (só frontend)
+5. **Não precisa** rodar `node scripts/cache-bust.js` (já rodado, versão `?v=202607271851`)
 
 ---
 
 ## 🧪 Verificações de sucesso (testar em produção após deploy)
 
-### 1. Embelezamento de fichas
-1. Entre numa sala e olhe a aba Personagens
-2. ✅ Cards de personagem têm hover lift (eleva 2px ao passar o mouse)
-3. ✅ Cada card mostra pills de contadores: `📊 5` (status), `⚔️ 2` (equipados), `🎒 7` (total itens)
-4. ✅ Ficha completa (aba Personagens, se ativa) tem gradient sutil no header
-5. ✅ Nome do personagem tem gradient vermelho (text-fill transparente)
-6. ✅ Atributos numéricos têm hover (elevam e borda fica vermelha)
-7. ✅ Barras de status têm glow (box-shadow com currentColor)
+### 1. Ficha de personagem limpa (sem botões minúsculos)
+1. Entre numa sala como mestre
+2. Aba Personagens: cada card tem:
+   - ✅ Header limpo: avatar + nome + "jogador: X" (sem botões sobrepostos)
+   - ✅ Toolbar horizontal com botões de tamanho consistente: "⚙️ Gerenciar" + "✨ Status" + "🎒 Inventário"
+   - ✅ Stats LIMPOS: só nome (uppercase, muted) + valor + botões +/- (quando editável)
+   - ✅ **NÃO há mais** 🔒/🔓/× minúsculos em cada stat
+3. Como jogador dono do personagem:
+   - ✅ Vê indicador 🔒 (cinza) ou 🔓 (verde) ao lado do nome do stat (informativo, não-botão)
+   - ✅ Botão "📦 Propor item" aparece na toolbar
 
-### 2. Popup de inventário embelezado
-1. Clique no botão 🎒 de qualquer personagem
-2. ✅ Modal abre com gradient de fundo
-3. ✅ Itens têm hover (fundo mais claro)
-4. ✅ Ícone do item escala 1.05x no hover
-5. ✅ Form de adicionar item tem preview de ícone 56×56 com borda tracejada
+### 2. Painel de Gestão (mestre)
+1. Como mestre, clique em "⚙️ Gerenciar" no card de qualquer personagem
+2. ✅ Modal abre com: avatar + nome + owner no header
+3. ✅ Lista de todos os stats, cada um em uma linha com:
+   - Nome + ★ (se custom) + tipo + valor atual
+   - Botão "🔓 Editável" (verde) ou "🔒 Bloqueado" (vermelho)
+   - Botão "🗑 Deletar"
+4. ✅ Clicar em "🔓 Editável" → vira "🔒 Bloqueado" instantaneamente (otimismo)
+5. ✅ Clicar em "🗑 Deletar" → confirma com nome do stat → linha desaparece do painel
+6. ✅ A ficha do personagem (aba Personagens) atualiza em tempo real via WS
 
-### 3. Criação colaborativa de itens (jogador → mestre)
-1. Como **jogador** (não mestre), entre na sala com um personagem
-2. Na aba Personagens, seu card tem botão 📦 (Propor item)
-3. Clique → abre modal "Propor item ao mestre"
-4. Preencha: nome, qty, descrição, clique em 🎨 para desenhar ícone
-5. Clique em "📤 Enviar proposta" → vê mensagem "Proposta enviada!"
-6. Como **mestre** (outra aba):
-   - ✅ Botão "📥 Propostas" no header tem badge amarelo pulsante com contagem
-   - Clique → abre modal de revisão com a proposta pendente
-   - ✅ Vê ícone, nome, qty, descrição, quem propôs, pra qual personagem
-   - Pode escrever nota opcional
-   - Clique em "✅ Aprovar" ou "❌ Rejeitar"
-7. Como **jogador**: vê alerta "✅ Seu item X foi aprovado!" ou "❌ Seu item X foi rejeitado"
-8. Se aprovado: item aparece no inventário do personagem instantaneamente
+### 3. Inventário refatorado
+1. Clique em "🎒 Inventário" de qualquer personagem
+2. ✅ Topbar com: título + toggle "▦ Detalhado / ≡ Lista" + botão "+ Novo item" + ✕
+3. ✅ **Form de criar item NÃO aparece** por padrão (antes ficava sempre visível)
+4. Clique em "+ Novo item" → form aparece com foco no campo "Nome"
+5. Clique em "✕ Cancelar" ou salve → form some
+6. ✅ Toggle "≡ Lista": itens ficam compactos (ícone 24px + nome + qty em uma linha)
+7. ✅ Toggle "▦ Detalhado": itens com ícone 44px + nome + qty + descrição + botões com labels
+8. ✅ Botões de ação têm labels claras: "🎨 Ícone" e "🗑 Remover" (não só ícones minúsculos)
 
-### 4. NPCs avançados com ilustração
-1. Como mestre, clique em "+ Criar inimigo"
-2. ✅ Modal expandido com seção de ilustração no topo
-3. Clique em "🎨 Desenhar" → abre EnemyIllustrationDrawer
-4. ✅ Canvas 512×512 com fundo xadrez (transparente)
-5. ✅ Color picker nativo, pincel + borracha, undo/redo
-6. ✅ Botão "📁 Upload" para subir imagem existente
-7. Desenhe algo, clique em "💾 Usar como ilustração"
-8. ✅ Preview mostra a ilustração no modal
-9. Adicione stats avançados: clique em "+ Stat", preencha nome/tipo/valores
-10. Salve o inimigo
-11. ✅ Inimigo aparece na aba Inimigos com ilustração 56×56 no header
-12. ✅ Stats avançados aparecem abaixo do HP com botões +/- (editáveis inline)
+### 4. Deletar sala
+1. Vá para `/criar-sala`
+2. ✅ Toda sala (ativa ou encerrada) tem botão "🗑 Excluir"
+3. Clique em "Excluir" de uma sala **encerrada** → confirma simples → exclui
+4. Clique em "Excluir" de uma sala **ativa** → pede para digitar o nome da sala → só exclui se digitar correto
+5. Vá para `/perfil` → mesmas salas têm botão 🗑 → mesma confirmação dupla para ativas
 
-### 5. Undo/Redo nos drawers
-1. Abra qualquer drawer (símbolo, ícone de item, ilustração de inimigo)
-2. Desenhe algumas pinceladas
-3. ✅ Botão ↶ (undo) fica habilitado
-4. Clique em ↶ → última pincelada desaparece
-5. ✅ Botão ↷ (redo) fica habilitado
-6. Clique em ↷ → pincelada volta
-7. **Atalhos de teclado**:
-   - Ctrl+Z → undo
-   - Ctrl+Y ou Ctrl+Shift+Z → redo
-8. ✅ Botões desabilitados (opacity 0.4) quando pilha vazia
-9. Limite de 25-30 estados (dependendo do drawer)
-
-### 6. Funcionalidades existentes não quebradas
-1. ✅ Wiki carrega normalmente
-2. ✅ Chat da sala funciona
-3. ✅ Dados rolam
-4. ✅ Enquetes, trocas, compras funcionam
-5. ✅ Permissões por stat do v11 continuam funcionando (🔒/🔓)
-6. ✅ Delete de stat do v11 continua funcionando
+### 5. Layout das listas de sala
+1. `/criar-sala` → lista de salas: info à esquerda (nome + código + tag status + data), ações à direita
+2. ✅ Tag verde "ativa" ou cinza "encerrada"
+3. `/perfil` → mesma estrutura, mais compacta
 
 ---
 
 ## 📌 Notas técnicas
 
-- **Sem migration nova**: inimigos e propostas vivem na memória do RoomDO. Quando o mestre aprova uma proposta, o item é persistido na tabela `character_inventory_items` (migration 0013 do v11).
-- **Undo/Redo usa ImageData**: cada snapshot é um `ctx.getImageData()` do canvas inteiro. Com 25-30 estados e canvas de 256-512px, isso consome ~2-8 MB de RAM — aceitável. Se precisar economizar, pode-se usar `canvas.toDataURL()` (mais lento mas menor em memória).
-- **Atalhos de teclado**: o listener é registrado no `document` quando o drawer abre e removido quando fecha. Verifica se o overlay ainda está no DOM a cada keypress (evita handler órfão).
-- **Item proposals são broadcast**: todos recebem `item_proposal_received`, mas só o mestre vê a notificação (badge). O jogador que propôs vê "aguardando aprovação". Quando resolvida, só o dono da proposta recebe feedback visual (além do chat de sistema).
-- **Ilustração de inimigo**: o drawer tem upload de imagem além do desenho. A imagem é ajustada com `object-fit: contain` (mantém proporção, centralizada).
-- **Stats de inimigo inline**: os botões +/- nos stats de inimigo enviam `update_enemy_stat` via WS, que atualiza o estado e faz broadcast. Todos veem a mudança em tempo real.
-- **Preserva v10/v11**: este patch inclui todos os arquivos dos patches anteriores para ser autossuficiente. Se você já aplicou v10/v11, os arquivos são idênticos (pode sobrescrever sem medo).
+- **Sem mudanças no backend**: este patch é 100% frontend. O endpoint `DELETE /api/rooms/:code` já existia (foi implementado no v11). Apenas a UI não mostrava o botão para salas ativas.
+- **Otimismo no painel de gestão**: ao clicar em toggle permissão ou delete, a UI atualiza imediatamente sem esperar o WS round-trip. Se o WS falhar, o próximo `character_updated` broadcast vai corrigir o estado.
+- **Cache de itens no inventário**: `inventoryModalItems` guarda os itens carregados para permitir trocar entre "Detalhado" e "Lista" sem recarregar da API. Após adicionar/remover item, a lista é recarregada.
+- **Responsividade**: em telas ≤600px, os botões da toolbar do personagem escondem as labels (só ícones). Em ≤480px, as linhas do painel de gestão viram coluna.
+- **Confirmação dupla para salas ativas**: excluir uma sala ativa desconecta todos os jogadores e apaga dados. Por isso pede para digitar o nome — é mais seguro que um simples "confirm".
 
 ---
 
-## 🐛 Possíveis problemas (se algo quebrar)
+## 🐛 Possíveis problemas
 
-1. **Erro 500 no worker**: verifique se a migration 0013 rodou. Rode `npx wrangler d1 execute rpg-wiki-db --remote --command "SELECT name FROM sqlite_master WHERE name='character_inventory_items'"` — deve retornar a tabela.
-2. **Botão "Propor item" não aparece**: só aparece para o jogador dono do personagem (não mestre). Verifique se você está logado como jogador comum e conectado com um personagem.
-3. **Undo/Redo não funciona**: verifique no DevTools se não há erro de JavaScript. O listener de keydown é registrado no `document`, então deve funcionar mesmo com foco no canvas.
-4. **Ilustração de inimigo não salva**: verifique no DevTools → Network se o upload para Cloudinary retornou 200. Se retornou, o URL deve estar no payload do `create_enemy`/`update_enemy`.
-5. **Propostas não chegam ao mestre**: verifique se ambos estão na mesma sala. O broadcast é pra todos, então o mestre deve receber. Se não recebeu, pode ser rate limit (1 msg / 300ms).
+1. **Painel de gestão não abre**: verifique se `window.characterRender.renderManagePanel` existe no console. Se não, o cache-bust pode não ter pego — force reload (Ctrl+Shift+R).
+2. **Botão "Gerenciar" não aparece**: só aparece para o mestre. Verifique se você está logado como admin/mestre.
+3. **Toggle de visualização não funciona**: verifique se não há erro de JS no DevTools. O listener é registrado em `document.querySelectorAll("#inv-view-toggle .inv-view-btn")`.
+4. **Delete de sala ativa falha**: verifique no DevTools → Network se o DELETE retornou 200. Se retornou 403, pode ser que você não é o dono da sala.

@@ -1,14 +1,18 @@
 // frontend/js/character-render.js — componente único de card/ficha de personagem
 //
-// v10 (este patch): permissões por stat + inventário como popup + ícone de item.
-//   - Cada stat tem badge de permissão: 🔒 (só mestre edita) ou 🔓 (jogador pode editar)
-//   - Mestre vê botões 🗛 (deletar stat) e 🔒/🔓 (alternar permissão) em cada stat
-//   - Jogador só vê botões +/- em stats com playerEditable=true
-//   - Inventário não é mais <details> inline; é um botão que abre modal (ver sala/index.html)
+// v13: REFACTORAÇÃO VISUAL COMPLETA.
+//   - Removidos botões minúsculos (🔒/🔓/×) de cada stat row (poluiam visual)
+//   - Stats agora são LIMPOS: só nome + valor + botões +/- (quando editável)
+//   - Permissões e delete de stat movidos para um PAINEL DE GESTÃO separado
+//     (abre via botão "Gerenciar" no header do card — só mestre vê)
+//   - Header refatorado: avatar + nome + OWNER em coluna limpa, ações em
+//     toolbar horizontal com botões de tamanho consistente (não minúsculos)
+//   - Removidos "meta-pills" que flutuavam sem clareza
+//   - Grid de stats com alinhamento consistente (baseline igual)
 //
-// USADO EM 3+ LUGARES (sem duplicar HTML):
+// USADO EM 3+ LUGARES:
 //   1. meus-personagens (lista de personagens do usuário)
-//   2. sala (grade de jogadores — mestre vê todos editáveis, jogador vê só o próprio)
+//   2. sala (grade de jogadores — mestre vê todos, jogador vê só o próprio)
 //   3. criar-personagem (preview final do wizard)
 
 (function () {
@@ -21,7 +25,6 @@
   }
 
   // Avatar do personagem — usa photoUrl se houver, senão placeholder com inicial.
-  // Se symbolUrl existir, mostra miniatura do símbolo sobreposta no canto.
   function renderAvatar(ch, size = 80) {
     const initial = (ch.name || "?").charAt(0).toUpperCase();
     const symSize = Math.floor(size * 0.4);
@@ -40,25 +43,19 @@
     return avatarHtml;
   }
 
-  // Render de UM stat — depende do tipo
-  // opts: { editable, isMaster, isOwn, onAction, compact }
+  // v13: Render de UM stat — LIMPO, sem botões minúsculos de permissão/delete.
+  // Permissões e delete são gerenciados no painel de gestão (botão "Gerenciar").
   function renderStat(stat, opts = {}) {
     const { editable, isMaster, isOwn, compact = false } = opts;
-    // Jogador só pode editar stat se for o dono E stat.playerEditable for true.
-    // Mestre pode editar qualquer stat.
     const playerCanEdit = isOwn && stat.playerEditable;
     const canEdit = editable && (isMaster || playerCanEdit);
-
     const color = stat.color || "#a78bfa";
     const name = escapeHtml(stat.name);
     const customBadge = stat.isCustom ? `<span class="stat-custom-badge" title="Customizado">★</span>` : "";
-    // Badge de permissão: 🔒 (só mestre) ou 🔓 (jogador pode editar)
-    const permBadge = isMaster
-      ? `<button class="stat-perm-toggle ${stat.playerEditable ? "editable" : "locked"}" data-action="toggle-perm" data-stat-id="${stat.id}" title="${stat.playerEditable ? "Jogador pode editar (clique para bloquear)" : "Só mestre edita (clique para liberar pro jogador)"}">${stat.playerEditable ? "🔓" : "🔒"}</button>`
-      : (isOwn && !stat.playerEditable ? `<span class="stat-perm-locked" title="Só o mestre pode editar este status">🔒</span>` : "");
-    // Botão deletar (só mestre)
-    const deleteBtn = isMaster
-      ? `<button class="stat-delete-btn" data-action="delete-stat" data-stat-id="${stat.id}" title="Deletar este status da ficha">×</button>`
+    // Indicador visual sutil de permissão (não é botão — é só um ícone pequeno)
+    // Só aparece para o JOGADOR (pra saber quais ele pode editar). Mestre não precisa ver.
+    const permIndicator = (isOwn && !isMaster)
+      ? (stat.playerEditable ? `<span class="stat-perm-indicator editable" title="Você pode editar">🔓</span>` : `<span class="stat-perm-indicator locked" title="Só o mestre edita">🔒</span>`)
       : "";
 
     let valueHtml = "";
@@ -77,9 +74,7 @@
             ${canEdit ? `
               <div class="stat-quick-actions">
                 <button class="btn-stat-quick" data-stat-id="${stat.id}" data-delta="-1" title="-1">−</button>
-                <button class="btn-stat-quick" data-stat-id="${stat.id}" data-delta="-5" title="-5">−5</button>
                 <button class="btn-stat-quick" data-stat-id="${stat.id}" data-delta="1" title="+1">+</button>
-                <button class="btn-stat-quick" data-stat-id="${stat.id}" data-delta="5" title="+5">+5</button>
               </div>` : ""}
           </div>`;
         break;
@@ -125,43 +120,61 @@
       <div class="stat-row ${compact ? "compact" : ""}" data-stat-id="${stat.id}" data-stat-type="${stat.type}">
         <div class="stat-label">
           <span class="stat-label-name">${name}${customBadge}</span>
-          <span class="stat-label-actions">${permBadge}${deleteBtn}</span>
+          ${permIndicator}
         </div>
         <div class="stat-value">${valueHtml}</div>
       </div>
     `;
   }
 
-  // Render de card de personagem (versão compacta pra grade na sala)
-  // v12: visual embelezado — header com gradient sutil, avatar com borda colorida,
-  // badges de permissão integradas, botões de ação com tooltips.
+  // v13: Render de card de personagem — header limpo com toolbar de ações organizada.
   // opts: { editable, isMaster, isOwn, showActions }
   function renderCharacterCard(ch, opts = {}) {
     const { editable = false, isMaster = false, isOwn = false, showActions = true } = opts;
     const canEdit = editable && (isOwn || isMaster);
 
     const avatarHtml = renderAvatar(ch, 56);
-    // Stats em layout compacto (2 colunas para bar/numbers, 1 coluna para textos)
     const statsHtml = (ch.stats || []).map(s => renderStat(s, { editable, isMaster, isOwn, compact: true })).join("");
 
     const statusEffects = (ch.statusEffects || []).map(s => `
       <span class="status-tag">${sanitizeText(s.text)}${isMaster ? `<button class="status-remove" data-status-id="${escapeHtml(s.id)}">×</button>` : ""}</span>
     `).join("");
 
-    // Inventário como BOTÃO que abre modal
     const invCount = (ch.inventory || []).length;
-    const invBtn = `<button class="btn btn-sm btn-ghost inventory-open-btn" data-action="open-inventory" data-character-id="${ch.id}" data-character-name="${escapeHtml(ch.name)}" title="Ver inventário">
-      🎒 <span class="inv-count-badge">${invCount}</span>
-    </button>`;
-
-    // v12: contadores rápidos no header (stats total, equipped items)
-    const statsCount = (ch.stats || []).length;
     const equippedCount = (ch.inventory || []).filter(it => it.equipped).length;
 
-    // v12: botão "Propor item" só aparece para o jogador dono do personagem (não mestre)
-    const proposeBtn = isOwn && !isMaster
-      ? `<button class="btn btn-sm btn-ghost" data-action="propose-item" title="Propor item ao mestre">📦</button>`
-      : "";
+    // v13: Toolbar de ações — botões de tamanho CONSISTENTE, com labels claras.
+    // Mestre vê: Gerenciar (abre painel), + Status, Inventário
+    // Jogador dono vê: Editar (ficha), Propor item, Inventário
+    // Jogador outro: só Inventário (leitura)
+    let actionsHtml = "";
+    if (showActions) {
+      if (isMaster) {
+        actionsHtml = `
+          <button class="char-action-btn" data-action="manage-character" data-character-id="${ch.id}" title="Gerenciar ficha, permissões e stats">
+            ⚙️ <span class="char-action-label">Gerenciar</span>
+          </button>
+          <button class="char-action-btn" data-action="add-status" data-target-type="character" data-target-id="${ch.id}" title="Adicionar status effect temporário">
+            ✨ <span class="char-action-label">Status</span>
+          </button>
+        `;
+      } else if (isOwn) {
+        actionsHtml = `
+          <button class="char-action-btn" data-action="edit-character" data-character-id="${ch.id}" title="Editar ficha">
+            ✎ <span class="char-action-label">Editar</span>
+          </button>
+          <button class="char-action-btn" data-action="propose-item" title="Propor item ao mestre">
+            📦 <span class="char-action-label">Propor item</span>
+          </button>
+        `;
+      }
+      actionsHtml += `
+        <button class="char-action-btn" data-action="open-inventory" data-character-id="${ch.id}" data-character-name="${escapeHtml(ch.name)}" title="Ver inventário (${invCount} itens, ${equippedCount} equipados)">
+          🎒 <span class="char-action-label">Inventário</span>
+          <span class="inv-count-badge">${invCount}</span>
+        </button>
+      `;
+    }
 
     return `
       <div class="card character-card ${isOwn ? "own" : ""}" data-character-id="${ch.id}">
@@ -171,20 +184,11 @@
             <div class="character-header-info">
               <div class="character-name">${escapeHtml(ch.name)}</div>
               <div class="character-owner muted text-xs">jogador: ${escapeHtml(ch.ownerUsername)}</div>
-              <div class="character-meta-pills">
-                <span class="char-meta-pill" title="Status">${statsCount} 📊</span>
-                <span class="char-meta-pill" title="Itens equipados">${equippedCount} ⚔️</span>
-                <span class="char-meta-pill" title="Total itens">${invCount} 🎒</span>
-              </div>
             </div>
           </div>
-          <div class="character-actions">
-            ${canEdit && showActions ? `<button class="btn btn-sm" data-action="edit-character" data-character-id="${ch.id}" title="Editar ficha">✎</button>` : ""}
-            ${isMaster && !isOwn && showActions ? `<button class="btn btn-sm btn-ghost" data-action="gm-edit-character" data-character-id="${ch.id}" title="Editar como mestre">M</button>` : ""}
-            ${isMaster && showActions ? `<button class="btn btn-sm btn-ghost" data-action="add-status" data-target-type="character" data-target-id="${ch.id}" title="Adicionar status effect">+</button>` : ""}
-            ${proposeBtn}
-            ${invBtn}
-          </div>
+        </div>
+        <div class="character-actions-bar">
+          ${actionsHtml}
         </div>
         <div class="stats-section stats-grid-compact">${statsHtml || `<div class="muted text-sm">Sem status definidos.</div>`}</div>
         ${statusEffects ? `<div class="status-list">${statusEffects}</div>` : ""}
@@ -215,10 +219,60 @@
     `;
   }
 
+  // v13: Render do PAINEL DE GESTÃO (modal) — mestre gerencia permissões e deleta stats.
+  // É chamado quando o mestre clica em "Gerenciar" no card do personagem.
+  function renderManagePanel(ch) {
+    const statsHtml = (ch.stats || []).map(s => {
+      const valDisplay = s.type === "bar" ? `${s.valueCurrent ?? 0}/${s.valueMax ?? 0}`
+        : s.type === "number" ? `${s.valueCurrent ?? 0}`
+        : s.type === "checkbox" ? (s.valueBool ? "✓" : "○")
+        : s.type === "tag_list" ? "tags"
+        : (s.valueText || "—");
+      return `
+        <div class="manage-stat-row" data-stat-id="${s.id}">
+          <div class="manage-stat-info">
+            <span class="manage-stat-name">${escapeHtml(s.name)}</span>
+            ${s.isCustom ? `<span class="stat-custom-badge" title="Customizado">★</span>` : ""}
+            <span class="manage-stat-type muted text-xs">${s.type}</span>
+            <span class="manage-stat-value muted text-xs">${escapeHtml(String(valDisplay))}</span>
+          </div>
+          <div class="manage-stat-actions">
+            <button class="manage-perm-btn ${s.playerEditable ? "editable" : "locked"}" data-action="toggle-perm" data-stat-id="${s.id}" title="${s.playerEditable ? "Jogador pode editar — clique para bloquear" : "Só mestre edita — clique para liberar"}">
+              ${s.playerEditable ? "🔓 Editável" : "🔒 Bloqueado"}
+            </button>
+            <button class="manage-delete-btn" data-action="delete-stat" data-stat-id="${s.id}" title="Deletar este stat da ficha">
+              🗑 Deletar
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="manage-panel-content" data-character-id="${ch.id}">
+        <div class="manage-panel-header">
+          <div class="manage-panel-char-info">
+            ${renderAvatar(ch, 48)}
+            <div>
+              <div class="manage-panel-char-name">${escapeHtml(ch.name)}</div>
+              <div class="muted text-xs">jogador: ${escapeHtml(ch.ownerUsername)}</div>
+            </div>
+          </div>
+        </div>
+        <div class="manage-panel-stats">
+          <h4 class="manage-panel-section-title">📊 Status da ficha (${(ch.stats || []).length})</h4>
+          <p class="muted text-xs mb-2">Controle quais status o jogador pode editar. Status bloqueados (🔒) só o mestre modifica. Status liberados (🔓) o jogador pode ajustar.</p>
+          ${statsHtml || `<div class="muted text-sm">Sem status definidos.</div>`}
+        </div>
+      </div>
+    `;
+  }
+
   window.characterRender = {
     renderCharacterCard,
     renderCharacterSheet,
     renderStat,
     renderAvatar,
+    renderManagePanel,
   };
 })();

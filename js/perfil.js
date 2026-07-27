@@ -105,14 +105,42 @@
         } else {
           roomsHtml = rooms.slice(0, 10).map(r => `
             <div class="perfil-room-row ${r.isActive ? "" : "inactive"}">
-              <div class="perfil-room-name">${escapeHtml(r.name || "Sala sem nome")}</div>
-              <code class="perfil-room-code">${escapeHtml(r.code)}</code>
-              ${r.isActive ? `<a class="btn btn-sm btn-primary" href="/sala?code=${encodeURIComponent(r.code)}">Reabrir</a>` : `<span class="tag tag-off">encerrada</span>`}
+              <div class="perfil-room-info">
+                <div class="perfil-room-name">${escapeHtml(r.name || "Sala sem nome")}</div>
+                <code class="perfil-room-code">${escapeHtml(r.code)}</code>
+                ${r.isActive ? '<span class="tag tag-on">ativa</span>' : '<span class="tag tag-off">encerrada</span>'}
+              </div>
+              <div class="perfil-room-actions">
+                ${r.isActive ? `<a class="btn btn-sm btn-primary" href="/sala?code=${encodeURIComponent(r.code)}">Reabrir</a>` : ""}
+                <button class="btn btn-sm btn-danger perfil-delete-room" data-code="${encodeURIComponent(r.code)}" data-name="${escapeHtml(r.name || "Sala sem nome")}" data-active="${r.isActive ? "1" : "0"}" title="Excluir sala">🗑</button>
+              </div>
             </div>
           `).join("");
           if (rooms.length > 10) {
             roomsHtml += `<p class="text-xs muted mt-2">+${rooms.length - 10} salas anteriores — <a href="/criar-sala">ver todas</a></p>`;
           }
+          // Bind botões de excluir sala no perfil
+          grid.querySelectorAll('.perfil-delete-room').forEach(b => {
+            b.addEventListener("click", async () => {
+              const code = decodeURIComponent(b.dataset.code);
+              const name = b.dataset.name;
+              const isActive = b.dataset.active === "1";
+              const msg = isActive
+                ? `⚠️ A sala "${name}" está ATIVA. Excluir vai desconectar todos e apagar os dados.\n\nDigite o nome da sala para confirmar:`
+                : `Excluir a sala "${name}"? Todos os dados serão perdidos.`;
+              if (isActive) {
+                const input = prompt(msg);
+                if (input !== name) { if (input !== null) alert("Nome não confere."); return; }
+              } else {
+                if (!confirm(msg)) return;
+              }
+              try {
+                await window.api.del(`/api/rooms/${encodeURIComponent(code)}`);
+                showAlert("success", `Sala "${name}" excluída.`);
+                setTimeout(() => init(sess), 1000);
+              } catch (e) { alert(e.message); }
+            });
+          });
         }
       } else {
         roomsHtml = `<div class="alert alert-error">Erro ao carregar salas.</div>`;

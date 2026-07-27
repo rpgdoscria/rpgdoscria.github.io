@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202607271819">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271819">
+  <link rel="stylesheet" href="/css/style.css?v=202607271851">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271851">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -420,6 +420,17 @@
     </div>
   </div>
 
+  <!-- ===== Modal: Gerenciar personagem (v13 — mestre gerencia permissões e deleta stats) ===== -->
+  <div id="manage-character-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:640px;max-height:90vh">
+      <div class="flex items-center justify-between mb-3">
+        <h3 style="margin:0">⚙️ Gerenciar personagem</h3>
+        <button class="btn btn-sm btn-ghost" id="manage-char-close" title="Fechar">✕</button>
+      </div>
+      <div id="manage-char-content"></div>
+    </div>
+  </div>
+
   <div id="status-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <h3>Adicionar status</h3>
@@ -434,17 +445,28 @@
     </div>
   </div>
 
-  <!-- ===== Modal de Inventário (popup) — Migration 0013 ===== -->
+  <!-- ===== Modal de Inventário (popup) — v13 refatorado ===== -->
   <div id="inventory-modal" class="modal-backdrop hidden">
-    <div class="modal-card" style="max-width:640px;max-height:90vh">
-      <div class="flex items-center justify-between mb-3">
+    <div class="modal-card" style="max-width:680px;max-height:90vh">
+      <div class="inv-modal-topbar">
         <h3 style="margin:0">🎒 Inventário — <span id="inv-modal-char-name">—</span></h3>
-        <button class="btn btn-sm btn-ghost" id="inv-modal-close">✕</button>
+        <div class="inv-modal-topbar-actions">
+          <div class="inv-view-toggle" id="inv-view-toggle">
+            <button class="inv-view-btn active" data-view="detailed" title="Visualização detalhada com ícones">▦ Detalhado</button>
+            <button class="inv-view-btn" data-view="list" title="Visualização em lista compacta">≡ Lista</button>
+          </div>
+          <button class="btn btn-sm btn-primary" id="inv-add-toggle" title="Adicionar novo item">+ Novo item</button>
+          <button class="btn btn-sm btn-ghost" id="inv-modal-close" title="Fechar">✕</button>
+        </div>
       </div>
       <div id="inv-modal-alert"></div>
       <div id="inv-modal-list" class="inv-modal-list"></div>
-      <div class="inv-modal-add-section mt-3">
-        <h4 style="font-size:14px;margin:0 0 8px 0">+ Adicionar item</h4>
+      <!-- v13: Form de adicionar item fica ESCONDIDO por padrão — só aparece ao clicar "+ Novo item" -->
+      <div class="inv-modal-add-section hidden" id="inv-add-section">
+        <div class="inv-add-section-header">
+          <h4 style="margin:0">Criar novo item</h4>
+          <button class="btn btn-sm btn-ghost" id="inv-add-cancel" title="Cancelar">✕</button>
+        </div>
         <div class="inv-add-form">
           <div class="inv-add-icon-preview" id="inv-add-icon-preview" title="Clique para desenhar o ícone">
             <span class="muted text-xs">sem ícone</span>
@@ -459,7 +481,7 @@
           <textarea id="inv-add-desc" placeholder="Descrição (opcional, máx 200 chars)" maxlength="200" rows="2" style="width:100%"></textarea>
           <div class="flex gap-2 justify-end">
             <button class="btn btn-ghost btn-sm" id="inv-add-draw">🎨 Desenhar ícone</button>
-            <button class="btn btn-primary btn-sm" id="inv-add-save">+ Adicionar</button>
+            <button class="btn btn-primary btn-sm" id="inv-add-save">+ Adicionar item</button>
           </div>
         </div>
       </div>
@@ -468,29 +490,29 @@
 
   <script src="/vendor/purify.min.js"></script>
   <script src="/vendor/marked.min.js"></script>
-  <script src="/js/config.js?v=202607271819"></script>
-  <script src="/js/api.js?v=202607271819"></script>
-  <script src="/js/auth.js?v=202607271819"></script>
-  <script src="/js/markdown.js?v=202607271819"></script>
-  <script src="/js/room-ws.js?v=202607271819"></script>
-  <script src="/js/dice-ui.js?v=202607271819"></script>
-  <script src="/js/dice-visual.js?v=202607271819"></script>
-  <script src="/js/dice-tutorial.js?v=202607271819"></script>
-  <script src="/js/room-render.js?v=202607271819"></script>
-  <script src="/js/character-render.js?v=202607271819"></script>
-  <script src="/js/character-sheet-full.js?v=202607271819"></script>
-  <script src="/js/item-drawer.js?v=202607271819"></script>
-  <script src="/js/enemy-illustration-drawer.js?v=202607271819"></script>
-  <script src="/js/item-proposal.js?v=202607271819"></script>
-  <script src="/js/room-chat.js?v=202607271819"></script>
-  <script src="/js/damage-system.js?v=202607271819"></script>
-  <script src="/js/formula-builder.js?v=202607271819"></script>
-  <script src="/js/poll.js?v=202607271819"></script>
-  <script src="/js/reveal-animations.js?v=202607271819"></script>
-  <script src="/js/trade.js?v=202607271819"></script>
-  <script src="/js/levelup.js?v=202607271819"></script>
-  <script src="/js/purchase.js?v=202607271819"></script>
-  <script src="/js/master-planning.js?v=202607271819"></script>
+  <script src="/js/config.js?v=202607271851"></script>
+  <script src="/js/api.js?v=202607271851"></script>
+  <script src="/js/auth.js?v=202607271851"></script>
+  <script src="/js/markdown.js?v=202607271851"></script>
+  <script src="/js/room-ws.js?v=202607271851"></script>
+  <script src="/js/dice-ui.js?v=202607271851"></script>
+  <script src="/js/dice-visual.js?v=202607271851"></script>
+  <script src="/js/dice-tutorial.js?v=202607271851"></script>
+  <script src="/js/room-render.js?v=202607271851"></script>
+  <script src="/js/character-render.js?v=202607271851"></script>
+  <script src="/js/character-sheet-full.js?v=202607271851"></script>
+  <script src="/js/item-drawer.js?v=202607271851"></script>
+  <script src="/js/enemy-illustration-drawer.js?v=202607271851"></script>
+  <script src="/js/item-proposal.js?v=202607271851"></script>
+  <script src="/js/room-chat.js?v=202607271851"></script>
+  <script src="/js/damage-system.js?v=202607271851"></script>
+  <script src="/js/formula-builder.js?v=202607271851"></script>
+  <script src="/js/poll.js?v=202607271851"></script>
+  <script src="/js/reveal-animations.js?v=202607271851"></script>
+  <script src="/js/trade.js?v=202607271851"></script>
+  <script src="/js/levelup.js?v=202607271851"></script>
+  <script src="/js/purchase.js?v=202607271851"></script>
+  <script src="/js/master-planning.js?v=202607271851"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -1172,29 +1194,17 @@
             });
           });
         });
-        // ===== Migration 0013: Deletar stat da ficha (mestre only) =====
-        document.querySelectorAll('button[data-action="delete-stat"]').forEach(b => {
+        // ===== v13: Gerenciar personagem (mestre) — abre painel de gestão =====
+        document.querySelectorAll('button[data-action="manage-character"]').forEach(b => {
           b.addEventListener("click", () => {
-            const card = b.closest("[data-character-id]");
-            const characterId = card ? Number(card.dataset.characterId) : null;
-            const statId = Number(b.dataset.statId);
-            if (!characterId || !statId) return;
-            if (!confirm("Deletar este status da ficha do personagem? Esta ação é permanente.")) return;
-            client.send("delete_stat", { characterId, statId });
+            const characterId = Number(b.dataset.characterId);
+            const ch = currentState?.characters.find(c => c.id === characterId);
+            if (!ch) return;
+            openManageCharacterModal(ch);
           });
         });
-        // ===== Migration 0013: Alternar permissão de edição do stat (mestre only) =====
-        document.querySelectorAll('button[data-action="toggle-perm"]').forEach(b => {
-          b.addEventListener("click", () => {
-            const card = b.closest("[data-character-id]");
-            const characterId = card ? Number(card.dataset.characterId) : null;
-            const statId = Number(b.dataset.statId);
-            if (!characterId || !statId) return;
-            // Lê o estado atual do botão (se tem classe "editable", está liberado; clicar = bloquear)
-            const currentlyEditable = b.classList.contains("editable");
-            client.send("set_stat_permission", { characterId, statId, playerEditable: !currentlyEditable });
-          });
-        });
+        // ===== v13: Botões +/- nos stats (continua funcionando inline) =====
+        // (Já existe o binding acima em 'button[data-stat-id][data-delta]')
         // ===== Migration 0013: Abrir modal de inventário (popup) =====
         document.querySelectorAll('button[data-action="open-inventory"]').forEach(b => {
           b.addEventListener("click", () => {
@@ -1651,12 +1661,17 @@
       // ===== Migration 0013: Modal de Inventário (popup) =====
       let inventoryModalCharId = null;
       let inventoryModalPendingIcon = null;  // URL do ícone desenhado (a ser salvo com o item)
+      let inventoryModalView = "detailed";  // v13: "detailed" (com ícones) | "list" (compacto)
+      let inventoryModalItems = [];  // v13: cache dos itens carregados (pra re-renderizar ao trocar view)
 
       function openInventoryModal(characterId, characterName) {
         inventoryModalCharId = characterId;
         inventoryModalPendingIcon = null;
+        inventoryModalView = "detailed";  // v13: default = detalhado
         document.getElementById("inv-modal-char-name").textContent = characterName;
         document.getElementById("inv-modal-alert").innerHTML = "";
+        // Esconde form de adicionar (v13: só aparece ao clicar "+ Novo item")
+        document.getElementById("inv-add-section").classList.add("hidden");
         // Limpa form de adicionar
         document.getElementById("inv-add-name").value = "";
         document.getElementById("inv-add-qty").value = "1";
@@ -1664,16 +1679,18 @@
         document.getElementById("inv-add-desc").value = "";
         const preview = document.getElementById("inv-add-icon-preview");
         preview.innerHTML = `<span class="muted text-xs">sem ícone</span>`;
+        // Reset toggle de visualização para "detalhado"
+        document.querySelectorAll("#inv-view-toggle .inv-view-btn").forEach(b => {
+          b.classList.toggle("active", b.dataset.view === "detailed");
+        });
         document.getElementById("inventory-modal").classList.remove("hidden");
         loadInventoryItems(characterId);
       }
 
       async function loadInventoryItems(characterId) {
         const listEl = document.getElementById("inv-modal-list");
-        listEl.innerHTML = `<div class="muted text-sm">Carregando…</div>`;
+        listEl.innerHTML = `<div class="muted text-sm" style="padding:16px;text-align:center">Carregando…</div>`;
         try {
-          // Tenta carregar da nova tabela; se falhar (ex: migration não rodada ainda),
-          // cai pro inventário em memória do estado da sala.
           let items = [];
           try {
             const data = await window.api.get(`/api/characters/${characterId}/inventory`);
@@ -1685,6 +1702,7 @@
               equipped: !!it.equipped, iconUrl: it.iconUrl || null,
             }));
           }
+          inventoryModalItems = items;  // v13: cache pra re-renderizar ao trocar view
           renderInventoryItems(items);
         } catch (e) {
           listEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
@@ -1694,25 +1712,26 @@
       function renderInventoryItems(items) {
         const listEl = document.getElementById("inv-modal-list");
         if (!items || items.length === 0) {
-          listEl.innerHTML = `<div class="muted text-sm" style="padding:16px;text-align:center">Sem itens no inventário.</div>`;
+          listEl.innerHTML = `<div class="muted text-sm" style="padding:24px;text-align:center">Sem itens no inventário.</div>`;
           return;
         }
-        // Separa equipados da mochila
         const equipped = items.filter(it => it.equipped);
         const backpack = items.filter(it => !it.equipped);
+        // v13: renderização depende do modo de visualização
+        const renderFn = inventoryModalView === "list" ? renderInventoryItemCompact : renderInventoryItemRow;
         listEl.innerHTML = `
           ${equipped.length > 0 ? `
             <div class="inv-modal-section">
               <h4 class="inv-modal-section-title">⚔️ Equipado (${equipped.length})</h4>
-              ${equipped.map(it => renderInventoryItemRow(it)).join("")}
+              ${equipped.map(it => renderFn(it)).join("")}
             </div>` : ""}
           ${backpack.length > 0 ? `
             <div class="inv-modal-section">
               <h4 class="inv-modal-section-title">🎒 Mochila (${backpack.length})</h4>
-              ${backpack.map(it => renderInventoryItemRow(it)).join("")}
+              ${backpack.map(it => renderFn(it)).join("")}
             </div>` : ""}
         `;
-        // Bind dos botões de editar/deletar/excluir
+        // Bind dos botões
         listEl.querySelectorAll('button[data-inv-action="delete"]').forEach(b => {
           b.addEventListener("click", async () => {
             if (!confirm("Remover este item do inventário?")) return;
@@ -1727,7 +1746,7 @@
         listEl.querySelectorAll('button[data-inv-action="edit-icon"]').forEach(b => {
           b.addEventListener("click", () => {
             const itemId = Number(b.dataset.itemId);
-            const currentItem = items.find(it => it.id === itemId);
+            const currentItem = inventoryModalItems.find(it => it.id === itemId);
             window.ItemDrawer.open(async (iconUrl) => {
               try {
                 await window.api.put(`/api/characters/${inventoryModalCharId}/inventory/${itemId}`, { iconUrl });
@@ -1739,20 +1758,39 @@
         });
       }
 
+      // v13: Visualização DETALHADA — ícone grande + nome + qty + descrição + ações
       function renderInventoryItemRow(it) {
         const iconHtml = it.iconUrl
           ? `<img src="${escapeHtml(it.iconUrl)}" alt="${escapeHtml(it.name)}" class="inv-item-icon">`
           : `<div class="inv-item-icon-placeholder" title="Sem ícone">${escapeHtml((it.name || "?").charAt(0).toUpperCase())}</div>`;
         return `
-          <div class="inv-modal-row">
+          <div class="inv-modal-row inv-modal-row-detailed">
             <div class="inv-modal-row-icon">${iconHtml}</div>
             <div class="inv-modal-row-info">
               <div class="inv-modal-row-name">${escapeHtml(it.name)} <span class="inv-modal-row-qty">×${it.qty}</span></div>
               ${it.description ? `<div class="inv-modal-row-desc muted text-xs">${escapeHtml(it.description)}</div>` : ""}
             </div>
             <div class="inv-modal-row-actions">
-              <button class="btn btn-sm btn-ghost" data-inv-action="edit-icon" data-item-id="${it.id}" title="Desenhar/editar ícone">🎨</button>
-              <button class="btn btn-sm btn-danger" data-inv-action="delete" data-item-id="${it.id}" title="Remover item">×</button>
+              <button class="btn btn-sm btn-ghost" data-inv-action="edit-icon" data-item-id="${it.id}" title="Desenhar/editar ícone">🎨 Ícone</button>
+              <button class="btn btn-sm btn-danger" data-inv-action="delete" data-item-id="${it.id}" title="Remover item">🗑 Remover</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // v13: Visualização COMPACTA (lista) — uma linha por item, sem ícone grande
+      function renderInventoryItemCompact(it) {
+        const iconMini = it.iconUrl
+          ? `<img src="${escapeHtml(it.iconUrl)}" alt="" class="inv-item-icon-mini">`
+          : `<span class="inv-item-icon-mini-placeholder">${escapeHtml((it.name || "?").charAt(0).toUpperCase())}</span>`;
+        return `
+          <div class="inv-modal-row inv-modal-row-compact">
+            <span class="inv-row-mini-icon">${iconMini}</span>
+            <span class="inv-row-mini-name">${escapeHtml(it.name)}</span>
+            <span class="inv-row-mini-qty">×${it.qty}</span>
+            <div class="inv-row-mini-actions">
+              <button class="btn btn-sm btn-ghost" data-inv-action="edit-icon" data-item-id="${it.id}" title="Editar ícone">🎨</button>
+              <button class="btn btn-sm btn-danger" data-inv-action="delete" data-item-id="${it.id}" title="Remover">🗑</button>
             </div>
           </div>
         `;
@@ -1767,6 +1805,29 @@
         if (e.target.id === "inventory-modal") {
           document.getElementById("inventory-modal").classList.add("hidden");
         }
+      });
+      // v13: Toggle de visualização (detalhado vs lista)
+      document.querySelectorAll("#inv-view-toggle .inv-view-btn").forEach(b => {
+        b.addEventListener("click", () => {
+          document.querySelectorAll("#inv-view-toggle .inv-view-btn").forEach(x => x.classList.remove("active"));
+          b.classList.add("active");
+          inventoryModalView = b.dataset.view;
+          renderInventoryItems(inventoryModalItems);
+        });
+      });
+      // v13: Botão "+ Novo item" — mostra/esconde form de criação
+      document.getElementById("inv-add-toggle").addEventListener("click", () => {
+        const section = document.getElementById("inv-add-section");
+        const isHidden = section.classList.contains("hidden");
+        section.classList.toggle("hidden");
+        if (isHidden) {
+          // Acabou de mostrar — foca no campo de nome
+          setTimeout(() => document.getElementById("inv-add-name").focus(), 50);
+        }
+      });
+      // v13: Botão "Cancelar" do form de adicionar
+      document.getElementById("inv-add-cancel").addEventListener("click", () => {
+        document.getElementById("inv-add-section").classList.add("hidden");
       });
       // Preview do ícone — clicar abre o desenhista
       document.getElementById("inv-add-icon-preview").addEventListener("click", () => {
@@ -1824,9 +1885,59 @@
           inventoryModalPendingIcon = null;
           const preview = document.getElementById("inv-add-icon-preview");
           preview.innerHTML = `<span class="muted text-xs">sem ícone</span>`;
+          // v13: Esconde form após salvar
+          document.getElementById("inv-add-section").classList.add("hidden");
           loadInventoryItems(inventoryModalCharId);
         } catch (e) {
           document.getElementById("inv-modal-alert").innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+        }
+      });
+
+      // ===== v13: Modal de Gestão de Personagem (mestre) =====
+      let manageCharId = null;
+      function openManageCharacterModal(ch) {
+        manageCharId = ch.id;
+        const contentEl = document.getElementById("manage-char-content");
+        contentEl.innerHTML = window.characterRender.renderManagePanel(ch);
+        // Bind dos botões de permissão e delete dentro do painel
+        contentEl.querySelectorAll('button[data-action="toggle-perm"]').forEach(b => {
+          b.addEventListener("click", () => {
+            const statId = Number(b.dataset.statId);
+            const currentlyEditable = b.classList.contains("editable");
+            client.send("set_stat_permission", { characterId: manageCharId, statId, playerEditable: !currentlyEditable });
+            // Otimismo: atualiza UI imediatamente
+            if (currentlyEditable) {
+              b.classList.remove("editable");
+              b.classList.add("locked");
+              b.innerHTML = "🔒 Bloqueado";
+              b.title = "Só mestre edita — clique para liberar";
+            } else {
+              b.classList.remove("locked");
+              b.classList.add("editable");
+              b.innerHTML = "🔓 Editável";
+              b.title = "Jogador pode editar — clique para bloquear";
+            }
+          });
+        });
+        contentEl.querySelectorAll('button[data-action="delete-stat"]').forEach(b => {
+          b.addEventListener("click", () => {
+            const statId = Number(b.dataset.statId);
+            const statRow = b.closest(".manage-stat-row");
+            const statName = statRow?.querySelector(".manage-stat-name")?.textContent || "este stat";
+            if (!confirm(`Deletar "${statName}" da ficha do personagem? Esta ação é permanente.`)) return;
+            client.send("delete_stat", { characterId: manageCharId, statId });
+            // Remove a linha do painel imediatamente
+            if (statRow) statRow.remove();
+          });
+        });
+        document.getElementById("manage-character-modal").classList.remove("hidden");
+      }
+      document.getElementById("manage-char-close").addEventListener("click", () => {
+        document.getElementById("manage-character-modal").classList.add("hidden");
+      });
+      document.getElementById("manage-character-modal").addEventListener("click", (e) => {
+        if (e.target.id === "manage-character-modal") {
+          document.getElementById("manage-character-modal").classList.add("hidden");
         }
       });
 

@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202607271819">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271819">
+  <link rel="stylesheet" href="/css/style.css?v=202607271851">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271851">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -56,9 +56,9 @@
     </div>
   </main>
 
-  <script src="/js/config.js?v=202607271819"></script>
-  <script src="/js/api.js?v=202607271819"></script>
-  <script src="/js/auth.js?v=202607271819"></script>
+  <script src="/js/config.js?v=202607271851"></script>
+  <script src="/js/api.js?v=202607271851"></script>
+  <script src="/js/auth.js?v=202607271851"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -131,13 +131,18 @@
           const rl = document.getElementById("rooms-list");
           rl.innerHTML = data.rooms.map(r => `
             <div class="criar-sala-room-row ${r.isActive ? "" : "inactive"}">
-              <div class="criar-sala-room-name">${escapeHtml(r.name || "Sala sem nome")}</div>
-              <code class="criar-sala-room-code">${escapeHtml(r.code)}</code>
-              ${r.isActive ? "" : '<span class="tag tag-off">encerrada</span>'}
-              ${r.isActive ? `<a class="btn btn-sm btn-primary" href="/sala?code=${encodeURIComponent(r.code)}">Reabrir</a>` : `<a class="btn btn-sm btn-ghost" href="/sala?code=${encodeURIComponent(r.code)}">Tentar reabrir</a>`}
-              ${r.isActive ? `<button class="btn btn-sm" data-copy="${escapeHtml(r.code)}">Copiar</button>` : ""}
-              ${r.isActive ? `<button class="btn btn-sm btn-ghost" data-end-code="${escapeHtml(r.code)}">Encerrar</button>` : `<button class="btn btn-sm btn-danger" data-delete-code="${escapeHtml(r.code)}">Excluir</button>`}
-              <div class="criar-sala-room-meta">criada ${escapeHtml(r.createdAt || "?")} · ${r.isActive ? "ativa" : "encerrada"}</div>
+              <div class="criar-sala-room-info">
+                <div class="criar-sala-room-name">${escapeHtml(r.name || "Sala sem nome")}</div>
+                <code class="criar-sala-room-code">${escapeHtml(r.code)}</code>
+                ${r.isActive ? '<span class="tag tag-on">ativa</span>' : '<span class="tag tag-off">encerrada</span>'}
+                <div class="criar-sala-room-meta muted text-xs">criada ${escapeHtml(r.createdAt || "?")}</div>
+              </div>
+              <div class="criar-sala-room-actions">
+                ${r.isActive ? `<a class="btn btn-sm btn-primary" href="/sala?code=${encodeURIComponent(r.code)}">Reabrir</a>` : `<a class="btn btn-sm btn-ghost" href="/sala?code=${encodeURIComponent(r.code)}">Tentar reabrir</a>`}
+                ${r.isActive ? `<button class="btn btn-sm" data-copy="${escapeHtml(r.code)}">📋 Copiar</button>` : ""}
+                ${r.isActive ? `<button class="btn btn-sm btn-ghost" data-end-code="${escapeHtml(r.code)}">⏹ Encerrar</button>` : ""}
+                <button class="btn btn-sm btn-danger" data-delete-code="${escapeHtml(r.code)}" data-room-name="${escapeHtml(r.name || "Sala sem nome")}" data-is-active="${r.isActive ? "1" : "0"}" title="Excluir sala definitivamente">🗑 Excluir</button>
+              </div>
             </div>
           `).join("");
           rl.querySelectorAll('button[data-copy]').forEach(b => {
@@ -160,7 +165,21 @@
           });
           rl.querySelectorAll('button[data-delete-code]').forEach(b => {
             b.addEventListener("click", async () => {
-              if (!confirm("EXCLUIR DEFINITIVAMENTE esta sala? Todos os dados serão perdidos. Esta ação não pode ser desfeita.")) return;
+              const roomName = b.dataset.roomName || "esta sala";
+              const isActive = b.dataset.isActive === "1";
+              // Confirmação dupla para salas ativas (mais perigoso)
+              const msg = isActive
+                ? `⚠️ ATENÇÃO: a sala "${roomName}" está ATIVA.\n\nExcluir vai desconectar todos os jogadores e APAGAR todos os dados (chat, dados, snapshots, etc.).\n\nEsta ação NÃO PODE ser desfeita.\n\nDigite o nome da sala para confirmar:`
+                : `Excluir definitivamente a sala "${roomName}"?\n\nTodos os dados serão perdidos. Esta ação não pode ser desfeita.`;
+              if (isActive) {
+                const input = prompt(msg);
+                if (input !== roomName) {
+                  if (input !== null) alert("Nome não confere. Exclusão cancelada.");
+                  return;
+                }
+              } else {
+                if (!confirm(msg)) return;
+              }
               try {
                 await window.api.del(`/api/rooms/${encodeURIComponent(b.dataset.deleteCode)}`);
                 location.reload();
