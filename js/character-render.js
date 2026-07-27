@@ -133,39 +133,56 @@
   }
 
   // Render de card de personagem (versão compacta pra grade na sala)
+  // v12: visual embelezado — header com gradient sutil, avatar com borda colorida,
+  // badges de permissão integradas, botões de ação com tooltips.
   // opts: { editable, isMaster, isOwn, showActions }
   function renderCharacterCard(ch, opts = {}) {
     const { editable = false, isMaster = false, isOwn = false, showActions = true } = opts;
     const canEdit = editable && (isOwn || isMaster);
 
     const avatarHtml = renderAvatar(ch, 56);
-    // Stats em layout compacto (2 colunas para bars/numbers, 1 coluna para textos)
+    // Stats em layout compacto (2 colunas para bar/numbers, 1 coluna para textos)
     const statsHtml = (ch.stats || []).map(s => renderStat(s, { editable, isMaster, isOwn, compact: true })).join("");
 
     const statusEffects = (ch.statusEffects || []).map(s => `
       <span class="status-tag">${sanitizeText(s.text)}${isMaster ? `<button class="status-remove" data-status-id="${escapeHtml(s.id)}">×</button>` : ""}</span>
     `).join("");
 
-    // Inventário como BOTÃO que abre modal (não mais <details> inline)
+    // Inventário como BOTÃO que abre modal
     const invCount = (ch.inventory || []).length;
     const invBtn = `<button class="btn btn-sm btn-ghost inventory-open-btn" data-action="open-inventory" data-character-id="${ch.id}" data-character-name="${escapeHtml(ch.name)}" title="Ver inventário">
       🎒 <span class="inv-count-badge">${invCount}</span>
     </button>`;
 
+    // v12: contadores rápidos no header (stats total, equipped items)
+    const statsCount = (ch.stats || []).length;
+    const equippedCount = (ch.inventory || []).filter(it => it.equipped).length;
+
+    // v12: botão "Propor item" só aparece para o jogador dono do personagem (não mestre)
+    const proposeBtn = isOwn && !isMaster
+      ? `<button class="btn btn-sm btn-ghost" data-action="propose-item" title="Propor item ao mestre">📦</button>`
+      : "";
+
     return `
       <div class="card character-card ${isOwn ? "own" : ""}" data-character-id="${ch.id}">
         <div class="character-header">
-          <div style="display:flex;gap:10px;align-items:center">
+          <div class="character-header-left">
             ${avatarHtml}
-            <div>
+            <div class="character-header-info">
               <div class="character-name">${escapeHtml(ch.name)}</div>
               <div class="character-owner muted text-xs">jogador: ${escapeHtml(ch.ownerUsername)}</div>
+              <div class="character-meta-pills">
+                <span class="char-meta-pill" title="Status">${statsCount} 📊</span>
+                <span class="char-meta-pill" title="Itens equipados">${equippedCount} ⚔️</span>
+                <span class="char-meta-pill" title="Total itens">${invCount} 🎒</span>
+              </div>
             </div>
           </div>
           <div class="character-actions">
             ${canEdit && showActions ? `<button class="btn btn-sm" data-action="edit-character" data-character-id="${ch.id}" title="Editar ficha">✎</button>` : ""}
-            ${isMaster && !isOwn && showActions ? `<button class="btn btn-sm btn-ghost" data-action="gm-edit-character" data-character-id="${ch.id}">Editar como mestre</button>` : ""}
-            ${isMaster && showActions ? `<button class="btn btn-sm btn-ghost" data-action="add-status" data-target-type="character" data-target-id="${ch.id}">+ Status</button>` : ""}
+            ${isMaster && !isOwn && showActions ? `<button class="btn btn-sm btn-ghost" data-action="gm-edit-character" data-character-id="${ch.id}" title="Editar como mestre">M</button>` : ""}
+            ${isMaster && showActions ? `<button class="btn btn-sm btn-ghost" data-action="add-status" data-target-type="character" data-target-id="${ch.id}" title="Adicionar status effect">+</button>` : ""}
+            ${proposeBtn}
             ${invBtn}
           </div>
         </div>

@@ -1,0 +1,17 @@
+⚠️ AÇÃO MANUAL NECESSÁRIA APÓS DESCOMPACTAR ⚠️
+================================================
+
+O arquivo `wiki/css/wiki-style.css` foi REMOVIDO neste patch (movido para `css/wiki-style.css`).
+
+Como um ZIP não pode "deletar" arquivos, você precisa fazer isso manualmente:
+
+1. Descompacte este ZIP por cima da raiz do projeto (preserva estrutura)
+2. DELETE a pasta: wiki/css/  (inteira — só continha o wiki-style.css antigo)
+   - No Windows Explorer: navegue até a pasta wiki/, delete a subpasta css/
+   - Ou no CMD: rmdir /S /Q wiki\css
+3. Faça git add . && git commit -m "v10: pathing + CSS wiki + breadcrumb" && git push
+
+Se você não deletar wiki/css/, vai ficar um arquivo órfão lá que não é mais
+referenciado por nenhum HTML. Não causa erro, mas é lixo.
+
+O arquivo correto agora é: css/wiki-style.css  (na raiz /css/, não em /wiki/css/)

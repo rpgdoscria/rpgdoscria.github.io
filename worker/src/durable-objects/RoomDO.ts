@@ -56,6 +56,19 @@ interface CharacterState {
 }
 
 type EnemyHpMode = "numeric" | "description";
+// Stat de inimigo avançado (mesmo formato de CharacterStat, mas sem statTemplateId).
+type EnemyStatType = "bar" | "number" | "text" | "tag_list" | "checkbox" | "formula";
+interface EnemyStat {
+  id: string;
+  name: string;
+  type: EnemyStatType;
+  valueCurrent?: number | null;
+  valueMax?: number | null;
+  valueText?: string | null;
+  valueBool?: number | null;
+  color?: string | null;
+  displayOrder: number;
+}
 interface EnemyState {
   id: string;
   name: string;
@@ -64,6 +77,8 @@ interface EnemyState {
   hpMax?: number;
   description?: string;
   statusEffects: StatusEffect[];
+  illustrationUrl?: string | null;  // v12: ilustração do inimigo (upload ou desenho)
+  stats?: EnemyStat[];              // v12: stats avançados do inimigo (NPC completo)
 }
 
 interface DiceLogEntry {
@@ -174,6 +189,29 @@ interface LevelUpOffer {
   createdAt: number;
 }
 
+// ---------- Item Proposals (jogador propõe item → mestre aprova) ----------
+// v12: fluxo colaborativo de criação de itens. Jogador usa a mesma interface
+// de criação de itens do mestre, mas em vez de salvar direto, envia proposta.
+// Mestre aprova → item vai pro inventário do personagem do jogador.
+interface ItemProposal {
+  id: string;
+  fromUserId: number;
+  fromUsername: string;
+  characterId: number;      // personagem alvo (dono da proposta)
+  characterName: string;
+  item: {
+    name: string;
+    qty: number;
+    description?: string;
+    equipped?: boolean;
+    iconUrl?: string | null;
+  };
+  status: "pending" | "approved" | "rejected";
+  masterNote?: string;      // feedback opcional do mestre
+  createdAt: number;
+  resolvedAt?: number;
+}
+
 interface RoomState {
   code: string;
   masterUserId: number;
@@ -191,6 +229,7 @@ interface RoomState {
   trades: Trade[];
   purchaseOffers: PurchaseOffer[];
   levelUpOffers: LevelUpOffer[];
+  itemProposals: ItemProposal[];  // v12: propostas de itens (jogador → mestre)
   // Tarefa 4: mapa userId -> ParticipantInfo (cor, characterName, photoUrl)
   participantColors: Record<number, ParticipantInfo>;
   // Tarefa 1: nome amigável da sala (vindo da tabela rooms)
@@ -318,6 +357,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       trades: [],
       purchaseOffers: [],
       levelUpOffers: [],
+      itemProposals: [],
       participantColors: {
         [masterUserId]: { color: "#b3121c", characterName: null, photoUrl: null },  // mestre tem cor vermelha tema
       },
@@ -494,6 +534,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         case "update_character": await this.handleUpdateCharacter(conn, msg.payload); break;
         case "create_enemy": await this.handleCreateEnemy(conn, msg.payload); break;
         case "update_enemy": await this.handleUpdateEnemy(conn, msg.payload); break;
+        case "update_enemy_stat": await this.handleUpdateEnemyStat(conn, msg.payload); break;
         case "delete_enemy": await this.handleDeleteEnemy(conn, msg.payload); break;
         case "add_status_effect": await this.handleAddStatusEffect(conn, msg.payload); break;
         case "remove_status_effect": await this.handleRemoveStatusEffect(conn, msg.payload); break;
@@ -524,6 +565,9 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         // ===== Migration 0013: Permissões por stat + delete stat =====
         case "delete_stat": await this.handleDeleteStat(conn, msg.payload); break;
         case "set_stat_permission": await this.handleSetStatPermission(conn, msg.payload); break;
+        // ===== v12: Item proposals (jogador → mestre) =====
+        case "item_proposal": await this.handleItemProposal(conn, msg.payload); break;
+        case "resolve_item_proposal": await this.handleResolveItemProposal(conn, msg.payload); break;
         default:
           this.sendTo(ws, { type: "error", payload: { message: `Tipo de mensagem desconhecido: ${msg.type}` } });
       }
@@ -728,6 +772,14 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       const desc = String(p?.description ?? "Ileso").trim();
       enemy.description = ENEMY_PRESETS.includes(desc) ? desc : desc.slice(0, 100);
     }
+    // v12: ilustração do inimigo (URL Cloudinary)
+    if (typeof p?.illustrationUrl === "string" && p.illustrationUrl) {
+      enemy.illustrationUrl = String(p.illustrationUrl).slice(0, 500);
+    }
+    // v12: stats avançados do inimigo (NPC completo com barras, números, etc.)
+    if (Array.isArray(p?.stats)) {
+      enemy.stats = this.sanitizeEnemyStats(p.stats);
+    }
     this.state!.enemies[enemy.id] = enemy;
     this.broadcast({ type: "enemy_updated", payload: enemy });
   }
@@ -765,7 +817,199 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       const d = p.description.trim();
       enemy.description = ENEMY_PRESETS.includes(d) ? d : d.slice(0, 100);
     }
+    // v12: atualiza ilustração (string vazia = remove)
+    if (typeof p?.illustrationUrl !== "undefined") {
+      enemy.illustrationUrl = p.illustrationUrl ? String(p.illustrationUrl).slice(0, 500) : null;
+    }
+    // v12: atualiza stats avançados (substitui todos se vier array)
+    if (Array.isArray(p?.stats)) {
+      enemy.stats = this.sanitizeEnemyStats(p.stats);
+    }
     this.broadcast({ type: "enemy_updated", payload: enemy });
+  }
+
+  // v12: sanitiza array de stats de inimigo vindos do cliente.
+  // Rejeita tipos inválidos, trunca strings, valida cores hex.
+  private sanitizeEnemyStats(stats: any[]): EnemyStat[] {
+    const validTypes = new Set(["bar", "number", "text", "tag_list", "checkbox", "formula"]);
+    return stats
+      .filter(s => s && typeof s.name === "string" && s.name.trim() && validTypes.has(s.type))
+      .map((s, i) => {
+        const stat: EnemyStat = {
+          id: String(s.id || cryptoRandomId()),
+          name: String(s.name).slice(0, 50),
+          type: s.type,
+          displayOrder: Number(s.displayOrder ?? i),
+        };
+        if (s.color && /^#[0-9a-f]{6}$/i.test(s.color)) stat.color = s.color;
+        if (s.type === "bar" || s.type === "number") {
+          stat.valueCurrent = s.valueCurrent !== null && s.valueCurrent !== undefined ? Number(s.valueCurrent) : null;
+          if (s.type === "bar") stat.valueMax = s.valueMax !== null && s.valueMax !== undefined ? Number(s.valueMax) : null;
+        } else if (s.type === "text" || s.type === "tag_list" || s.type === "formula") {
+          stat.valueText = s.valueText ? String(s.valueText).slice(0, 2000) : null;
+        } else if (s.type === "checkbox") {
+          stat.valueBool = s.valueBool ? 1 : 0;
+        }
+        return stat;
+      });
+  }
+
+  // v12: mestre atualiza UM stat de inimigo (para edição inline rápida).
+  private async handleUpdateEnemyStat(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode editar stats de inimigos.");
+    const enemyId = String(p?.enemyId ?? "");
+    const enemy = this.state!.enemies[enemyId];
+    if (!enemy) throw new Error("Inimigo não encontrado.");
+    if (!Array.isArray(enemy.stats)) throw new Error("Este inimigo não tem stats avançados.");
+    const statId = String(p?.statId ?? "");
+    const stat = enemy.stats.find(s => s.id === statId);
+    if (!stat) throw new Error("Status não encontrado neste inimigo.");
+    const v = p?.value ?? {};
+    if (stat.type === "bar" || stat.type === "number") {
+      if (typeof v.current === "number" && Number.isFinite(v.current)) {
+        let n = v.current;
+        if (stat.type === "bar") {
+          if (stat.valueMax !== null && stat.valueMax !== undefined && n > stat.valueMax) n = stat.valueMax;
+          if (n < 0) n = 0;
+        }
+        stat.valueCurrent = n;
+      }
+      if (stat.type === "bar" && typeof v.max === "number" && Number.isFinite(v.max) && v.max >= 0) {
+        stat.valueMax = v.max;
+        if (stat.valueCurrent !== null && stat.valueCurrent !== undefined && stat.valueCurrent > v.max) {
+          stat.valueCurrent = v.max;
+        }
+      }
+    } else if (stat.type === "text" || stat.type === "tag_list" || stat.type === "formula") {
+      if (typeof v.text === "string") stat.valueText = v.text.slice(0, 2000);
+    } else if (stat.type === "checkbox") {
+      if (typeof v.bool === "boolean") stat.valueBool = v.bool ? 1 : 0;
+    }
+    this.broadcast({ type: "enemy_updated", payload: enemy });
+  }
+
+  // v12: jogador propõe item para o mestre aprovar.
+  private async handleItemProposal(conn: Connection, p: any) {
+    if (!this.state) return;
+    if (conn.isMaster) throw new Error("Mestre não propõe itens — use o botão de adicionar diretamente.");
+    if (!conn.characterId) throw new Error("Você precisa estar conectado com um personagem para propor itens.");
+    const ch = this.state.characters[conn.characterId];
+    if (!ch) throw new Error("Personagem não encontrado na sala.");
+
+    const name = String(p?.item?.name ?? "").trim();
+    if (!name) throw new Error("Nome do item é obrigatório.");
+    const qty = clampInt(p?.item?.qty ?? 1, 1, 9999);
+    const description = p?.item?.description ? String(p.item.description).slice(0, 200) : undefined;
+    const equipped = !!p?.item?.equipped;
+    const iconUrl = p?.item?.iconUrl ? String(p.item.iconUrl).slice(0, 500) : null;
+
+    const proposal: ItemProposal = {
+      id: cryptoRandomId(),
+      fromUserId: conn.userId,
+      fromUsername: conn.username,
+      characterId: conn.characterId,
+      characterName: ch.name,
+      item: { name: name.slice(0, 80), qty, description, equipped, iconUrl },
+      status: "pending",
+      createdAt: Date.now(),
+    };
+    this.state.itemProposals.push(proposal);
+    if (this.state.itemProposals.length > 30) this.state.itemProposals.shift();
+
+    // Broadcast pra todos — o mestre vê a notificação, o jogador vê "aguardando aprovação"
+    this.broadcast({ type: "item_proposal_received", payload: proposal });
+
+    // Mensagem de sistema no chat
+    const sysMsg: ChatMessage = {
+      id: cryptoRandomId(),
+      senderUserId: 0,
+      senderUsername: "sistema",
+      text: `📦 ${conn.username} propôs o item "${name}" — aguardando aprovação do mestre.`,
+      timestamp: Date.now(),
+    };
+    this.state.chatLog.push(sysMsg);
+    if (this.state.chatLog.length > 50) this.state.chatLog.shift();
+    this.broadcast({ type: "chat_message", payload: sysMsg });
+  }
+
+  // v12: mestre aprova ou rejeita proposta de item.
+  private async handleResolveItemProposal(conn: Connection, p: any) {
+    if (!this.state) return;
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode aprovar/rejeitar propostas de itens.");
+    const proposalId = String(p?.proposalId ?? "");
+    const approved = !!p?.approved;
+    const masterNote = p?.note ? String(p.note).slice(0, 200) : undefined;
+
+    const proposal = this.state.itemProposals.find(pr => pr.id === proposalId);
+    if (!proposal) throw new Error("Proposta não encontrada.");
+    if (proposal.status !== "pending") throw new Error("Esta proposta já foi resolvida.");
+
+    proposal.status = approved ? "approved" : "rejected";
+    proposal.masterNote = masterNote;
+    proposal.resolvedAt = Date.now();
+
+    if (approved) {
+      // Adiciona o item ao inventário do personagem via API REST (persiste no D1)
+      try {
+        await this.env.DB.prepare(
+          `INSERT INTO character_inventory_items (character_id, name, qty, description, equipped, icon_url, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          proposal.characterId,
+          proposal.item.name,
+          proposal.item.qty,
+          proposal.item.description || null,
+          proposal.item.equipped ? 1 : 0,
+          proposal.item.iconUrl || null,
+          0
+        ).run();
+      } catch (e) {
+        // Se a tabela não existir (migration 0013 não rodou), adiciona ao estado em memória
+        const ch = this.state.characters[proposal.characterId];
+        if (ch) {
+          ch.inventory = ch.inventory || [];
+          ch.inventory.push({
+            name: proposal.item.name,
+            qty: proposal.item.qty,
+            description: proposal.item.description,
+            equipped: proposal.item.equipped,
+            iconUrl: proposal.item.iconUrl,
+          });
+        }
+      }
+      // Atualiza estado do personagem em memória e broadcast
+      const ch = this.state.characters[proposal.characterId];
+      if (ch) {
+        // Re-busca inventário do D1 para sincronizar
+        try {
+          const items = await this.env.DB.prepare(
+            `SELECT id, name, qty, description, equipped, icon_url, sort_order FROM character_inventory_items WHERE character_id = ? ORDER BY sort_order ASC, id ASC`
+          ).bind(proposal.characterId).all<any>();
+          ch.inventory = (items.results || []).map((it: any) => ({
+            name: it.name, qty: it.qty, description: it.description,
+            equipped: it.equipped === 1, iconUrl: it.icon_url,
+          }));
+        } catch {}
+        this.broadcast({ type: "character_updated", payload: ch });
+      }
+    }
+
+    // Broadcast da resolução
+    this.broadcast({ type: "item_proposal_resolved", payload: proposal });
+
+    // Mensagem de sistema
+    const sysMsg: ChatMessage = {
+      id: cryptoRandomId(),
+      senderUserId: 0,
+      senderUsername: "sistema",
+      text: approved
+        ? `✅ Mestre aprovou o item "${proposal.item.name}" para ${proposal.characterName}.`
+        : `❌ Mestre rejeitou o item "${proposal.item.name}"${masterNote ? `: ${masterNote}` : ""}.`,
+      timestamp: Date.now(),
+    };
+    this.state.chatLog.push(sysMsg);
+    if (this.state.chatLog.length > 50) this.state.chatLog.shift();
+    this.broadcast({ type: "chat_message", payload: sysMsg });
   }
 
   private async handleDeleteEnemy(conn: Connection, p: any) {
@@ -1674,6 +1918,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       trades: this.state.trades,
       purchaseOffers: this.state.purchaseOffers,
       levelUpOffers: this.state.levelUpOffers,
+      itemProposals: this.state.itemProposals || [],
       // Tarefa 4: mapa userId -> { color, characterName, photoUrl }
       participantColors: this.state.participantColors || {},
       you: {

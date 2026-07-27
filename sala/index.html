@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202607271735">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271735">
+  <link rel="stylesheet" href="/css/style.css?v=202607271819">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271819">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -46,6 +46,9 @@
         <span id="role-badge" class="tag" style="font-size:11px"></span>
         <div class="spacer" style="flex:1"></div>
         <button class="btn btn-sm btn-ghost hidden" id="btn-copy-link">📋 Copiar link</button>
+        <button class="btn btn-sm btn-ghost hidden" id="btn-item-proposals" title="Propostas de itens pendentes">
+          📥 Propostas <span id="item-proposals-badge" class="inv-count-badge" style="display:none">0</span>
+        </button>
         <button class="btn btn-sm btn-ghost hidden" id="btn-lock">🔒 Travar sala</button>
         <button class="btn btn-sm btn-danger hidden" id="btn-end">Encerrar sala</button>
       </div>
@@ -293,12 +296,28 @@
   </div>
 
   <div id="enemy-modal" class="modal-backdrop hidden">
-    <div class="modal-card">
-      <h3 id="enemy-modal-title">Criar inimigo</h3>
+    <div class="modal-card" style="max-width:600px;max-height:90vh">
+      <div class="flex items-center justify-between mb-3">
+        <h3 id="enemy-modal-title" style="margin:0">Criar inimigo</h3>
+        <button class="btn btn-sm btn-ghost" id="enemy-modal-close" title="Fechar">✕</button>
+      </div>
       <div id="enemy-modal-alert"></div>
+
+      <!-- Ilustração do inimigo (v12) -->
+      <div class="enemy-modal-illustration-section">
+        <label class="text-xs muted">Ilustração (opcional)</label>
+        <div class="enemy-modal-illustration-preview" id="enemy-illustration-preview" title="Clique para desenhar/upload">
+          <span class="muted text-xs">Sem ilustração — clique para desenhar</span>
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button class="btn btn-sm btn-ghost" id="enemy-draw-illustration">🎨 Desenhar</button>
+          <button class="btn btn-sm btn-ghost" id="enemy-remove-illustration" style="display:none">✕ Remover</button>
+        </div>
+      </div>
+
       <div class="field">
-        <label>Nome</label>
-        <input type="text" id="enemy-name">
+        <label>Nome *</label>
+        <input type="text" id="enemy-name" maxlength="100">
       </div>
       <div class="field">
         <label>Modo de vida</label>
@@ -324,10 +343,80 @@
         </select>
         <input type="text" id="enemy-desc" placeholder="Ou digite uma descrição customizada" class="mt-2">
       </div>
+
+      <!-- Stats avançados do inimigo (v12) -->
+      <div class="enemy-modal-stats-section">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs muted">Stats avançados (NPC completo — opcional)</label>
+          <button class="btn btn-sm btn-ghost" id="enemy-add-stat" title="Adicionar stat">+ Stat</button>
+        </div>
+        <div id="enemy-stats-list" class="enemy-stats-editor"></div>
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-ghost" id="enemy-modal-cancel">Cancelar</button>
         <button class="btn btn-primary" id="enemy-modal-save">Salvar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== Modal: Jogador propõe item (v12) ===== -->
+  <div id="item-proposal-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:560px;max-height:90vh">
+      <div class="flex items-center justify-between mb-3">
+        <h3 style="margin:0">📦 Propor item ao mestre</h3>
+        <button class="btn btn-sm btn-ghost" id="item-proposal-close" title="Fechar">✕</button>
+      </div>
+      <div id="item-proposal-alert"></div>
+      <p class="text-sm muted mb-3">Descreva o item que você gostaria de adicionar ao seu inventário. O mestre vai revisar e aprovar (ou não).</p>
+
+      <div class="item-proposal-form">
+        <div class="ipa-icon-section">
+          <div class="ipa-icon-preview" id="ipa-icon-preview" title="Clique para desenhar o ícone">
+            <span class="muted text-xs">sem ícone</span>
+          </div>
+          <button class="btn btn-sm btn-ghost" id="ipa-draw-icon">🎨 Desenhar ícone</button>
+        </div>
+        <div class="ipa-fields">
+          <div class="field">
+            <label>Nome do item *</label>
+            <input type="text" id="ipa-name" maxlength="80" placeholder="Ex: Espada Longa">
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label>Quantidade</label>
+              <input type="number" id="ipa-qty" value="1" min="1" max="9999">
+            </div>
+            <div class="field">
+              <label>Equipado?</label>
+              <select id="ipa-equipped">
+                <option value="0">Não</option>
+                <option value="1">Sim</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Descrição (opcional)</label>
+            <textarea id="ipa-desc" maxlength="200" rows="2" placeholder="Ex: Uma lâmina afiada que causa +2 de dano"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="item-proposal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="item-proposal-submit">📤 Enviar proposta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Modal: Mestre revisa propostas de itens (v12) ===== -->
+  <div id="item-proposals-review-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:680px;max-height:90vh">
+      <div class="flex items-center justify-between mb-3">
+        <h3 style="margin:0">📥 Propostas de itens</h3>
+        <button class="btn btn-sm btn-ghost" id="ipr-close" title="Fechar">✕</button>
+      </div>
+      <div id="ipr-list" class="ipr-list"></div>
     </div>
   </div>
 
@@ -379,27 +468,29 @@
 
   <script src="/vendor/purify.min.js"></script>
   <script src="/vendor/marked.min.js"></script>
-  <script src="/js/config.js?v=202607271735"></script>
-  <script src="/js/api.js?v=202607271735"></script>
-  <script src="/js/auth.js?v=202607271735"></script>
-  <script src="/js/markdown.js?v=202607271735"></script>
-  <script src="/js/room-ws.js?v=202607271735"></script>
-  <script src="/js/dice-ui.js?v=202607271735"></script>
-  <script src="/js/dice-visual.js?v=202607271735"></script>
-  <script src="/js/dice-tutorial.js?v=202607271735"></script>
-  <script src="/js/room-render.js?v=202607271735"></script>
-  <script src="/js/character-render.js?v=202607271735"></script>
-  <script src="/js/character-sheet-full.js?v=202607271735"></script>
-  <script src="/js/item-drawer.js?v=202607271735"></script>
-  <script src="/js/room-chat.js?v=202607271735"></script>
-  <script src="/js/damage-system.js?v=202607271735"></script>
-  <script src="/js/formula-builder.js?v=202607271735"></script>
-  <script src="/js/poll.js?v=202607271735"></script>
-  <script src="/js/reveal-animations.js?v=202607271735"></script>
-  <script src="/js/trade.js?v=202607271735"></script>
-  <script src="/js/levelup.js?v=202607271735"></script>
-  <script src="/js/purchase.js?v=202607271735"></script>
-  <script src="/js/master-planning.js?v=202607271735"></script>
+  <script src="/js/config.js?v=202607271819"></script>
+  <script src="/js/api.js?v=202607271819"></script>
+  <script src="/js/auth.js?v=202607271819"></script>
+  <script src="/js/markdown.js?v=202607271819"></script>
+  <script src="/js/room-ws.js?v=202607271819"></script>
+  <script src="/js/dice-ui.js?v=202607271819"></script>
+  <script src="/js/dice-visual.js?v=202607271819"></script>
+  <script src="/js/dice-tutorial.js?v=202607271819"></script>
+  <script src="/js/room-render.js?v=202607271819"></script>
+  <script src="/js/character-render.js?v=202607271819"></script>
+  <script src="/js/character-sheet-full.js?v=202607271819"></script>
+  <script src="/js/item-drawer.js?v=202607271819"></script>
+  <script src="/js/enemy-illustration-drawer.js?v=202607271819"></script>
+  <script src="/js/item-proposal.js?v=202607271819"></script>
+  <script src="/js/room-chat.js?v=202607271819"></script>
+  <script src="/js/damage-system.js?v=202607271819"></script>
+  <script src="/js/formula-builder.js?v=202607271819"></script>
+  <script src="/js/poll.js?v=202607271819"></script>
+  <script src="/js/reveal-animations.js?v=202607271819"></script>
+  <script src="/js/trade.js?v=202607271819"></script>
+  <script src="/js/levelup.js?v=202607271819"></script>
+  <script src="/js/purchase.js?v=202607271819"></script>
+  <script src="/js/master-planning.js?v=202607271819"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -646,8 +737,16 @@
               animation: msg.payload.animation || "pergaminho",
             });
           }
+        } else if (msg.type === "item_proposal_received") {
+          // v12: proposta de item recebida — delega pro módulo itemProposal
+          if (window.itemProposal) window.itemProposal.handleProposalReceived(msg.payload);
+        } else if (msg.type === "item_proposal_resolved") {
+          // v12: proposta resolvida (aprovada ou rejeitada)
+          if (window.itemProposal) window.itemProposal.handleProposalResolved(msg.payload);
         }
       };
+      // v12: expõe client globalmente pra item-proposal.js poder enviar mensagens
+      window.roomClient = client;
       // Handler separado para histórico de chat (enviado no connect)
       const origOnStateChange = client.onStateChange;
       client.onStateChange = (state) => {
@@ -855,6 +954,7 @@
           document.getElementById("btn-lock").classList.remove("hidden");
           document.getElementById("btn-end").classList.remove("hidden");
           document.getElementById("btn-add-enemy").classList.remove("hidden");
+          document.getElementById("btn-item-proposals").classList.remove("hidden");
           document.getElementById("dice-master-panel").classList.remove("hidden");
           document.getElementById("suggestions-panel").classList.remove("hidden");
           // Aba Documentos e Planejamento só aparecem pra mestre
@@ -1103,6 +1203,44 @@
             openInventoryModal(characterId, characterName);
           });
         });
+        // ===== v12: Editar ilustração do inimigo (mestre only) =====
+        document.querySelectorAll('[data-action="edit-enemy-illustration"]').forEach(b => {
+          b.addEventListener("click", () => {
+            const enemyId = b.dataset.enemyId;
+            const enemy = enemyId ? currentState?.enemies.find(e => e.id === enemyId) : null;
+            const currentUrl = enemy?.illustrationUrl || null;
+            window.EnemyIllustrationDrawer.open((illustrationUrl) => {
+              client.send("update_enemy", { enemyId, illustrationUrl });
+              showAlert("success", "Ilustração do inimigo atualizada!");
+              setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 3000);
+            }, currentUrl);
+          });
+        });
+        // ===== v12: Botões +/- nos stats de inimigo (mestre only) =====
+        document.querySelectorAll('button[data-enemy-stat-id][data-delta]').forEach(b => {
+          b.addEventListener("click", () => {
+            const enemyId = b.dataset.enemyId;
+            const statId = b.dataset.enemyStatId;
+            const delta = Number(b.dataset.delta);
+            const enemy = enemyId ? currentState?.enemies.find(e => e.id === enemyId) : null;
+            if (!enemy || !enemy.stats) return;
+            const stat = enemy.stats.find(s => s.id === statId);
+            if (!stat) return;
+            let cur = Number(stat.valueCurrent ?? 0);
+            if (stat.type === "bar" || stat.type === "number") {
+              cur += delta;
+              if (stat.type === "bar" && stat.valueMax != null && cur > stat.valueMax) cur = stat.valueMax;
+              if (cur < 0) cur = 0;
+              client.send("update_enemy_stat", { enemyId, statId, value: { current: cur } });
+            }
+          });
+        });
+        // ===== v12: Botão "Propor item" (jogador dono do personagem) =====
+        document.querySelectorAll('button[data-action="propose-item"]').forEach(b => {
+          b.addEventListener("click", () => {
+            if (window.itemProposal) window.itemProposal.openProposalModal();
+          });
+        });
         document.querySelectorAll('button[data-action="accept-suggestion"]').forEach(b => {
           b.addEventListener("click", () => {
             client.send("roll_dice", { formula: b.dataset.formula, label: b.dataset.label });
@@ -1286,8 +1424,11 @@
         document.getElementById("character-modal").classList.add("hidden");
       });
 
-      // ===== Modal inimigo =====
+      // ===== Modal inimigo (v12: + ilustração + stats avançados) =====
       let editingEnemyId = null;
+      let enemyModalIllustrationUrl = null;  // URL da ilustração desenhada
+      let enemyModalStats = [];  // array de stats avançados
+
       function openEnemyModal(enemyId) {
         editingEnemyId = enemyId;
         const en = enemyId ? currentState?.enemies.find(e => e.id === enemyId) : null;
@@ -1298,10 +1439,155 @@
         document.getElementById("enemy-hp-max").value = en?.hpMax ?? 10;
         document.getElementById("enemy-desc").value = en?.description ?? "";
         document.getElementById("enemy-preset-select").value = en?.description && window.roomRender.ENEMY_PRESETS.includes(en.description) ? en.description : "";
+        // v12: carrega ilustração existente
+        enemyModalIllustrationUrl = en?.illustrationUrl || null;
+        updateEnemyIllustrationPreview();
+        // v12: carrega stats existentes
+        enemyModalStats = (en?.stats || []).map(s => ({ ...s }));
+        renderEnemyStatsEditor();
         toggleEnemyFields();
         document.getElementById("enemy-modal-alert").innerHTML = "";
         document.getElementById("enemy-modal").classList.remove("hidden");
       }
+
+      function updateEnemyIllustrationPreview() {
+        const preview = document.getElementById("enemy-illustration-preview");
+        const removeBtn = document.getElementById("enemy-remove-illustration");
+        if (enemyModalIllustrationUrl) {
+          preview.innerHTML = `<img src="${escapeHtml(enemyModalIllustrationUrl)}" alt="ilustração" style="width:100%;height:100%;object-fit:contain">`;
+          if (removeBtn) removeBtn.style.display = "inline-block";
+        } else {
+          preview.innerHTML = `<span class="muted text-xs">Sem ilustração — clique para desenhar</span>`;
+          if (removeBtn) removeBtn.style.display = "none";
+        }
+      }
+
+      function renderEnemyStatsEditor() {
+        const list = document.getElementById("enemy-stats-list");
+        if (!list) return;
+        if (enemyModalStats.length === 0) {
+          list.innerHTML = `<div class="muted text-xs" style="padding:8px 0">Nenhum stat avançado. Clique em "+ Stat" para adicionar.</div>`;
+          return;
+        }
+        list.innerHTML = enemyModalStats.map((s, i) => `
+          <div class="enemy-stat-editor-row" data-stat-index="${i}">
+            <input type="text" class="ese-name" placeholder="Nome" value="${escapeHtml(s.name)}" maxlength="50">
+            <select class="ese-type">
+              <option value="bar" ${s.type === "bar" ? "selected" : ""}>Barra</option>
+              <option value="number" ${s.type === "number" ? "selected" : ""}>Número</option>
+              <option value="text" ${s.type === "text" ? "selected" : ""}>Texto</option>
+              <option value="checkbox" ${s.type === "checkbox" ? "selected" : ""}>Checkbox</option>
+            </select>
+            <input type="number" class="ese-cur" placeholder="Atual" value="${s.valueCurrent ?? ""}" style="width:70px">
+            <input type="number" class="ese-max" placeholder="Máx" value="${s.valueMax ?? ""}" style="width:70px" ${s.type !== "bar" ? "disabled" : ""}>
+            <input type="text" class="ese-text" placeholder="Texto" value="${escapeHtml(s.valueText || "")}" style="${s.type !== "text" ? "display:none" : "flex:1"}">
+            <button class="btn btn-sm btn-danger" data-action="remove-enemy-stat" data-stat-index="${i}" title="Remover">×</button>
+          </div>
+        `).join("");
+        // Bindings para mudança de tipo (mostra/esconde campos)
+        list.querySelectorAll(".ese-type").forEach(sel => {
+          sel.addEventListener("change", () => {
+            const row = sel.closest(".enemy-stat-editor-row");
+            const idx = Number(row.dataset.statIndex);
+            const type = sel.value;
+            enemyModalStats[idx].type = type;
+            // Atualiza visibilidade dos campos
+            row.querySelector(".ese-max").disabled = type !== "bar";
+            row.querySelector(".ese-text").style.display = type === "text" ? "flex" : "none";
+            if (type === "checkbox") {
+              row.querySelector(".ese-cur").style.display = "none";
+              row.querySelector(".ese-max").style.display = "none";
+            } else {
+              row.querySelector(".ese-cur").style.display = "";
+              row.querySelector(".ese-max").style.display = type === "bar" ? "" : "none";
+            }
+          });
+        });
+        // Bindings para remover stat
+        list.querySelectorAll('button[data-action="remove-enemy-stat"]').forEach(b => {
+          b.addEventListener("click", () => {
+            const idx = Number(b.dataset.statIndex);
+            enemyModalStats.splice(idx, 1);
+            renderEnemyStatsEditor();
+          });
+        });
+      }
+
+      // Coleta os stats do editor (lê inputs)
+      function collectEnemyStats() {
+        const list = document.getElementById("enemy-stats-list");
+        if (!list) return [];
+        const rows = list.querySelectorAll(".enemy-stat-editor-row");
+        const out = [];
+        rows.forEach((row, i) => {
+          const name = row.querySelector(".ese-name").value.trim();
+          if (!name) return;
+          const type = row.querySelector(".ese-type").value;
+          const stat = {
+            id: enemyModalStats[i]?.id || `tmp-${Date.now()}-${i}`,
+            name: name.slice(0, 50),
+            type,
+            displayOrder: i,
+          };
+          if (type === "bar" || type === "number") {
+            const cur = parseFloat(row.querySelector(".ese-cur").value);
+            stat.valueCurrent = isNaN(cur) ? 0 : cur;
+            if (type === "bar") {
+              const max = parseFloat(row.querySelector(".ese-max").value);
+              stat.valueMax = isNaN(max) ? 0 : max;
+            }
+          } else if (type === "text") {
+            stat.valueText = row.querySelector(".ese-text").value.slice(0, 2000);
+          } else if (type === "checkbox") {
+            stat.valueBool = 0;
+          }
+          out.push(stat);
+        });
+        return out;
+      }
+
+      // Botão "+ Stat" no modal de inimigo
+      const btnAddEnemyStat = document.getElementById("enemy-add-stat");
+      if (btnAddEnemyStat) btnAddEnemyStat.addEventListener("click", () => {
+        enemyModalStats.push({
+          id: `tmp-${Date.now()}`,
+          name: "",
+          type: "bar",
+          valueCurrent: 0,
+          valueMax: 10,
+          displayOrder: enemyModalStats.length,
+        });
+        renderEnemyStatsEditor();
+      });
+
+      // Botão "Desenhar ilustração" no modal de inimigo
+      const btnDrawEnemyIllus = document.getElementById("enemy-draw-illustration");
+      if (btnDrawEnemyIllus) btnDrawEnemyIllus.addEventListener("click", () => {
+        window.EnemyIllustrationDrawer.open((illustrationUrl) => {
+          enemyModalIllustrationUrl = illustrationUrl;
+          updateEnemyIllustrationPreview();
+        }, enemyModalIllustrationUrl);
+      });
+      // Click no preview também abre o drawer
+      const enemyIllusPreview = document.getElementById("enemy-illustration-preview");
+      if (enemyIllusPreview) enemyIllusPreview.addEventListener("click", () => {
+        window.EnemyIllustrationDrawer.open((illustrationUrl) => {
+          enemyModalIllustrationUrl = illustrationUrl;
+          updateEnemyIllustrationPreview();
+        }, enemyModalIllustrationUrl);
+      });
+      // Botão "Remover ilustração"
+      const btnRemoveEnemyIllus = document.getElementById("enemy-remove-illustration");
+      if (btnRemoveEnemyIllus) btnRemoveEnemyIllus.addEventListener("click", () => {
+        enemyModalIllustrationUrl = null;
+        updateEnemyIllustrationPreview();
+      });
+      // Botão "Fechar" (X)
+      const btnEnemyModalClose = document.getElementById("enemy-modal-close");
+      if (btnEnemyModalClose) btnEnemyModalClose.addEventListener("click", () => {
+        document.getElementById("enemy-modal").classList.add("hidden");
+      });
+
       function toggleEnemyFields() {
         const mode = document.getElementById("enemy-hp-mode").value;
         document.getElementById("enemy-numeric-fields").classList.toggle("hidden", mode !== "numeric");
@@ -1313,6 +1599,11 @@
       });
       const btnAddEnemy = document.getElementById("btn-add-enemy");
       if (btnAddEnemy) btnAddEnemy.addEventListener("click", () => openEnemyModal(null));
+      // v12: botão "Propostas" (mestre) — abre modal de revisão
+      const btnItemProposals = document.getElementById("btn-item-proposals");
+      if (btnItemProposals) btnItemProposals.addEventListener("click", () => {
+        if (window.itemProposal) window.itemProposal.openReviewModal();
+      });
       document.getElementById("enemy-modal-cancel").addEventListener("click", () => {
         document.getElementById("enemy-modal").classList.add("hidden");
       });
@@ -1320,12 +1611,15 @@
         const name = document.getElementById("enemy-name").value.trim();
         if (!name) { document.getElementById("enemy-modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`; return; }
         const mode = document.getElementById("enemy-hp-mode").value;
+        const collectedStats = collectEnemyStats();
         const payload = {
           name,
           hpMode: mode,
           hpCurrent: parseInt(document.getElementById("enemy-hp-current").value, 10),
           hpMax: parseInt(document.getElementById("enemy-hp-max").value, 10),
           description: document.getElementById("enemy-desc").value.trim() || "Ileso",
+          illustrationUrl: enemyModalIllustrationUrl || "",
+          stats: collectedStats,
         };
         if (editingEnemyId) { payload.enemyId = editingEnemyId; client.send("update_enemy", payload); }
         else { client.send("create_enemy", payload); }

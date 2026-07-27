@@ -116,6 +116,7 @@
   }
 
   // ----- Inimigo -----
+  // v12: agora suporta ilustração (illustrationUrl) e stats avançados (stats[]).
   function renderEnemy(en, opts = {}) {
     const { isMaster } = opts;
     const statusHtml = (en.statusEffects || []).map(s => `
@@ -147,21 +148,97 @@
       hpBlock = `<div class="enemy-description-row">${presetBadge}</div>`;
     }
 
+    // v12: stats avançados do inimigo (barras, números, etc.)
+    const enemyStatsHtml = (en.stats || []).length > 0
+      ? `<div class="enemy-stats-section">${(en.stats || []).map(s => renderEnemyStat(s, isMaster, en.id)).join("")}</div>`
+      : "";
+
+    // v12: ilustração do inimigo (se houver)
+    const illustrationHtml = en.illustrationUrl
+      ? `<div class="enemy-illustration-wrap">
+          <img src="${escapeHtml(en.illustrationUrl)}" alt="${escapeHtml(en.name)}" class="enemy-illustration">
+          ${isMaster ? `<button class="btn btn-sm btn-ghost enemy-edit-illustration" data-action="edit-enemy-illustration" data-enemy-id="${escapeHtml(en.id)}" title="Editar ilustração">🎨</button>` : ""}
+        </div>`
+      : (isMaster
+        ? `<div class="enemy-illustration-placeholder" data-action="edit-enemy-illustration" data-enemy-id="${escapeHtml(en.id)}" title="Adicionar ilustração">
+            <span class="muted text-xs">+ ilustração</span>
+          </div>`
+        : "");
+
     return `
-      <div class="card enemy-card" data-enemy-id="${escapeHtml(en.id)}">
+      <div class="card enemy-card ${en.illustrationUrl ? "has-illustration" : ""}" data-enemy-id="${escapeHtml(en.id)}">
         <div class="enemy-header">
-          <div>
-            <div class="enemy-name">${escapeHtml(en.name)}</div>
-            <div class="muted text-xs">inimigo</div>
+          <div class="enemy-header-left">
+            ${illustrationHtml}
+            <div>
+              <div class="enemy-name">${escapeHtml(en.name)}</div>
+              <div class="muted text-xs">inimigo</div>
+            </div>
           </div>
           <div class="enemy-actions">
-            ${isMaster ? `<button class="btn btn-sm" data-action="edit-enemy" data-enemy-id="${escapeHtml(en.id)}">✎ Editar</button>` : ""}
-            ${isMaster ? `<button class="btn btn-sm btn-ghost" data-action="add-status" data-target-type="enemy" data-target-id="${escapeHtml(en.id)}">+ Status</button>` : ""}
-            ${isMaster ? `<button class="btn btn-sm btn-danger" data-action="delete-enemy" data-enemy-id="${escapeHtml(en.id)}">🗑</button>` : ""}
+            ${isMaster ? `<button class="btn btn-sm" data-action="edit-enemy" data-enemy-id="${escapeHtml(en.id)}" title="Editar">✎</button>` : ""}
+            ${isMaster ? `<button class="btn btn-sm btn-ghost" data-action="add-status" data-target-type="enemy" data-target-id="${escapeHtml(en.id)}" title="+ Status">+</button>` : ""}
+            ${isMaster ? `<button class="btn btn-sm btn-danger" data-action="delete-enemy" data-enemy-id="${escapeHtml(en.id)}" title="Remover">🗑</button>` : ""}
           </div>
         </div>
         ${hpBlock}
+        ${enemyStatsHtml}
         ${statusHtml ? `<div class="status-list">${statusHtml}</div>` : ""}
+      </div>
+    `;
+  }
+
+  // v12: render de UM stat de inimigo (inline editável pelo mestre).
+  function renderEnemyStat(stat, isMaster, enemyId) {
+    const color = stat.color || "#a78bfa";
+    let valueHtml = "";
+    switch (stat.type) {
+      case "bar": {
+        const cur = Number(stat.valueCurrent ?? 0);
+        const max = Number(stat.valueMax ?? 0);
+        const pct = max > 0 ? Math.max(0, Math.min(100, (cur / max) * 100)) : 0;
+        const colVal = cur > max * 0.6 ? "var(--success)" : cur > max * 0.3 ? "var(--warning)" : "var(--danger)";
+        valueHtml = `
+          <div class="stat-bar-row">
+            <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;background:${colVal}"></div></div>
+            <span class="stat-bar-values" style="color:${colVal}">${cur}/${max}</span>
+            ${isMaster ? `
+              <div class="stat-quick-actions">
+                <button class="btn-stat-quick" data-enemy-stat-id="${escapeHtml(stat.id)}" data-enemy-id="${escapeHtml(enemyId)}" data-delta="-1">−</button>
+                <button class="btn-stat-quick" data-enemy-stat-id="${escapeHtml(stat.id)}" data-enemy-id="${escapeHtml(enemyId)}" data-delta="1">+</button>
+              </div>` : ""}
+          </div>`;
+        break;
+      }
+      case "number": {
+        const v = Number(stat.valueCurrent ?? 0);
+        valueHtml = `
+          <div class="stat-number-row">
+            <span class="stat-number-value" style="color:${escapeHtml(color)}">${v}</span>
+            ${isMaster ? `
+              <div class="stat-quick-actions">
+                <button class="btn-stat-quick" data-enemy-stat-id="${escapeHtml(stat.id)}" data-enemy-id="${escapeHtml(enemyId)}" data-delta="-1">−</button>
+                <button class="btn-stat-quick" data-enemy-stat-id="${escapeHtml(stat.id)}" data-enemy-id="${escapeHtml(enemyId)}" data-delta="1">+</button>
+              </div>` : ""}
+          </div>`;
+        break;
+      }
+      case "text": {
+        valueHtml = `<div class="stat-text-value">${sanitizeText(stat.valueText || "")}</div>`;
+        break;
+      }
+      case "checkbox": {
+        const on = !!stat.valueBool;
+        valueHtml = `<span class="stat-checkbox ${on ? "on" : "off"}">${on ? "✓" : "○"}</span>`;
+        break;
+      }
+      default:
+        valueHtml = `<span class="muted text-xs">—</span>`;
+    }
+    return `
+      <div class="stat-row compact" data-enemy-stat-id="${escapeHtml(stat.id)}" data-stat-type="${stat.type}">
+        <div class="stat-label"><span class="stat-label-name">${escapeHtml(stat.name)}</span></div>
+        <div class="stat-value">${valueHtml}</div>
       </div>
     `;
   }

@@ -1,10 +1,10 @@
 // frontend/js/symbol-drawer.js — desenhista de símbolo para personagem
 //
-// Tarefa 7 (FINAL): símbolo é SEMPRE branco sobre fundo transparente.
-//   - Única cor de pincel: branco (#ffffff)
-//   - Borracha apaga para TRANSPARÊNCIA (não para branco)
-//   - Fundo do canvas é transparente (exibido com padrão xadrez)
-//   - Exporta PNG com canal alpha preservado
+// v12: adicionado UNDO/REDO (Ctrl+Z / Ctrl+Y) com pilha de estados.
+//   - Botões visuais ↶ (undo) e ↷ (redo) na barra de ferramentas
+//   - Atalhos de teclado: Ctrl+Z = undo, Ctrl+Y ou Ctrl+Shift+Z = redo
+//   - Limite de 25 estados na pilha de undo (outros 25 na redo)
+//   - Estado salvo como ImageData (snapshot do canvas) após cada stroke
 //
 // Implementação do zero com Canvas API (sem bibliotecas externas) — mouse + touch.
 // O canvas usa `clearRect` para transparência real (não pinta branco no fundo).
@@ -12,6 +12,7 @@
 (function () {
   const CANVAS_SIZE = 320;  // quadrado
   const BRUSH_COLOR = "#ffffff";  // branco sempre
+  const MAX_HISTORY = 25;
 
   function open(onSave) {
     // Remove overlay existente
@@ -24,15 +25,30 @@
 
     overlay.innerHTML = `
       <div class="symbol-drawer-card">
-        <h3>🎨 Desenhar símbolo</h3>
+        <div class="drawer-header">
+          <h3>🎨 Desenhar símbolo</h3>
+          <button class="btn btn-sm btn-ghost" id="sd-close" title="Fechar">✕</button>
+        </div>
         <p class="text-sm muted mb-3">Desenhe o símbolo do seu personagem em <strong>branco sobre fundo transparente</strong>. O símbolo será salvo como PNG com transparência e usado separado da foto.</p>
 
         <div class="symbol-drawer-tools">
-          <label>🖌 Tamanho do pincel:
+          <label>🖌 Tamanho:
             <input type="range" id="sd-size" min="2" max="40" value="8">
             <span id="sd-size-val" class="text-xs muted">8</span>
           </label>
           <span class="text-xs muted" style="margin-left:auto">Cor: <span style="display:inline-block;width:16px;height:16px;background:#fff;border:1px solid var(--border-soft);border-radius:3px;vertical-align:middle"></span> branco</span>
+        </div>
+
+        <div class="drawer-toolbar">
+          <div class="drawer-toolbar-group">
+            <button class="btn btn-sm btn-ghost drawer-tool-btn" id="sd-tool-brush" style="border-color:var(--accent)" title="Pincel">🖌</button>
+            <button class="btn btn-sm btn-ghost drawer-tool-btn" id="sd-tool-eraser" title="Borracha">🧽</button>
+          </div>
+          <div class="drawer-toolbar-group">
+            <button class="btn btn-sm btn-ghost drawer-tool-btn" id="sd-undo" title="Desfazer (Ctrl+Z)" disabled>↶</button>
+            <button class="btn btn-sm btn-ghost drawer-tool-btn" id="sd-redo" title="Refazer (Ctrl+Y)" disabled>↷</button>
+          </div>
+          <button class="btn btn-sm btn-ghost drawer-tool-btn" id="sd-clear" title="Limpar tudo">🗑</button>
         </div>
 
         <div class="symbol-drawer-canvas-wrap">
@@ -40,15 +56,8 @@
         </div>
 
         <div class="symbol-drawer-tools" style="justify-content:space-between">
-          <div class="flex gap-2">
-            <button class="btn btn-sm btn-ghost" id="sd-tool-brush" style="border-color:var(--accent)">🖌 Pincel</button>
-            <button class="btn btn-sm btn-ghost" id="sd-tool-eraser">🧽 Borracha</button>
-            <button class="btn btn-sm btn-ghost" id="sd-clear">🗑 Limpar</button>
-          </div>
-          <div class="flex gap-2">
-            <button class="btn btn-ghost" id="sd-cancel">Cancelar</button>
-            <button class="btn btn-primary" id="sd-save">💾 Usar como símbolo</button>
-          </div>
+          <button class="btn btn-ghost" id="sd-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="sd-save">💾 Usar como símbolo</button>
         </div>
       </div>
     `;
@@ -59,10 +68,70 @@
     let drawing = false;
     let lastX = 0, lastY = 0;
     let currentSize = 8;
-    let currentTool = "brush";  // "brush" | "eraser"
+    let currentTool = "brush";
 
-    // NÃO preenche fundo — canvas começa transparente.
-    // clearRect já deixa tudo transparente por padrão.
+    // ===== Pilha de histórico (undo/redo) =====
+    let undoStack = [];
+    let redoStack = [];
+
+    function snapshot() {
+      try {
+        return ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      } catch (e) {
+        return null;
+      }
+    }
+    function pushUndo() {
+      const snap = snapshot();
+      if (!snap) return;
+      undoStack.push(snap);
+      if (undoStack.length > MAX_HISTORY) undoStack.shift();
+      redoStack = [];  // nova ação invalida a redo stack
+      updateUndoRedoButtons();
+    }
+    function undo() {
+      if (undoStack.length === 0) return;
+      const current = snapshot();
+      if (current) redoStack.push(current);
+      const prev = undoStack.pop();
+      ctx.putImageData(prev, 0, 0);
+      updateUndoRedoButtons();
+    }
+    function redo() {
+      if (redoStack.length === 0) return;
+      const current = snapshot();
+      if (current) undoStack.push(current);
+      const next = redoStack.pop();
+      ctx.putImageData(next, 0, 0);
+      updateUndoRedoButtons();
+    }
+    function updateUndoRedoButtons() {
+      const undoBtn = overlay.querySelector("#sd-undo");
+      const redoBtn = overlay.querySelector("#sd-redo");
+      undoBtn.disabled = undoStack.length === 0;
+      redoBtn.disabled = redoStack.length === 0;
+      undoBtn.style.opacity = undoBtn.disabled ? "0.4" : "1";
+      redoBtn.style.opacity = redoBtn.disabled ? "0.4" : "1";
+    }
+
+    overlay.querySelector("#sd-undo").addEventListener("click", undo);
+    overlay.querySelector("#sd-redo").addEventListener("click", redo);
+
+    // Atalhos de teclado (apenas quando o drawer está aberto)
+    function keyHandler(e) {
+      if (!document.body.contains(overlay)) {
+        document.removeEventListener("keydown", keyHandler);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+    }
+    document.addEventListener("keydown", keyHandler);
 
     // Tamanho
     const sizeInput = overlay.querySelector("#sd-size");
@@ -87,22 +156,27 @@
     });
     updateToolButtons();
 
-    // Limpar — clearRect deixa transparente
+    // Limpar
     overlay.querySelector("#sd-clear").addEventListener("click", () => {
       if (!confirm("Limpar todo o canvas?")) return;
+      pushUndo();  // salva estado antes de limpar
       ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     });
 
-    // Cancelar
-    overlay.querySelector("#sd-cancel").addEventListener("click", () => overlay.remove());
+    // Cancelar / fechar
+    function close() {
+      document.removeEventListener("keydown", keyHandler);
+      overlay.remove();
+    }
+    overlay.querySelector("#sd-cancel").addEventListener("click", close);
+    overlay.querySelector("#sd-close").addEventListener("click", close);
 
-    // Salvar — exporta PNG com transparência, sobe pro Cloudinary
+    // Salvar
     overlay.querySelector("#sd-save").addEventListener("click", async () => {
       const saveBtn = overlay.querySelector("#sd-save");
       saveBtn.disabled = true;
       saveBtn.textContent = "Enviando…";
       try {
-        // Exporta como PNG preservando alpha (canvas já é transparente onde não há traço)
         const dataUrl = canvas.toDataURL("image/png");
         const blob = dataUrlToBlob(dataUrl);
         const fd = new FormData();
@@ -110,7 +184,7 @@
         const res = await window.api.postForm("/api/upload", fd);
         if (res.url) {
           onSave(res.url);
-          overlay.remove();
+          close();
         } else {
           alert(res.warning || "Upload falhou");
           saveBtn.disabled = false;
@@ -181,7 +255,10 @@
     }
 
     function endDraw() {
+      if (!drawing) return;
       drawing = false;
+      // Salva snapshot no fim de cada stroke (não durante, pra não estourar memória)
+      pushUndo();
     }
 
     canvas.addEventListener("mousedown", startDraw);
@@ -195,8 +272,10 @@
 
     // Clique fora do card fecha
     overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.remove();
+      if (e.target === overlay) close();
     });
+
+    updateUndoRedoButtons();
   }
 
   function dataUrlToBlob(dataUrl) {

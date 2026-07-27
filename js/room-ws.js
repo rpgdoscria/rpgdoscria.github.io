@@ -284,6 +284,21 @@
           // Mas guardamos no estado pra que outros componentes possam acessar.
           if (s) s.participants = msg.payload.participants || [];
           break;
+        // ===== v12: Item proposals (jogador → mestre) =====
+        case "item_proposal_received":
+        case "item_proposal_resolved":
+          // Guarda no estado pra persistência após reconexão
+          if (s) {
+            if (!s.itemProposals) s.itemProposals = [];
+            if (msg.type === "item_proposal_received") {
+              s.itemProposals.push(msg.payload);
+            } else {
+              const idx = s.itemProposals.findIndex(p => p.id === msg.payload.id);
+              if (idx >= 0) s.itemProposals[idx] = msg.payload;
+              else s.itemProposals.push(msg.payload);
+            }
+          }
+          break;
       }
     }
 
