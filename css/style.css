@@ -4142,3 +4142,193 @@ h1, h2, h3, .brand, .modal-card h3, .room-title, .planning-section h4 {
 .char-select-item:hover {
   border-color: var(--accent) !important;
 }
+
+/* ============================================================
+   TAREFA 1 (v7) — Cards compactos de personagens na Visão Geral
+   ============================================================ */
+.compact-char-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  gap: var(--space-2);
+}
+.compact-char-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  min-width: 0;
+}
+.compact-char-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.compact-char-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--bg-elev);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.compact-char-info {
+  flex: 1;
+  min-width: 0;
+}
+.compact-char-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.compact-char-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.compact-bar {
+  height: 4px;
+  background: var(--bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.compact-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ============================================================
+   TAREFA 3 (v7) — Página de criação de sala estilizada
+   ============================================================ */
+.criar-sala-wrap {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+.criar-sala-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.criar-sala-card h1 {
+  text-align: center;
+  margin: 0 0 var(--space-2) 0;
+  font-size: 24px;
+}
+.criar-sala-card .subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0 0 var(--space-5) 0;
+}
+.criar-sala-card .field {
+  margin-bottom: var(--space-4);
+}
+.criar-sala-card .field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.criar-sala-card .field input,
+.criar-sala-card .field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font-sans);
+  transition: border-color 0.15s;
+}
+.criar-sala-card .field input:focus,
+.criar-sala-card .field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.criar-sala-card .field .hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.criar-sala-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  margin-top: var(--space-5);
+  flex-wrap: wrap;
+}
+.criar-sala-actions .btn {
+  min-width: 140px;
+}
+.criar-sala-existing {
+  margin-top: var(--space-6);
+  border-top: 1px solid var(--border-soft);
+  padding-top: var(--space-4);
+}
+.criar-sala-existing h2 {
+  font-size: 16px;
+  margin: 0 0 var(--space-3) 0;
+}
+.criar-sala-room-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.criar-sala-room-row.inactive {
+  opacity: 0.7;
+}
+.criar-sala-room-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 0;
+}
+.criar-sala-room-code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+.criar-sala-room-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 100%;
+  margin-top: 2px;
+}
+
+/* Responsivo */
+@media (max-width: 480px) {
+  .criar-sala-card {
+    padding: var(--space-4);
+  }
+  .criar-sala-actions .btn {
+    width: 100%;
+  }
+  .compact-char-grid {
+    grid-template-columns: 1fr;
+  }
+}

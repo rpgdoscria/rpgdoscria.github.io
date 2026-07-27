@@ -16,24 +16,24 @@
     return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
   }
 
-  // Gera URL de página da wiki no novo formato
+  // Gera URL de página da wiki — formato limpo (sem .html)
   function pageUrl(slug) {
-    return `pagina.html?slug=${encodeURIComponent(slug)}`;
+    return `pagina?slug=${encodeURIComponent(slug)}`;
   }
   function editUrl(slug) {
-    return `editar.html?slug=${encodeURIComponent(slug)}`;
+    return `editar?slug=${encodeURIComponent(slug)}`;
   }
   function editNewUrl(title) {
-    return `editar.html?new=true&title=${encodeURIComponent(title)}`;
+    return `editar?new=true&title=${encodeURIComponent(title)}`;
   }
   function historyUrl(slug) {
-    return `historico.html?slug=${encodeURIComponent(slug)}`;
+    return `historico?slug=${encodeURIComponent(slug)}`;
   }
 
   // Renderiza breadcrumb: Wiki > Categoria > Página
   function breadcrumb(parts) {
     return `<div class="wiki-breadcrumb">
-      <a href="index.html">Wiki</a>
+      <a href=".">Wiki</a>
       ${parts.map(p => `<span class="sep">›</span>${p.href ? `<a href="${p.href}">${escapeHtml(p.label)}</a>` : `<span>${escapeHtml(p.label)}</span>`}`).join("")}
     </div>`;
   }

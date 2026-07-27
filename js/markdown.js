@@ -28,7 +28,7 @@
       // (sala, personagens). Links internos sempre apontam pra /wiki/pagina?slug=...
       const inWiki = location.pathname.includes("/wiki/");
       const prefix = inWiki ? "" : "wiki/";
-      return `<a class="wikilink" data-wiki-title="${escapeAttr(t)}" href="${prefix}pagina.html?slug=${encodeURIComponent(slugify(t))}">${escapeHtml(l)}</a>`;
+      return `<a class="wikilink" data-wiki-title="${escapeAttr(t)}" href="${prefix}pagina?slug=${encodeURIComponent(slugify(t))}">${escapeHtml(l)}</a>`;
     });
   }
 
@@ -44,7 +44,7 @@
       if (knownSlugs && !knownSlugs.has(slug)) {
         a.classList.add("wikilink-missing");
         a.title = `A página "${title}" ainda não existe — clique para criar.`;
-        // href continua apontando para page.html?slug=... que oferece a criação.
+        // href continua apontando para page?slug=... que oferece a criação.
       }
     });
     return container.innerHTML;

@@ -1,119 +1,94 @@
-# Arquivos incluídos nesta entrega — Rpg dos Cria v6
+# Arquivos incluídos nesta entrega — Rpg dos Cria v7
 
-Pacote com 3 novas tarefas: (1) seleção de personagem com opção de espectador, (2) redesenho completo da sala em estilo cartas sem abas, (3) URLs limpas (sem `.html`). Inclui também todas as funcionalidades das versões anteriores (header dropdown, fontes Poppins, chat em tempo real, cor do jogador, planejamento com mini-wiki secreta, inimigos 2 modos, símbolo branco/transparente, responsividade).
+Pacote com 3 correções/melhorias: (1) sala revertida para layout de abas com cards compactos, (2) URLs limpas corrigidas (eliminado `.html` remanescente), (3) página de criação de sala estilizada com cartão centralizado.
 
 ---
 
 ## ✅ Validações rodadas
 
 - `tsc --noEmit` no worker → **zero erros**
-- `node -c` em todos os JS → **todos OK**
+- `node -c` em todos os JS (incluindo `js/wiki/wiki-core.js`) → **todos OK**
 - Inline `<script>` do `sala/index.html` → **OK**
-- Cache-bust rodado → 18 HTMLs, versão `?v=202607271331`
-- Script `clean-urls.js` executado → 17 HTMLs movidos para `pasta/index.html`
-
----
-
-## 🆕 Arquivos NOVOS
-
-| Caminho | Descrição |
-|---------|-----------|
-| `scripts/clean-urls.js` | **(Tarefa 3)** Script Node que move HTMLs para `pasta/index.html`, atualiza todos os links removendo `.html`, ajusta paths de assets (css/js/vendor) com prefixo `../` apropriado, atualiza `cache-bust.js` para percorrer subpastas. Rodar UMA VEZ. |
-| `worker/src/migrations/0009_rooms_permanence.sql` | **(Tarefa anterior)** Tabela `rooms` permanente com nome. |
-| `worker/src/migrations/0010_planning_and_colors.sql` | **(Tarefa anterior)** Coluna `color` em `session_participants`; tabela `master_planning`. |
-| `worker/src/migrations/0011_character_symbol.sql` | **(Tarefa anterior)** Coluna `symbol_url` em `characters`. |
-| `worker/src/migrations/0012_spectator.sql` | **(Tarefa 1 — NOVO)** Adiciona coluna `is_spectator` (INTEGER NOT NULL DEFAULT 0) em `session_participants`. Permite que jogadores entrem como espectadores (sem personagem). |
-| `CHANGES.md` | Este arquivo. |
+- Cache-bust rodado → 18 HTMLs, versão `?v=202607271411`
+- Busca por `.html` restante em links → **zero ocorrências**
 
 ---
 
 ## ✏️ Arquivos MODIFICADOS
 
-### 🔥 NOVIDADES v6
+### Tarefa 1 — Sala revertida para abas + cards compactos
 
 | Caminho | Descrição da mudança |
 |---------|----------------------|
-| `worker/src/durable-objects/RoomDO.ts` | **(Tarefa 1)** Interface `Connection` ganha campo `isSpectator: boolean`. `handleConnect` lê parâmetro `isSpectator` da query string do WebSocket. Se espectador, `characterId` é undefined e `isSpectator=true` (mestre nunca é espectador). `publicState` inclui `isSpectator` no campo `you`. `participant_joined` broadcast inclui `isSpectator` no payload. |
-| `js/room-ws.js` | **(Tarefa 1)** `RoomClient` construtor aceita 3º parâmetro `isSpectator = false`. `connect()` adiciona `isSpectator=1` na query string do WebSocket se verdadeiro. Login redirect usa `depthPrefix()` para funcionar com URLs limpas. |
-| `sala/index.html` | **(Tarefa 2 — REDESENHO COMPLETO)** Layout completamente refeito em estilo cartas, **sem abas**: área superior com cartas de inimigos em linha horizontal rolável; área central com dado visual + controles de rolagem inline; área inferior com cartas de jogadores em linha horizontal. Chat vira **botão flutuante (FAB)** no canto inferior direito que abre painel flutuante (com opção fixar). Ferramentas do mestre (Visão Geral, Planejamento, Documentos) viram **botões flutuantes** no canto inferior esquerdo que abrem painel lateral. **(Tarefa 1)** Modal de seleção de personagem com opção "Entrar como espectador" — mostra lista de personagens com foto/nome, botão espectador, e botão cancelar. Se sem personagens, pergunta se quer entrar como espectador. |
-| `js/auth.js` | **(Tarefa 3 — URLs limpas)** Nova função `depthPrefix()` calcula prefixo `../` baseado na profundidade do path. `renderHeader()` usa `depthPrefix` + `wikiPrefix` para gerar links relativos corretos em qualquer nível. `requireAuth`, `logout`, `redirectToNext` usam `depthPrefix()` nos redirects. Detecção de página de troca de senha atualizada para funcionar com `/change-password/`. |
-| `js/room-chat.js` | **(Tarefa 2)** Chat adaptado para painel flutuante — funciona dentro do `.chat-floating-panel` com altura flexível. |
-| `css/style.css` | **(Tarefa 2)** ~300 linhas de CSS novo: `.sala-card-layout` (flex column), `.sala-card-header`, `.sala-section`, `.card-row` (flex horizontal com scroll), `.sala-dice-section`, `.dice-master-inline`. `.chat-fab` (botão flutuante 56px com badge), `.chat-floating-panel` (340px fixo bottom-right), `.master-fab-group` + `.master-fab` (botões flutuantes esquerda), `.room-side-panel` (painel lateral slide-in right). Responsividade mobile: cartas 160px, chat full-width, FABs menores. |
-| 14 HTMLs movidos para `pasta/index.html` | **(Tarefa 3)** `admin`, `change-password`, `criar-personagem`, `criar-sala`, `edit`, `entrar-sala`, `gerenciar-sets-regras`, `gerenciar-status`, `history`, `login`, `meus-personagens`, `page`, `perfil`, `sala` — cada um movido de `X.html` para `X/index.html`. Paths de assets (css/js/vendor) ajustados com `../`. Links internos sem `.html`. |
-| 3 HTMLs wiki movidos | **(Tarefa 3)** `wiki/editar`, `wiki/historico`, `wiki/pagina` — movidos para `wiki/X/index.html`. Paths ajustados com `../../`. |
-| `index.html` (raiz) | **(Tarefa 3)** Permanece na raiz. Links internos atualizados sem `.html`. |
-| `wiki/index.html` | **(Tarefa 3)** Permanece em `wiki/`. Links internos atualizados sem `.html`. |
-| `scripts/cache-bust.js` | **(Tarefa 3)** `findHtmlFiles()` reescrita para percorrer subpastas (procura `subpasta/index.html` em vez de `*.html` soltos). |
-| `js/master-planning.js` | **(Tarefa 3)** Links atualizados para URLs limpas (`wiki/pagina` em vez de `wiki/pagina.html`). |
-| `js/perfil.js` | **(Tarefa 3)** Links atualizados para URLs limpas. |
-| `js/character-render.js` | **(Tarefa 3)** Links atualizados. |
-| `js/config.js` | (mantido de v5) API_BASE dinâmico. |
+| `sala/index.html` | **Layout completamente refeito**: removido o design "cartas" (inimigos no topo, chat flutuante, FABs do mestre, painel lateral). Restaurado o **layout de abas** com 7 abas (Visão Geral, Personagens, Inimigos, Dados, Chat, Documentos [mestre], Planejamento [mestre]). Dado visual fixo no topo, fora das abas. **Melhoria**: aba Visão Geral agora tem `#characters-grid-compact` com cards compactos de personagens (avatar 40px + nome + até 2 barras de vida/mana + borda na cor do jogador). Clique no card compacto leva pra aba Personagens. `showRoomScreen` restaura `tab-docs` e `tab-planning` para mestre (em vez de `master-fab-group`). Função `renderCompactCharCard(ch, isMaster)` adicionada. `bindActionButtons` agora binda clique nos `.compact-char-card`. Código do chat FAB/master FAB/side panel mantido mas inerte (referências a elementos removidos viram no-ops seguros). |
+| `css/style.css` | **~120 linhas novas**: `.compact-char-grid` (grid auto-fill 160px), `.compact-char-card` (flex row com avatar + info, hover translateY), `.compact-char-avatar` (40px quadrado), `.compact-char-name` (ellipsis), `.compact-char-bars`, `.compact-bar` (4px altura), `.compact-bar-fill` (transição width). `.criar-sala-wrap` (max-width 600px centralizado), `.criar-sala-card` (card com shadow e padding generoso), `.criar-sala-card h1` (centrado), `.criar-sala-actions` (flex center com min-width 140px nos botões), `.criar-sala-existing`, `.criar-sala-room-row` (com estado inactive). Responsivo 480px: card padding menor, botões full-width, grid compacto 1 coluna. |
 
-### Já implementados nas versões anteriores (mantidos)
+### Tarefa 2 — URLs limpas corrigidas
 
-- **Header dropdown categorizado** (Wiki, Personagens, Salas, Admin) com menu hamburguer mobile
-- **Fontes Poppins** para títulos, Inter para corpo
-- **Salas permanentes** com nome + idempotência (30s)
-- **Chat em tempo real** com bolhas (bug do F5 corrigido)
-- **Cor pessoal do jogador** (paleta + persistência + badge clicável)
-- **Dado visual melhorado** (gradiente 3D, glow, bounce, pop)
-- **Aba Planejamento** com 3 sub-abas (Anotações, Inimigos 2 modos, Mini-wiki só secretas)
-- **Perfil/dashboard** após login
-- **Símbolo branco/transparente** (canvas com `destination-out`)
-- **Responsividade global** (breakpoints 480/768/1024px)
+| Caminho | Descrição da mudança |
+|---------|----------------------|
+| `js/wiki/wiki-core.js` | `pageUrl()`, `editUrl()`, `editNewUrl()`, `historyUrl()` agora geram URLs sem `.html` (`pagina?slug=...` em vez de `pagina.html?slug=...`). `breadcrumb()` usa `href="."` em vez de `href="index.html"`. |
+| `js/markdown.js` | Wikilinks `[[Título]]` agora geram `pagina?slug=...` em vez de `pagina.html?slug=...`. |
+| `wiki/index.html` | Link "Nova página" mudou de `editar.html?new=true` para `editar?new=true`. |
+| `wiki/pagina/index.html` | Breadcrumb usa `?category=...` em vez de `index.html?category=...`. Redirect após deletar página usa `location.href = "."` em vez de `"index.html"`. |
+
+### Tarefa 3 — Página de criação de sala estilizada
+
+| Caminho | Descrição da mudança |
+|---------|----------------------|
+| `criar-sala/index.html` | **Interface completamente refeita**: container `.criar-sala-wrap` (max-width 600px centralizado) com `.criar-sala-card` (card com shadow, border-radius grande, padding generoso). Título "🎪 Criar Sala" centrado com subtitle. Campos: Nome (obrigatório), Descrição (opcional), Personagens (opcional). Botões "Criar sala" e "Cancelar" com `min-width: 140px` (não esticados). Hint de feedback centrado. Lista de salas existentes com `.criar-sala-room-row` (cards individuais com nome + código + status + ações). Auto-focus no campo nome. Links corrigidos para URLs limpas (`../sala?code=...` em vez de `sala?code=...`). |
+
+### Arquivos mantidos das versões anteriores (incluídos para completude)
+
+| Caminho | Descrição |
+|---------|-----------|
+| `js/auth.js` | Header dropdown categorizado + `depthPrefix()` para URLs limpas + fontes Poppins. |
+| `js/room-chat.js` | Chat com bolhas (foto, nome colorido, auto-scroll inteligente). |
+| `js/room-ws.js` | `RoomClient` com `isSpectator` + `depthPrefix()` no login redirect. |
+| `js/character-render.js` | `renderAvatar()` com símbolo sobreposto. |
+| `js/master-planning.js` | Aba Planejamento com 3 sub-abas (Anotações, Inimigos 2 modos, Mini-wiki só secretas). |
+| `worker/src/durable-objects/RoomDO.ts` | Handlers WS completos (polls, trades, purchases, level up, spectator, reveal_document, set_player_color). |
+| `worker/src/routes/rooms.ts` | Salas permanentes com nome + idempotência + planejamento. |
+| `worker/src/routes/characters.ts` | Suporte a `symbolUrl`. |
+| `worker/src/routes/pages.ts` | `GET /api/pages` inclui `secret`/`revealed`. |
+| `worker/src/migrations/0009-0012` | 4 migrations (rooms, planning+colors, symbol, spectator). |
+| `scripts/cache-bust.js` | Percorre subpastas para achar `index.html`. |
+| `scripts/clean-urls.js` | Script que move HTMLs para `pasta/index.html` (já executado). |
 
 ---
 
 ## 🚀 Como aplicar
 
-1. **Backup**: `git stash` ou `xcopy /E /I /Y . C:\Backup\rpg-wiki-antes-v6`
-2. **Delete os 4 arquivos órfãos** em `worker/src/` (se ainda existirem):
-   ```cmd
-   cd C:\caminho\para\rpgdoscria.github.io\worker\src
-   if exist RoomDO.ts del RoomDO.ts
-   if exist characters.ts del characters.ts
-   if exist rule-sets.ts del rule-sets.ts
-   if exist 0006_rule_sets_and_chat.sql del 0006_rule_sets_and_chat.sql
-   ```
-3. **Descompacte** este ZIP por cima da raiz do projeto. Os HTMLs antigos (`sala.html`, etc.) serão substituídos pelas novas pastas (`sala/index.html`). **Delete os `.html` antigos da raiz** se o Git não remover automaticamente:
-   ```cmd
-   cd C:\caminho\para\rpgdoscria.github.io
-   if exist sala.html del sala.html
-   if exist criar-sala.html del criar-sala.html
-   if exist entrar-sala.html del entrar-sala.html
-   :: (repita para todos os outros .html da raiz, exceto index.html)
-   if exist wiki\editar.html del wiki\editar.html
-   if exist wiki\historico.html del wiki\historico.html
-   if exist wiki\pagina.html del wiki\pagina.html
-   ```
-4. **Rode as 4 migrations** novas (se ainda não rodou as anteriores):
+1. **Backup**: `git stash` ou `xcopy /E /I /Y . C:\Backup\rpg-wiki-antes-v7`
+2. **Descompacte** este ZIP por cima da raiz do projeto
+3. **Rode migrations** (se ainda não rodou as 4 novas):
    ```cmd
    cd worker && npm run db:migrate:remote
    ```
-5. **Typecheck + deploy worker**:
+4. **Typecheck + deploy worker**:
    ```cmd
    cd worker && npx tsc --noEmit && npm run deploy
    ```
-6. **Deploy frontend**:
+5. **Deploy frontend**:
    ```cmd
-   git add . && git commit -m "v6: espectador, sala estilo cartas, URLs limpas" && git push
+   git add . && git commit -m "v7: sala com abas restauradas + cards compactos, URLs limpas corrigidas, criar-sala estilizado" && git push
    ```
 
 ---
 
 ## 🧪 Verificações de sucesso
 
-1. **Espectador**: ao entrar numa sala (sem ser mestre), aparece modal com personagens + botão "Entrar como espectador". Escolhendo espectador, entra na sala sem personagem — vê tudo mas não pode rolar dados ou trocar itens.
-2. **Sala estilo cartas**: inimigos aparecem como cartas no topo (rolável horizontal), dado no centro, jogadores embaixo. Sem abas. Chat acessível via botão flutuante no canto. Ferramentas do mestre via botões flutuantes no canto esquerdo.
-3. **URLs limpas**: `rpgdoscria.github.io/sala` (sem `.html`), `rpgdoscria.github.io/wiki/pagina?slug=teste`. Todos os links internos funcionam sem 404.
-4. **Funcionalidades existentes**: rolar dados, dano em inimigos, chat tempo real, enquetes, trocas, upar, documentos secretos, planejamento — todos operacionais no novo layout.
-5. **Responsividade**: cartas rolam horizontalmente em telas estreitas, chat vira painel full-width no mobile, botões flutuantes menores.
+1. **Sala com abas**: acessar `/sala?code=XXX` mostra 7 abas (Visão Geral, Personagens, Inimigos, Dados, Chat, Documentos [mestre], Planejamento [mestre]). Dado visual fixo no topo.
+2. **Cards compactos**: aba Visão Geral mostra personagens como cards pequenos (avatar + nome + 2 barras) em grade. Clique leva pra aba Personagens.
+3. **Chat tempo real**: mensagens aparecem instantaneamente (sem F5) com foto, nome colorido e bolhas.
+4. **URLs limpas**: nenhum link tem `.html`. `/sala`, `/criar-sala`, `/wiki/pagina?slug=teste` — todos funcionam sem 404.
+5. **Criar sala**: página mostra cartão centralizado com campos Nome/Descrição/Personagens. Botões proporcionais (não esticados). Após criar, redireciona pra sala.
+6. **Funcionalidades existentes**: rolar dados, dano, enquetes, trocas, upar, documentos secretos, planejamento — todos operacionais.
 
 ---
 
 ## 📋 Resumo do pacote
 
-- **Total de arquivos**: 38 (5 novos + 33 modificados/movidos)
-- **Migrations novas**: 4 (`0009`, `0010`, `0011`, `0012`)
-- **Destaques v6**: modal espectador + sala sem abas (cartas) + URLs limpas
-- **Validações**: TypeScript zero erros, JS sem erros, inline OK
+- **Total de arquivos**: 24 (todos modificados — nenhum novo nesta versão)
+- **Destaques v7**: abas restauradas + cards compactos na Visão Geral + URLs `.html` eliminadas + criar-sala com cartão centralizado
+- **Validações**: TypeScript zero erros, JS sem erros, inline OK, zero links `.html` restantes
