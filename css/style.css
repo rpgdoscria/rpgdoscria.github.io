@@ -2428,3 +2428,352 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: var(--space
   .site-header nav { gap: var(--space-2); }
   .site-header .search-box { display: none; }
 }
+
+/* ============================================================
+   ABAS DA SALA (Feature 1) — adicionado em 2026-07-27
+   ============================================================ */
+
+/* Layout da sala mudou: antes era grid 2 colunas (main+aside),
+   agora é coluna única com abas no topo. Mantém o nome .sala-layout
+   para não quebrar seletores existentes, mas sobrescreve o grid. */
+.sala-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.sala-main {
+  width: 100%;
+}
+
+/* Barra de abas — horizontal, scrollável no mobile */
+.room-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--border-soft);
+  padding: 0 4px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.room-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  border-radius: 4px 4px 0 0;
+}
+.room-tab:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.03);
+}
+.room-tab.active {
+  color: var(--accent);
+  background: transparent;
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.room-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.room-tab-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+.room-tab-label {
+  font-size: 13px;
+}
+/* Badge "nova mensagem" na aba Chat */
+.room-tab.has-badge {
+  position: relative;
+}
+.room-tab.has-badge::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  animation: pulse-badge 1.5s ease-in-out infinite;
+}
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+/* Painel de cada aba — só o ativo é visível */
+.room-tab-panel {
+  display: none;
+  animation: fade-in-tab 0.18s ease-out;
+}
+.room-tab-panel.active {
+  display: block;
+}
+@keyframes fade-in-tab {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Visão Geral ===== */
+.overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+.overview-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+.overview-card h3 {
+  margin: 0 0 var(--space-2) 0;
+  font-family: var(--font-serif);
+  font-size: 17px;
+}
+.overview-stats {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+.overview-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+.overview-stat .num {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+.overview-stat .lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.overview-actions-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: var(--space-2);
+}
+
+/* ===== Aba Dados (layout interno) ===== */
+.room-dice-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+@media (min-width: 900px) {
+  .room-dice-layout {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+/* ===== Aba Chat ===== */
+#chat-mount .chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+  max-height: 60vh;
+}
+#chat-mount .chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-2);
+}
+#chat-mount .chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+#chat-mount .chat-input-row input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  color: var(--text);
+  font-size: 14px;
+}
+.chat-msg {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  word-wrap: break-word;
+}
+.chat-msg-self {
+  background: var(--accent);
+  color: var(--accent-fg);
+  margin-left: 40px;
+}
+.chat-msg-other {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  margin-right: 40px;
+}
+.chat-msg-sender {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+.chat-msg-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: right;
+  margin-top: 2px;
+  opacity: 0.7;
+}
+.chat-msg-self .chat-msg-time {
+  color: var(--accent-fg);
+}
+.chat-msg-system {
+  background: transparent;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+/* ===== Aba Documentos Secretos ===== */
+.secret-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.secret-card.revealed {
+  border-left-color: var(--success);
+  opacity: 0.8;
+}
+.secret-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.secret-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ===== Construtor visual de fórmulas (já tem CSS, mas garantimos) ===== */
+.formula-builder {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+.formula-builder-preview {
+  background: var(--surface);
+  border: 1px dashed var(--border-soft);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  min-height: 32px;
+  margin-bottom: 8px;
+}
+.formula-builder-preview.valid { border-color: var(--success); color: var(--success); }
+.formula-builder-preview.invalid { border-color: var(--danger); color: var(--danger); }
+.formula-builder-dice,
+.formula-builder-ops,
+.formula-builder-modifiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.fb-dice-btn, .fb-op-btn, .fb-mod-btn {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 32px;
+}
+.fb-dice-btn:hover, .fb-op-btn:hover, .fb-mod-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-elev);
+}
+.formula-builder-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.formula-builder-row input,
+.formula-builder-ops input {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.formula-builder-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.formula-builder-error {
+  color: var(--danger);
+  margin-top: 6px;
+}
+
+/* Botão Rolar do construtor — estados desabilitado */
+#btn-roll-builder.disabled,
+#btn-roll-builder:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.dice-builder-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Responsivo extra pras abas */
+@media (max-width: 760px) {
+  .room-tab-label { display: none; }  /* no mobile só ícones */
+  .room-tab { padding: 10px 12px; }
+  .room-tab-icon { font-size: 18px; }
+  .overview-cards { grid-template-columns: 1fr; }
+}

@@ -17,6 +17,11 @@
   }
 
   function handleLevelUpAvailable(payload) {
+    // Só abre o modal se for o dono do personagem.
+    // payload.ownerUserId vem do RoomDO; comparamos com o userId do client.
+    if (window._roomClient && payload.ownerUserId && payload.ownerUserId !== window._roomClient.userId) {
+      return;  // não é pra mim — ignora silenciosamente
+    }
     pendingLevelUp = payload;
     const existing = document.getElementById('levelup-overlay');
     if (existing) existing.remove();
@@ -84,7 +89,7 @@
         if (!confirm('Você ainda tem pontos não distribuídos. Confirmar mesmo assim?')) return;
       }
       const ws = window._roomClient;
-      if (ws) ws.send('level_up_points', { allocations, characterId: payload.characterId });
+      if (ws) ws.send('distribute_level_points', { allocations, characterId: payload.characterId });
       overlay.remove();
     });
   }

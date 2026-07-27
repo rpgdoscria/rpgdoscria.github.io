@@ -186,6 +186,78 @@
           if (this.ws) try { this.ws.close(1000); } catch {}
           break;
         }
+        // ===== Polls (Feature 2) =====
+        case "poll_created": {
+          if (!Array.isArray(s.polls)) s.polls = [];
+          s.polls.push(msg.payload);
+          if (s.polls.length > 20) s.polls.shift();
+          break;
+        }
+        case "poll_updated": {
+          if (!Array.isArray(s.polls)) s.polls = [];
+          const idx = s.polls.findIndex(p => p.id === msg.payload.id);
+          if (idx >= 0) s.polls[idx] = msg.payload;
+          else s.polls.push(msg.payload);
+          break;
+        }
+        case "poll_ended": {
+          if (!Array.isArray(s.polls)) s.polls = [];
+          const idx = s.polls.findIndex(p => p.id === msg.payload.id);
+          if (idx >= 0) s.polls[idx] = msg.payload;
+          break;
+        }
+        case "poll_chat": {
+          if (!Array.isArray(s.polls)) s.polls = [];
+          const poll = s.polls.find(p => p.id === msg.payload.pollId);
+          if (poll) {
+            if (!Array.isArray(poll.chat)) poll.chat = [];
+            const { pollId, ...chatMsg } = msg.payload;
+            poll.chat.push(chatMsg);
+            if (poll.chat.length > 50) poll.chat.shift();
+          }
+          break;
+        }
+        // ===== Trades (Feature 4a) =====
+        case "trade_proposed": {
+          if (!Array.isArray(s.trades)) s.trades = [];
+          s.trades.push(msg.payload);
+          if (s.trades.length > 30) s.trades.shift();
+          break;
+        }
+        case "trade_updated": {
+          if (!Array.isArray(s.trades)) s.trades = [];
+          const idx = s.trades.findIndex(t => t.id === msg.payload.id);
+          if (idx >= 0) s.trades[idx] = msg.payload;
+          break;
+        }
+        // ===== Purchase Offers (Feature 4b) =====
+        case "purchase_offer": {
+          if (!Array.isArray(s.purchaseOffers)) s.purchaseOffers = [];
+          s.purchaseOffers.push(msg.payload);
+          if (s.purchaseOffers.length > 30) s.purchaseOffers.shift();
+          break;
+        }
+        case "purchase_updated": {
+          if (!Array.isArray(s.purchaseOffers)) s.purchaseOffers = [];
+          const idx = s.purchaseOffers.findIndex(o => o.id === msg.payload.id);
+          if (idx >= 0) s.purchaseOffers[idx] = msg.payload;
+          break;
+        }
+        // ===== Level Up (Feature 4c) — level_up_available viria do mestre,
+        // mas por enquanto o mestre não envia WS pra esse evento. =====
+        case "level_up_available": {
+          if (!Array.isArray(s.levelUpOffers)) s.levelUpOffers = [];
+          s.levelUpOffers.push(msg.payload);
+          break;
+        }
+        // ===== Secret Revealed (Feature 3) — não precisa sincronizar estado,
+        // apenas dispara a animação no front-end (tratado no onEvent). =====
+        case "reveal_document":
+        case "chat_message":
+        case "participant_joined":
+        case "participant_left":
+          // Sem estado local pra atualizar — onEvent cuida da UI.
+          break;
       }
     }
 

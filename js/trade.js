@@ -23,9 +23,19 @@
     wsClient.send('propose_trade', { targetUserId, offer, request });
   }
 
-  // Responder a uma troca
-  function respondTrade(wsClient, tradeId, accept) {
-    wsClient.send('respond_trade', { tradeId, accept });
+  // Responder a uma troca — action pode ser: 'accept', 'reject', ou 'counter'
+  // (legado: aceitar boolean true/false ainda funciona — 'accept'/'reject')
+  function respondTrade(wsClient, tradeId, action) {
+    if (typeof action === 'boolean') {
+      action = action ? 'accept' : 'reject';  // compat legado
+    }
+    if (action === 'counter') {
+      // Contraproposta — não usamos esse caminho, o criador de troca envia propose_trade direto
+      // com os papéis invertidos. Mantemos aqui só pra fallback.
+      wsClient.send('respond_trade', { tradeId, action: 'counter' });
+    } else {
+      wsClient.send('respond_trade', { tradeId, action });
+    }
   }
 
   // Recebeu proposta de troca — mostra modal
@@ -61,6 +71,7 @@
         </div>
         <div class="flex gap-2" style="justify-content:flex-end">
           <button class="btn btn-danger" id="trade-reject">Recusar</button>
+          <button class="btn btn-ghost" id="trade-counter">Contraproposta</button>
           <button class="btn btn-primary" id="trade-accept">Aceitar troca</button>
         </div>
       </div>
@@ -69,13 +80,30 @@
 
     overlay.querySelector('#trade-accept').addEventListener('click', () => {
       const ws = window._roomClient;
-      if (ws) respondTrade(ws, payload.tradeId, true);
+      if (ws) respondTrade(ws, payload.tradeId, 'accept');
       overlay.remove();
     });
     overlay.querySelector('#trade-reject').addEventListener('click', () => {
       const ws = window._roomClient;
-      if (ws) respondTrade(ws, payload.tradeId, false);
+      if (ws) respondTrade(ws, payload.tradeId, 'reject');
       overlay.remove();
+    });
+    overlay.querySelector('#trade-counter').addEventListener('click', () => {
+      // Contraproposta — abre o criador de troca invertendo os papéis
+      overlay.remove();
+      // Pega o personagem do proposer a partir do currentState
+      const ws = window._roomClient;
+      if (!ws || !window._roomState) {
+        alert('Não foi possível criar contraproposta — estado da sala indisponível.');
+        return;
+      }
+      const myCh = (window._roomState.characters || []).find(c => c.ownerUserId === ws.userId);
+      const proposerCh = (window._roomState.characters || []).find(c => c.ownerUserId === payload.proposerUserId);
+      if (!myCh || !proposerCh) {
+        alert('Não foi possível encontrar os personagens para a contraproposta.');
+        return;
+      }
+      openTradeCreator(myCh, [proposerCh]);
     });
   }
 

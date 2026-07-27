@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=202607232121">
-  <link rel="stylesheet" href="css/theme-custom.css?v=202607232121">
+  <link rel="stylesheet" href="css/style.css?v=202607271019">
+  <link rel="stylesheet" href="css/theme-custom.css?v=202607271019">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -58,9 +58,65 @@
       <!-- Dado Visual Animado — fixo no topo, visível em TODAS as abas -->
       <div id="dice-visual-mount"></div>
 
-      <section>
+      <!-- ===== Barra de abas ===== -->
+      <nav class="room-tabs" role="tablist" aria-label="Seções da sala">
+        <button class="room-tab active" id="tab-geral" data-tab="overview" role="tab" aria-selected="true" aria-controls="panel-geral">
+          <span class="room-tab-icon">🗺️</span>
+          <span class="room-tab-label">Visão Geral</span>
+        </button>
+        <button class="room-tab" id="tab-ficha" data-tab="characters" role="tab" aria-selected="false" aria-controls="panel-ficha">
+          <span class="room-tab-icon">📜</span>
+          <span class="room-tab-label">Ficha Completa</span>
+        </button>
+        <button class="room-tab" id="tab-inimigos" data-tab="enemies" role="tab" aria-selected="false" aria-controls="panel-inimigos">
+          <span class="room-tab-icon">⚔️</span>
+          <span class="room-tab-label">Inimigos</span>
+        </button>
+        <button class="room-tab" id="tab-dados" data-tab="dice" role="tab" aria-selected="false" aria-controls="panel-dados">
+          <span class="room-tab-icon">🎲</span>
+          <span class="room-tab-label">Dados</span>
+        </button>
+        <button class="room-tab" id="tab-chat" data-tab="chat" role="tab" aria-selected="false" aria-controls="panel-chat">
+          <span class="room-tab-icon">💬</span>
+          <span class="room-tab-label">Chat</span>
+        </button>
+        <button class="room-tab hidden" id="tab-docs" data-tab="secrets" role="tab" aria-selected="false" aria-controls="panel-docs">
+          <span class="room-tab-icon">📜</span>
+          <span class="room-tab-label">Documentos</span>
+        </button>
+      </nav>
+
+      <!-- ===== Painéis das abas ===== -->
+      <!-- Aba Visão Geral: atalhos + ações rápidas do mestre/jogador -->
+      <section class="room-tab-panel active" id="panel-geral" data-tab-panel="overview" role="tabpanel" aria-labelledby="tab-geral">
+        <div class="overview-cards">
+          <div class="overview-card">
+            <h3>🗺️ Visão Geral</h3>
+            <p class="muted text-sm">Bem-vindo à sala. Use as abas acima para navegar entre personagens, inimigos, dados e chat.</p>
+            <div class="overview-stats" id="overview-stats">
+              <div class="overview-stat"><span class="num" id="ov-count-chars">0</span><span class="lbl">Personagens</span></div>
+              <div class="overview-stat"><span class="num" id="ov-count-enemies">0</span><span class="lbl">Inimigos</span></div>
+              <div class="overview-stat"><span class="num" id="ov-count-rolls">0</span><span class="lbl">Rolagens</span></div>
+            </div>
+          </div>
+          <div class="overview-card" id="overview-actions">
+            <h3>⚡ Ações rápidas</h3>
+            <div class="overview-actions-grid">
+              <button class="btn btn-primary" data-jump-tab="dice">🎲 Rolar dados</button>
+              <button class="btn btn-ghost" data-jump-tab="chat">💬 Abrir chat</button>
+              <button class="btn btn-ghost" data-jump-tab="enemies">⚔️ Ver inimigos</button>
+              <button class="btn btn-ghost hidden" id="btn-create-poll-overview">📊 Criar enquete</button>
+              <button class="btn btn-ghost hidden" id="btn-create-trade-overview">🤝 Propor troca</button>
+              <button class="btn btn-ghost hidden" id="btn-create-purchase-overview">🛒 Oferecer compra</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Aba Ficha Completa -->
+      <section class="room-tab-panel" id="panel-ficha" data-tab-panel="characters" role="tabpanel" aria-labelledby="tab-ficha">
         <div class="flex items-center justify-between mb-2">
-          <h2 style="font-size: 18px; margin: 0;">Personagens na sala</h2>
+          <h2 style="font-size: 18px; margin: 0;">Fichas dos personagens</h2>
           <div id="join-hint" class="muted text-xs hidden"></div>
         </div>
         <div id="characters-grid" class="characters-grid">
@@ -68,7 +124,8 @@
         </div>
       </section>
 
-      <section class="mt-6" id="enemies-section">
+      <!-- Aba Inimigos -->
+      <section class="room-tab-panel" id="panel-inimigos" data-tab-panel="enemies" role="tabpanel" aria-labelledby="tab-inimigos">
         <div class="flex items-center justify-between mb-2">
           <h2 style="font-size: 18px; margin: 0;">Inimigos</h2>
           <button class="btn btn-sm btn-primary hidden" id="btn-add-enemy">+ Criar inimigo</button>
@@ -77,65 +134,100 @@
           <div class="muted text-sm">Nenhum inimigo ainda.</div>
         </div>
       </section>
+
+      <!-- Aba Dados: painel lateral movido pra cá -->
+      <section class="room-tab-panel" id="panel-dados" data-tab-panel="dice" role="tabpanel" aria-labelledby="tab-dados">
+        <div class="room-dice-layout">
+          <div class="side-panel">
+            <h3>🎲 Dados</h3>
+            <div id="dice-master-panel" class="hidden">
+              <div class="dice-quick-row">
+                <button class="dice-btn" data-formula="1d20">d20</button>
+                <button class="dice-btn" data-formula="1d12">d12</button>
+                <button class="dice-btn" data-formula="1d10">d10</button>
+                <button class="dice-btn" data-formula="1d8">d8</button>
+                <button class="dice-btn" data-formula="1d6">d6</button>
+                <button class="dice-btn" data-formula="1d4">d4</button>
+                <button class="dice-btn" data-formula="1d100">d100</button>
+                <button class="dice-btn" data-formula="2d20kh1">Vant.</button>
+              </div>
+
+              <!-- Construtor visual de fórmulas — primário, sempre visível quando disponível -->
+              <div id="formula-builder-mount" class="mt-2"></div>
+
+              <!-- Campo de texto manual — fallback oculto por padrão -->
+              <details class="mt-2" id="manual-input-details">
+                <summary class="text-xs muted">✍️ Inserir fórmula manualmente (avançado)</summary>
+                <div class="dice-formula-row mt-2">
+                  <input type="text" id="dice-input" placeholder="Ex: 1d20+5 ou 2d6+3" autocomplete="off">
+                  <button class="btn btn-primary" id="btn-roll">Rolar</button>
+                </div>
+                <div class="dice-formula-feedback" id="dice-feedback"></div>
+              </details>
+
+              <!-- Botão Rolar principal — visível quando o construtor está ativo -->
+              <div class="dice-builder-actions mt-2" id="dice-builder-actions">
+                <input type="text" id="dice-label" placeholder="Label opcional (ex: Ataque com espada)" class="mb-2" style="width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; font-size: 13px;">
+                <button class="btn btn-primary" id="btn-roll-builder" style="width: 100%">🎲 Rolar fórmula do construtor</button>
+              </div>
+            </div>
+            <div class="dice-result-display" id="dice-result-display">As rolagens vão aparecer aqui em destaque — todos os jogadores verão ao mesmo tempo.</div>
+
+            <div id="suggest-panel" class="hidden">
+              <div class="dice-formula-row mt-3">
+                <input type="text" id="suggest-formula" placeholder="Sugerir fórmula pro mestre" style="font-size: 12px;">
+                <input type="text" id="suggest-label" placeholder="Label" style="font-size: 12px;">
+                <button class="btn btn-sm btn-primary" id="btn-suggest">Sugerir</button>
+              </div>
+              <div class="dice-formula-feedback" id="suggest-feedback"></div>
+            </div>
+
+            <details class="mt-2">
+              <summary class="text-xs muted">Fórmulas salvas</summary>
+              <div id="presets-list" class="mt-2"></div>
+              <div class="dice-formula-row mt-2" id="preset-add-row">
+                <input type="text" id="preset-label" placeholder="Label" style="font-size: 12px;">
+                <input type="text" id="preset-formula" placeholder="1d20+5" style="font-size: 12px;">
+                <button class="btn btn-sm" id="btn-save-preset">+</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="side-panel hidden" id="suggestions-panel">
+            <h3>💡 Sugestões dos jogadores</h3>
+            <div id="suggestions-list">
+              <div class="muted text-sm">Nenhuma sugestão ainda.</div>
+            </div>
+          </div>
+
+          <div class="side-panel">
+            <h3>📜 Histórico de rolagens</h3>
+            <div id="dice-log" class="dice-log-list">
+              <div class="muted text-sm">Nenhuma rolagem ainda.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Aba Chat -->
+      <section class="room-tab-panel" id="panel-chat" data-tab-panel="chat" role="tabpanel" aria-labelledby="tab-chat">
+        <div class="side-panel" style="max-width:720px;margin:0 auto">
+          <h3>💬 Chat da sala</h3>
+          <div id="chat-mount"></div>
+        </div>
+      </section>
+
+      <!-- Aba Documentos (mestre only) -->
+      <section class="room-tab-panel" id="panel-docs" data-tab-panel="secrets" role="tabpanel" aria-labelledby="tab-docs">
+        <div class="side-panel">
+          <h3>📜 Documentos Secretos</h3>
+          <p class="muted text-sm mb-3">Documentos marcados como secretos na wiki. Clique em <strong>Revelar</strong> para abrir a animação e tornar o conteúdo visível para todos os jogadores.</p>
+          <div id="secrets-list">
+            <div class="muted text-sm">Carregando…</div>
+          </div>
+        </div>
+      </section>
     </div>
-
-    <aside class="sala-side">
-      <div class="side-panel">
-        <h3>🎲 Dados</h3>
-        <div id="dice-master-panel" class="hidden">
-          <div class="dice-quick-row">
-            <button class="dice-btn" data-formula="1d20">d20</button>
-            <button class="dice-btn" data-formula="1d12">d12</button>
-            <button class="dice-btn" data-formula="1d10">d10</button>
-            <button class="dice-btn" data-formula="1d8">d8</button>
-            <button class="dice-btn" data-formula="1d6">d6</button>
-            <button class="dice-btn" data-formula="1d4">d4</button>
-            <button class="dice-btn" data-formula="1d100">d100</button>
-            <button class="dice-btn" data-formula="2d20kh1">Vant.</button>
-          </div>
-          <div class="dice-formula-row">
-            <input type="text" id="dice-input" placeholder="Ex: 1d20+5 ou 2d6+3" autocomplete="off">
-            <button class="btn btn-primary" id="btn-roll">Rolar</button>
-          </div>
-          <div class="dice-formula-feedback" id="dice-feedback"></div>
-          <input type="text" id="dice-label" placeholder="Label opcional (ex: Ataque com espada)" class="mb-2" style="width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; font-size: 13px;">
-        </div>
-        <div class="dice-result-display" id="dice-result-display">As rolagens vão aparecer aqui em destaque — todos os jogadores verão ao mesmo tempo.</div>
-
-        <div id="suggest-panel" class="hidden">
-          <div class="dice-formula-row mt-3">
-            <input type="text" id="suggest-formula" placeholder="Sugerir fórmula pro mestre" style="font-size: 12px;">
-            <input type="text" id="suggest-label" placeholder="Label" style="font-size: 12px;">
-            <button class="btn btn-sm btn-primary" id="btn-suggest">Sugerir</button>
-          </div>
-          <div class="dice-formula-feedback" id="suggest-feedback"></div>
-        </div>
-
-        <details class="mt-2">
-          <summary class="text-xs muted">Fórmulas salvas</summary>
-          <div id="presets-list" class="mt-2"></div>
-          <div class="dice-formula-row mt-2" id="preset-add-row">
-            <input type="text" id="preset-label" placeholder="Label" style="font-size: 12px;">
-            <input type="text" id="preset-formula" placeholder="1d20+5" style="font-size: 12px;">
-            <button class="btn btn-sm" id="btn-save-preset">+</button>
-          </div>
-        </details>
-      </div>
-
-      <div class="side-panel hidden" id="suggestions-panel">
-        <h3>💡 Sugestões dos jogadores</h3>
-        <div id="suggestions-list">
-          <div class="muted text-sm">Nenhuma sugestão ainda.</div>
-        </div>
-      </div>
-
-      <div class="side-panel">
-        <h3>📜 Histórico de rolagens</h3>
-        <div id="dice-log" class="dice-log-list">
-          <div class="muted text-sm">Nenhuma rolagem ainda.</div>
-        </div>
-      </div>
-    </aside>
   </main>
 
   <!-- Modais (edit personagem, inimigo, status) — mesmos do sala-mestre.html anterior -->
@@ -222,24 +314,26 @@
   </div>
 
   <script src="vendor/purify.min.js"></script>
-  <script src="js/config.js?v=202607232121"></script>
-  <script src="js/api.js?v=202607232121"></script>
-  <script src="js/auth.js?v=202607232121"></script>
-  <script src="js/room-ws.js?v=202607232121"></script>
-  <script src="js/dice-ui.js?v=202607232121"></script>
-  <script src="js/dice-visual.js?v=202607232121"></script>
-  <script src="js/dice-tutorial.js?v=202607232121"></script>
-  <script src="js/room-render.js?v=202607232121"></script>
-  <script src="js/character-render.js?v=202607232121"></script>
-  <script src="js/character-sheet-full.js?v=202607232121"></script>
-  <script src="js/room-chat.js?v=202607232121"></script>
-  <script src="js/damage-system.js?v=202607232121"></script>
-  <script src="js/formula-builder.js?v=202607232121"></script>
-  <script src="js/poll.js?v=202607232121"></script>
-  <script src="js/reveal-animations.js?v=202607232121"></script>
-  <script src="js/trade.js?v=202607232121"></script>
-  <script src="js/levelup.js?v=202607232121"></script>
-  <script src="js/purchase.js?v=202607232121"></script>
+  <script src="vendor/marked.min.js"></script>
+  <script src="js/config.js?v=202607271019"></script>
+  <script src="js/api.js?v=202607271019"></script>
+  <script src="js/auth.js?v=202607271019"></script>
+  <script src="js/markdown.js?v=202607271019"></script>
+  <script src="js/room-ws.js?v=202607271019"></script>
+  <script src="js/dice-ui.js?v=202607271019"></script>
+  <script src="js/dice-visual.js?v=202607271019"></script>
+  <script src="js/dice-tutorial.js?v=202607271019"></script>
+  <script src="js/room-render.js?v=202607271019"></script>
+  <script src="js/character-render.js?v=202607271019"></script>
+  <script src="js/character-sheet-full.js?v=202607271019"></script>
+  <script src="js/room-chat.js?v=202607271019"></script>
+  <script src="js/damage-system.js?v=202607271019"></script>
+  <script src="js/formula-builder.js?v=202607271019"></script>
+  <script src="js/poll.js?v=202607271019"></script>
+  <script src="js/reveal-animations.js?v=202607271019"></script>
+  <script src="js/trade.js?v=202607271019"></script>
+  <script src="js/levelup.js?v=202607271019"></script>
+  <script src="js/purchase.js?v=202607271019"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -297,6 +391,35 @@
       const isMaster = statusData.role === "master";
       showRoomScreen(statusData, isMaster);
 
+      // ============================================================
+      // NAVEGAÇÃO POR ABAS
+      // ============================================================
+      function switchTab(tabName) {
+        document.querySelectorAll(".room-tab").forEach(b => {
+          const active = b.dataset.tab === tabName;
+          b.classList.toggle("active", active);
+          b.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        document.querySelectorAll(".room-tab-panel").forEach(p => {
+          p.classList.toggle("active", p.dataset.tabPanel === tabName);
+        });
+        // Persiste a aba atual no hash pra reload lembrar
+        if (location.hash !== "#" + tabName) {
+          history.replaceState(null, "", "#" + tabName);
+        }
+      }
+      document.querySelectorAll(".room-tab").forEach(b => {
+        b.addEventListener("click", () => switchTab(b.dataset.tab));
+      });
+      document.querySelectorAll("[data-jump-tab]").forEach(b => {
+        b.addEventListener("click", () => switchTab(b.dataset.jumpTab));
+      });
+      // Aba inicial via hash (?code=XXX#dice abre direto na aba Dados)
+      const initialTab = location.hash.replace("#", "");
+      if (initialTab && ["overview", "characters", "enemies", "dice", "chat", "secrets"].includes(initialTab)) {
+        switchTab(initialTab);
+      }
+
       // ===== Conecta WebSocket =====
       let characterId = null;
       if (!isMaster) {
@@ -344,6 +467,77 @@
       // Inicializa o dado visual animado no topo da sala
       window.diceVisual.init("#dice-visual-mount");
 
+      // Inicializa o chat na aba Chat
+      window.roomChat.init("#chat-mount", sess.user.id, (text) => {
+        client.send("send_chat_message", { text });
+      });
+
+      // ============================================================
+      // Construtor visual de fórmulas (Feature 5 — primário com fallback)
+      // ============================================================
+      // Estratégia:
+      //   1. Tenta inicializar o formulaBuilder.
+      //   2. Se conseguir, ele fica visível e o campo manual some (vira <details>).
+      //   3. Se NÃO conseguir (script não carregou), mostra o campo manual aberto.
+      let builderAvailable = false;
+      try {
+        if (window.formulaBuilder && typeof window.formulaBuilder.init === "function") {
+          window.formulaBuilder.init("#formula-builder-mount", (formula, valid) => {
+            // Sincroniza com o input manual (pra manter compat com código existente)
+            const input = document.getElementById("dice-input");
+            if (input) {
+              input.value = formula;
+              input.dispatchEvent(new Event("input"));
+            }
+            // Habilita/desabilita o botão Rolar do construtor
+            const rollBtn = document.getElementById("btn-roll-builder");
+            if (rollBtn) {
+              rollBtn.disabled = !valid || !formula;
+              rollBtn.classList.toggle("disabled", !valid || !formula);
+            }
+          });
+          builderAvailable = true;
+        }
+      } catch (e) {
+        console.warn("formula-builder init falhou:", e);
+      }
+
+      // Fallback: se o builder não estiver disponível, abre o <details> manual
+      if (!builderAvailable) {
+        const manualDetails = document.getElementById("manual-input-details");
+        if (manualDetails) {
+          manualDetails.open = true;
+          manualDetails.querySelector("summary").textContent = "✍️ Inserir fórmula manualmente";
+        }
+        // Esconde o botão "Rolar fórmula do construtor" (não tem construtor)
+        const builderActions = document.getElementById("dice-builder-actions");
+        if (builderActions) builderActions.classList.add("hidden");
+        // Mostra o label dentro do details manual
+        const manualDetailsLabel = document.getElementById("dice-label");
+        if (manualDetailsLabel) {
+          manualDetailsLabel.classList.remove("mb-2");
+          manualDetailsLabel.style.marginTop = "8px";
+        }
+      } else {
+        // Builder disponível: o botão "Rolar fórmula do construtor" rola a fórmula atual
+        const btnRollBuilder = document.getElementById("btn-roll-builder");
+        if (btnRollBuilder) {
+          btnRollBuilder.addEventListener("click", () => {
+            const formula = window.formulaBuilder.getFormula();
+            const label = document.getElementById("dice-label").value.trim();
+            if (!formula || !window.formulaBuilder.isValid()) {
+              showAlert("error", "Construa uma fórmula válida primeiro.");
+              setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 3000);
+              return;
+            }
+            client.send("roll_dice", { formula, label: label || undefined });
+            document.getElementById("dice-label").value = "";
+            // Limpa o construtor pra próxima rolagem
+            window.formulaBuilder.clear();
+          });
+        }
+      }
+
       client.onEvent = (msg) => {
         if (msg.type === "dice_result") {
           // Dado visual animado (faixa do topo — visível em todas as abas)
@@ -359,9 +553,161 @@
         } else if (msg.type === "error") {
           showAlert("error", msg.payload?.message || "Erro");
           setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 4000);
+        } else if (msg.type === "chat_message") {
+          // Chat da sala — renderiza na aba Chat
+          if (window.roomChat && msg.payload) {
+            window.roomChat.renderMessage(msg.payload);
+          }
+          // Notificação visual na aba Visão Geral se for mensagem de outro usuário
+          if (msg.payload && msg.payload.senderUserId !== sess.user.id) {
+            const badge = document.querySelector('[data-tab="chat"]');
+            if (badge && !document.querySelector('.room-tab-panel[data-tab-panel="chat"]')?.classList.contains('active')) {
+              badge.classList.add("has-badge");
+            }
+          }
+        } else if (msg.type === "participant_joined" || msg.type === "participant_left") {
+          // Notificação silenciosa na Visão Geral
+          // (não mostramos toast — já aparece no chat via sistema)
+        } else if (msg.type === "reveal_document") {
+          // Documento secreto revelado pelo mestre — dispara a animação pra todos
+          if (window.revealAnimations && msg.payload) {
+            window.revealAnimations.reveal({
+              title: msg.payload.title,
+              contentHtml: msg.payload.contentHtml,
+              animation: msg.payload.animation || "pergaminho",
+            });
+          }
+        }
+      };
+      // Handler separado para histórico de chat (enviado no connect)
+      const origOnStateChange = client.onStateChange;
+      client.onStateChange = (state) => {
+        if (!state) return;
+        currentState = state;
+        // Expõe o estado globalmente pra trade.js/purchase.js acessarem (contraproposta)
+        window._roomState = state;
+        render(state, isMaster);
+        // Renderiza histórico de chat quando disponível no estado
+        if (state.chatLog && window.roomChat) {
+          window.roomChat.renderHistory(state.chatLog);
         }
       };
       client.connect();
+
+      // Expõe o client globalmente pra os módulos (trade, purchase, levelup, poll) acessarem
+      window._roomClient = client;
+      window._roomClient.userId = sess.user.id;
+      window._roomClient.username = sess.user.username;
+
+      // Inicializa sistemas (handlers WS)
+      try { window.pollSystem.init(client); } catch (e) { console.warn("poll init:", e); }
+      try { window.tradeSystem.init(client); } catch (e) { console.warn("trade init:", e); }
+      try { window.purchaseSystem.init(client); } catch (e) { console.warn("purchase init:", e); }
+      try { window.levelUpSystem.init(client); } catch (e) { console.warn("levelup init:", e); }
+
+      // Botões de ação rápida da Visão Geral
+      const btnCreatePoll = document.getElementById("btn-create-poll-overview");
+      if (btnCreatePoll) btnCreatePoll.addEventListener("click", () => {
+        try { window.pollSystem.openCreator(); } catch (e) { console.warn(e); }
+      });
+      const btnCreateTrade = document.getElementById("btn-create-trade-overview");
+      if (btnCreateTrade) btnCreateTrade.addEventListener("click", () => {
+        if (!currentState || !characterId) { alert("Aguarde carregar seu personagem."); return; }
+        const myCh = currentState.characters.find(c => c.id === characterId);
+        const others = currentState.characters.filter(c => c.id !== characterId);
+        if (!myCh) { alert("Seu personagem não está na sala ainda."); return; }
+        if (others.length === 0) { alert("Não há outros jogadores pra trocar."); return; }
+        try { window.tradeSystem.openTradeCreator(myCh, others); } catch (e) { console.warn(e); }
+      });
+      const btnCreatePurchase = document.getElementById("btn-create-purchase-overview");
+      if (btnCreatePurchase) btnCreatePurchase.addEventListener("click", () => {
+        if (!currentState) { alert("Aguarde carregar a sala."); return; }
+        const others = currentState.characters;
+        if (others.length === 0) { alert("Não há jogadores pra oferecer compra."); return; }
+        try { window.purchaseSystem.openPurchaseCreator(others); } catch (e) { console.warn(e); }
+      });
+
+      // ===== Carrega lista de documentos secretos (mestre) =====
+      async function loadSecretsList() {
+        const list = document.getElementById("secrets-list");
+        if (!list) return;
+        try {
+          const data = await window.api.get("/api/pages/secrets/list");
+          if (!data.secrets || data.secrets.length === 0) {
+            list.innerHTML = `<div class="muted text-sm">Nenhum documento secreto marcado na wiki. Marque como secreto ao criar/editar páginas da wiki.</div>`;
+            return;
+          }
+          list.innerHTML = data.secrets.map(s => `
+            <div class="secret-card ${s.revealed ? "revealed" : ""}" data-slug="${escapeHtml(s.slug)}">
+              <div class="secret-card-header">
+                <div>
+                  <strong>${escapeHtml(s.title)}</strong>
+                  <span class="muted text-xs">/${escapeHtml(s.slug)}</span>
+                </div>
+                <span class="tag ${s.revealed ? "tag-on" : "tag-off"}">${s.revealed ? "Revelado" : "Secreto"}</span>
+              </div>
+              <div class="text-xs muted">${escapeHtml(s.category || "sem categoria")}</div>
+              <div class="secret-card-actions mt-2">
+                <button class="btn btn-sm btn-primary" data-action="reveal-secret" data-slug="${escapeHtml(s.slug)}" ${s.revealed ? "disabled" : ""}>
+                  ${s.revealed ? "✓ Revelado" : "📜 Revelar"}
+                </button>
+                <button class="btn btn-sm btn-ghost" data-action="preview-secret" data-slug="${escapeHtml(s.slug)}">👁 Pré-visualizar</button>
+              </div>
+            </div>
+          `).join("");
+          // Bind botões
+          list.querySelectorAll('button[data-action="reveal-secret"]').forEach(b => {
+            b.addEventListener("click", async () => {
+              const slug = b.dataset.slug;
+              if (!confirm(`Revelar o documento "${slug}" para todos os jogadores?`)) return;
+              try {
+                const resp = await window.api.post(`/api/pages/${encodeURIComponent(slug)}/reveal`, {});
+                // Pega conteúdo markdown e converte pra HTML
+                let html = resp.content_md || "(sem conteúdo)";
+                if (window.marked && window.DOMPurify) {
+                  html = window.DOMPurify.sanitize(window.marked.parse(html));
+                } else {
+                  html = `<pre>${escapeHtml(html)}</pre>`;
+                }
+                // Mostra a animação de revelação localmente
+                window.revealAnimations.reveal({
+                  title: resp.title || slug,
+                  contentHtml: html,
+                  animation: "pergaminho",
+                });
+                // Broadcast via WebSocket para que todos os jogadores vejam a animação
+                client.send("reveal_document", {
+                  slug,
+                  title: resp.title || slug,
+                  contentHtml: html,
+                  animation: "pergaminho",
+                });
+                // Atualiza a lista local
+                loadSecretsList();
+              } catch (e) { alert("Erro ao revelar: " + e.message); }
+            });
+          });
+          list.querySelectorAll('button[data-action="preview-secret"]').forEach(b => {
+            b.addEventListener("click", async () => {
+              const slug = b.dataset.slug;
+              try {
+                const resp = await window.api.post(`/api/pages/${encodeURIComponent(slug)}/reveal`, {});
+                let html = resp.content_md || "(sem conteúdo)";
+                if (window.marked && window.DOMPurify) {
+                  html = window.DOMPurify.sanitize(window.marked.parse(html));
+                }
+                window.revealAnimations.reveal({
+                  title: resp.title || slug,
+                  contentHtml: html,
+                  animation: "carta",
+                });
+              } catch (e) { alert("Erro: " + e.message); }
+            });
+          });
+        } catch (e) {
+          list.innerHTML = `<div class="alert alert-error">Erro ao carregar: ${escapeHtml(e.message)}</div>`;
+        }
+      }
 
       // ===== Funções de render =====
       function showRoomScreen(st, isMaster) {
@@ -381,9 +727,21 @@
           document.getElementById("btn-add-enemy").classList.remove("hidden");
           document.getElementById("dice-master-panel").classList.remove("hidden");
           document.getElementById("suggestions-panel").classList.remove("hidden");
+          // Aba Documentos Secretos só aparece pra mestre
+          document.getElementById("tab-docs").classList.remove("hidden");
+          // Ações rápidas de mestre na Visão Geral
+          document.getElementById("btn-create-purchase-overview").classList.remove("hidden");
+          // Mestre não cria troca com ele mesmo, mas pode oferecer compra — esconde trade
+          // Carrega lista de documentos secretos (assíncrono)
+          loadSecretsList();
         } else {
           document.getElementById("suggest-panel").classList.remove("hidden");
+          // Jogador pode criar enquete e propor troca
+          document.getElementById("btn-create-poll-overview").classList.remove("hidden");
+          document.getElementById("btn-create-trade-overview").classList.remove("hidden");
         }
+        // Botão de enquete — todo mundo pode criar
+        document.getElementById("btn-create-poll-overview").classList.remove("hidden");
         // Botão copiar link — todo mundo pode copiar (jogador também pode compartilhar)
         document.getElementById("btn-copy-link").classList.remove("hidden");
 
@@ -406,6 +764,14 @@
         const lockBtn = document.getElementById("btn-lock");
         lockBtn.textContent = state.locked ? "🔓 Destravar sala" : "🔒 Travar sala";
         document.getElementById("locked-warning").classList.toggle("hidden", !state.locked || !isMaster);
+
+        // Stats da aba Visão Geral
+        const ovChars = document.getElementById("ov-count-chars");
+        const ovEnemies = document.getElementById("ov-count-enemies");
+        const ovRolls = document.getElementById("ov-count-rolls");
+        if (ovChars) ovChars.textContent = (state.characters || []).length;
+        if (ovEnemies) ovEnemies.textContent = (state.enemies || []).length;
+        if (ovRolls) ovRolls.textContent = (state.diceLog || []).length;
 
         // Personagens
         const cg = document.getElementById("characters-grid");
@@ -508,6 +874,39 @@
             }
           });
         });
+
+        // ===== Level Up: mestre concede pontos a personagem =====
+        // Botão "🎁 Conceder pontos" aparece em cada ficha de personagem (mestre only).
+        // É injetado dinamicamente após o render porque o character-render.js
+        // não sabe dessa funcionalidade.
+        if (isMaster) {
+          document.querySelectorAll("[data-character-id]").forEach(card => {
+            // Evita adicionar 2x
+            if (card.querySelector('button[data-action="level-up-grant"]')) return;
+            const chId = Number(card.dataset.characterId);
+            const header = card.querySelector(".character-header, .character-actions");
+            if (!header) return;
+            const btn = document.createElement("button");
+            btn.className = "btn btn-sm btn-ghost";
+            btn.dataset.action = "level-up-grant";
+            btn.dataset.characterId = chId;
+            btn.title = "Conceder pontos de atributo a este personagem";
+            btn.textContent = "🎁 Pontos";
+            btn.style.marginLeft = "4px";
+            // Encontra o container de ações
+            const actionsEl = card.querySelector(".character-actions");
+            if (actionsEl) actionsEl.appendChild(btn);
+            else header.appendChild(btn);
+            btn.addEventListener("click", () => {
+              const input = prompt(`Quantos pontos de atributo conceder a este personagem?`, "5");
+              const points = parseInt(input, 10);
+              if (isNaN(points) || points <= 0) return;
+              client.send("set_level_up_points", { characterId: chId, points });
+              showAlert("success", `🎁 ${points} pontos concedidos! O jogador verá o modal pra distribuir.`);
+              setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 4000);
+            });
+          });
+        }
       }
 
       // ===== Dados (mestre only) =====

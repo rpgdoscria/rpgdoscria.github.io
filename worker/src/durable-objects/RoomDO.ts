@@ -93,6 +93,85 @@ interface ChatMessage {
   timestamp: number;
 }
 
+// ---------- Polls (enquetes em tempo real) ----------
+interface PollVote {
+  userId: number;
+  username: string;
+  optionIndex: number;
+}
+interface PollChatMessage {
+  id: string;
+  userId: number;
+  username: string;
+  message: string;
+  timestamp: number;
+}
+interface Poll {
+  id: string;
+  question: string;
+  options: string[];
+  createdBy: number;
+  createdByName: string;
+  isActive: boolean;
+  votes: PollVote[];
+  chat: PollChatMessage[];
+  createdAt: number;
+  endedAt?: number;
+}
+
+// ---------- Trades (trocas entre jogadores) ----------
+interface TradeItem {
+  name: string;
+  qty: number;
+  description?: string;
+}
+interface TradeOffer {
+  items: TradeItem[];
+  money?: number;
+}
+interface Trade {
+  id: string;
+  roomCode: string;
+  proposerUserId: number;
+  proposerName: string;
+  receiverUserId: number;
+  receiverName: string;
+  offer: TradeOffer;       // o que o proposer oferece
+  request: TradeOffer;     // o que o proposer pede em troca
+  status: "pending" | "accepted" | "rejected" | "countered" | "cancelled";
+  createdAt: number;
+  resolvedAt?: number;
+}
+
+// ---------- Purchase Offers (mestre oferece compra a jogador) ----------
+interface PurchaseOffer {
+  id: string;
+  roomCode: string;
+  masterUserId: number;
+  masterName: string;
+  targetUserId: number;
+  targetName: string;
+  itemName: string;
+  itemDescription?: string;
+  price: number;
+  priceType: string;   // "moedas" | "xp" | ...
+  status: "pending" | "accepted" | "rejected" | "expired";
+  createdAt: number;
+  resolvedAt?: number;
+}
+
+// ---------- Level Up Points (mestre faz personagem upar) ----------
+interface LevelUpOffer {
+  id: string;
+  characterId: number;
+  characterName: string;
+  ownerUserId: number;
+  points: number;
+  eligibleStats: { statId: number; name: string; }[];
+  status: "pending" | "confirmed" | "expired";
+  createdAt: number;
+}
+
 interface RoomState {
   code: string;
   masterUserId: number;
@@ -105,6 +184,11 @@ interface RoomState {
   diceLog: DiceLogEntry[];
   suggestions: SuggestedFormula[];
   chatLog: ChatMessage[];   // mantém últimas ~50 em memória
+  // Novos (adicionados em 2026-07-27):
+  polls: Poll[];
+  trades: Trade[];
+  purchaseOffers: PurchaseOffer[];
+  levelUpOffers: LevelUpOffer[];
 }
 
 // ---------- Conexão ----------
@@ -212,6 +296,10 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       diceLog: [],
       suggestions: [],
       chatLog: [],
+      polls: [],
+      trades: [],
+      purchaseOffers: [],
+      levelUpOffers: [],
     };
     await this.persistState(true);
     return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
@@ -343,6 +431,25 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         case "lock_room": await this.handleLockRoom(conn, msg.payload); break;
         case "end_room": await this.handleEndRoom(conn); break;
         case "send_chat_message": await this.handleChatMessage(conn, msg.payload); break;
+        // ===== Polls (Feature 2) =====
+        case "create_poll": await this.handleCreatePoll(conn, msg.payload); break;
+        case "vote_poll": await this.handleVotePoll(conn, msg.payload); break;
+        case "send_poll_chat": await this.handlePollChat(conn, msg.payload); break;
+        case "end_poll": await this.handleEndPoll(conn, msg.payload); break;
+        // ===== Trades (Feature 4a) =====
+        case "propose_trade": await this.handleProposeTrade(conn, msg.payload); break;
+        case "respond_trade": await this.handleRespondTrade(conn, msg.payload); break;
+        // ===== Purchase Offers (Feature 4b) =====
+        case "create_purchase": await this.handleCreatePurchase(conn, msg.payload); break;
+        case "respond_purchase": await this.handleRespondPurchase(conn, msg.payload); break;
+        case "accept_purchase": await this.handleRespondPurchase(conn, msg.payload); break; // alias legado
+        // ===== Level Up (Feature 4c) =====
+        case "set_level_up_points": await this.handleSetLevelUpPoints(conn, msg.payload); break;
+        case "distribute_level_points": await this.handleLevelUpPoints(conn, msg.payload); break;
+        case "level_up_points": await this.handleLevelUpPoints(conn, msg.payload); break; // alias legado
+        // ===== Documentos Secretos (Feature 3) =====
+        case "reveal_document": await this.handleRevealDocument(conn, msg.payload); break;
+        case "reveal_secret": await this.handleRevealDocument(conn, msg.payload); break; // alias legado
         default:
           this.sendTo(ws, { type: "error", payload: { message: `Tipo de mensagem desconhecido: ${msg.type}` } });
       }
@@ -625,6 +732,602 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     this.broadcast({ type: "chat_message", payload: msg });
   }
 
+  // ============================================================
+  // POLLs (Feature 2) — enquetes em tempo real via WebSocket
+  // ============================================================
+  // Qualquer participante pode criar. Votos são upsert (último vale).
+  // Chat dedicado dentro da poll. Criador ou mestre encerra.
+
+  private async handleCreatePoll(conn: Connection, p: any) {
+    if (!this.state) return;
+    const question = String(p?.question ?? "").trim();
+    const options: string[] = Array.isArray(p?.options)
+      ? p.options.map((s: any) => String(s).trim()).filter(Boolean).slice(0, 5)
+      : [];
+    if (!question) throw new Error("Pergunta é obrigatória.");
+    if (question.length > 200) throw new Error("Pergunta muito longa (máx 200).");
+    if (options.length < 2 || options.length > 5) throw new Error("Precisa entre 2 e 5 opções.");
+
+    const poll: Poll = {
+      id: cryptoRandomId(),
+      question: question.slice(0, 200),
+      options: options.map(o => o.slice(0, 100)),
+      createdBy: conn.userId,
+      createdByName: conn.username,
+      isActive: true,
+      votes: [],
+      chat: [],
+      createdAt: Date.now(),
+    };
+    this.state.polls.push(poll);
+    if (this.state.polls.length > 20) this.state.polls.shift();
+
+    // Persiste em D1 (best-effort) — tabela polls
+    try {
+      const result = await this.env.DB.prepare(
+        `INSERT INTO polls (room_code, question, options_json, created_by_user_id) VALUES (?, ?, ?, ?)`
+      ).bind(this.state.code, poll.question, JSON.stringify(poll.options), conn.userId).run();
+      // Vincula o id interno do banco ao poll (para votos e chat)
+      if (result.meta?.last_row_id) {
+        (poll as any).dbId = result.meta.last_row_id;
+      }
+    } catch {}
+
+    this.broadcast({ type: "poll_created", payload: poll });
+  }
+
+  private async handleVotePoll(conn: Connection, p: any) {
+    if (!this.state) return;
+    const pollId = String(p?.pollId ?? "");
+    const optionIndex = Number(p?.optionIndex);
+    const poll = this.state.polls.find(pl => pl.id === pollId);
+    if (!poll) throw new Error("Poll não encontrada.");
+    if (!poll.isActive) throw new Error("Poll já encerrada.");
+    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= poll.options.length) {
+      throw new Error("Opção inválida.");
+    }
+    // Upsert voto (remove voto anterior do mesmo usuário)
+    poll.votes = poll.votes.filter(v => v.userId !== conn.userId);
+    poll.votes.push({ userId: conn.userId, username: conn.username, optionIndex });
+
+    // Persiste em D1 (best-effort)
+    if ((poll as any).dbId) {
+      try {
+        await this.env.DB.batch([
+          this.env.DB.prepare(`DELETE FROM poll_votes WHERE poll_id = ? AND user_id = ?`)
+            .bind((poll as any).dbId, conn.userId),
+          this.env.DB.prepare(`INSERT INTO poll_votes (poll_id, user_id, option_index) VALUES (?, ?, ?)`)
+            .bind((poll as any).dbId, conn.userId, optionIndex),
+        ]);
+      } catch {}
+    }
+
+    this.broadcast({ type: "poll_updated", payload: poll });
+  }
+
+  private async handlePollChat(conn: Connection, p: any) {
+    if (!this.state) return;
+    const pollId = String(p?.pollId ?? "");
+    const message = String(p?.message ?? "").trim();
+    if (!message) throw new Error("Mensagem vazia.");
+    if (message.length > 500) throw new Error("Mensagem muito longa (máx 500).");
+    const poll = this.state.polls.find(pl => pl.id === pollId);
+    if (!poll) throw new Error("Poll não encontrada.");
+    if (!poll.isActive) throw new Error("Poll encerrada — chat fechado.");
+
+    const chatMsg: PollChatMessage = {
+      id: cryptoRandomId(),
+      userId: conn.userId,
+      username: conn.username,
+      message,
+      timestamp: Date.now(),
+    };
+    poll.chat.push(chatMsg);
+    if (poll.chat.length > 50) poll.chat.shift();
+
+    // Persiste em D1 (best-effort)
+    if ((poll as any).dbId) {
+      try {
+        await this.env.DB.prepare(
+          `INSERT INTO poll_chat_messages (poll_id, user_id, message) VALUES (?, ?, ?)`
+        ).bind((poll as any).dbId, conn.userId, message).run();
+      } catch {}
+    }
+
+    this.broadcast({ type: "poll_chat", payload: { pollId, ...chatMsg } });
+  }
+
+  private async handleEndPoll(conn: Connection, p: any) {
+    if (!this.state) return;
+    const pollId = String(p?.pollId ?? "");
+    const poll = this.state.polls.find(pl => pl.id === pollId);
+    if (!poll) throw new Error("Poll não encontrada.");
+    if (!poll.isActive) throw new Error("Poll já encerrada.");
+    // Só criador ou mestre pode encerrar
+    if (poll.createdBy !== conn.userId && !conn.isMaster) {
+      throw new Error("Apenas o criador ou o mestre pode encerrar a poll.");
+    }
+    poll.isActive = false;
+    poll.endedAt = Date.now();
+
+    // Persiste em D1 (best-effort)
+    if ((poll as any).dbId) {
+      try {
+        await this.env.DB.prepare(`UPDATE polls SET ended_at = datetime('now') WHERE id = ?`)
+          .bind((poll as any).dbId).run();
+      } catch {}
+    }
+
+    this.broadcast({ type: "poll_ended", payload: poll });
+  }
+
+  // ============================================================
+  // TRADES (Feature 4a) — trocas entre jogadores
+  // ============================================================
+  // Jogador propõe troca de itens/dinheiro com outro.
+  // Receiver recebe notificação via WS e aceita/recusa.
+
+  private async handleProposeTrade(conn: Connection, p: any) {
+    if (!this.state) return;
+    if (conn.isMaster) throw new Error("Mestre não propõe trocas.");
+    if (!conn.characterId) throw new Error("Você precisa estar conectado com um personagem.");
+    const targetUserId = Number(p?.targetUserId);
+    if (!targetUserId) throw new Error("targetUserId é obrigatório.");
+    if (targetUserId === conn.userId) throw new Error("Não pode trocar com você mesmo.");
+
+    // Valida offer/request
+    const offer = this.validateTradeOffer(p?.offer);
+    const request = this.validateTradeOffer(p?.request);
+    if (offer.items.length === 0 && !offer.money && request.items.length === 0 && !request.money) {
+      throw new Error("Troca vazia — precisa oferecer ou pedir algo.");
+    }
+
+    // Acha o personagem alvo (para pegar o nome do receiver)
+    let receiverName = "jogador";
+    const receiverChars = Object.values(this.state.characters).filter(c => c.ownerUserId === targetUserId);
+    if (receiverChars.length > 0) receiverName = receiverChars[0].ownerUsername;
+
+    const trade: Trade = {
+      id: cryptoRandomId(),
+      roomCode: this.state.code,
+      proposerUserId: conn.userId,
+      proposerName: conn.username,
+      receiverUserId: targetUserId,
+      receiverName,
+      offer,
+      request,
+      status: "pending",
+      createdAt: Date.now(),
+    };
+    this.state.trades.push(trade);
+    if (this.state.trades.length > 30) this.state.trades.shift();
+
+    // Persiste em D1 (best-effort)
+    try {
+      const result = await this.env.DB.prepare(
+        `INSERT INTO trades (room_code, proposer_user_id, receiver_user_id, status, offer_json, request_json)
+         VALUES (?, ?, ?, 'pending', ?, ?)`
+      ).bind(
+        this.state.code, conn.userId, targetUserId,
+        JSON.stringify(offer), JSON.stringify(request)
+      ).run();
+      if (result.meta?.last_row_id) (trade as any).dbId = result.meta.last_row_id;
+    } catch {}
+
+    // Notifica o receiver diretamente + todos pra sincronizar estado
+    this.broadcast({ type: "trade_proposed", payload: trade });
+  }
+
+  private validateTradeOffer(o: any): TradeOffer {
+    if (!o || typeof o !== "object") return { items: [] };
+    const items: TradeItem[] = Array.isArray(o.items)
+      ? o.items.filter((it: any) => it && typeof it.name === "string")
+          .map((it: any) => ({
+            name: String(it.name).slice(0, 80),
+            qty: clampInt(it.qty, 1, 9999),
+            description: it.description ? String(it.description).slice(0, 200) : undefined,
+          })).slice(0, 50)
+      : [];
+    const money = typeof o.money === "number" && Number.isFinite(o.money) && o.money >= 0
+      ? Math.floor(o.money) : undefined;
+    return { items, money };
+  }
+
+  private async handleRespondTrade(conn: Connection, p: any) {
+    if (!this.state) return;
+    const tradeId = String(p?.tradeId ?? "");
+    const action = String(p?.action ?? (p?.accept ? "accept" : "reject")).toLowerCase();
+    // action pode ser: "accept" | "reject" | "counter"
+    const trade = this.state.trades.find(t => t.id === tradeId);
+    if (!trade) throw new Error("Troca não encontrada.");
+    if (trade.status !== "pending") throw new Error(`Troca já ${trade.status}.`);
+    if (trade.receiverUserId !== conn.userId && !conn.isMaster) {
+      throw new Error("Apenas o receiver pode responder.");
+    }
+
+    if (action === "accept") {
+      trade.status = "accepted";
+      trade.resolvedAt = Date.now();
+      // Aplica a troca nos personagens (move itens/dinheiro)
+      this.applyTradeEffects(trade);
+    } else if (action === "reject") {
+      trade.status = "rejected";
+      trade.resolvedAt = Date.now();
+    } else if (action === "counter") {
+      // Contraproposta: receiver envia nova offer/request e vira proposer da nova troca
+      const counterOffer = this.validateTradeOffer(p?.offer);
+      const counterRequest = this.validateTradeOffer(p?.request);
+      if (counterOffer.items.length === 0 && !counterOffer.money && counterRequest.items.length === 0 && !counterRequest.money) {
+        throw new Error("Contraproposta vazia — precisa oferecer ou pedir algo.");
+      }
+      // Marca a troca original como countered
+      trade.status = "countered";
+      trade.resolvedAt = Date.now();
+      // Cria uma nova troca invertendo os papéis (receiver vira proposer)
+      const newTrade: Trade = {
+        id: cryptoRandomId(),
+        roomCode: this.state.code,
+        proposerUserId: trade.receiverUserId,
+        proposerName: trade.receiverName,
+        receiverUserId: trade.proposerUserId,
+        receiverName: trade.proposerName,
+        offer: counterOffer,
+        request: counterRequest,
+        status: "pending",
+        createdAt: Date.now(),
+      };
+      this.state.trades.push(newTrade);
+      if (this.state.trades.length > 30) this.state.trades.shift();
+      // Persiste a nova troca (best-effort)
+      try {
+        const result = await this.env.DB.prepare(
+          `INSERT INTO trades (room_code, proposer_user_id, receiver_user_id, status, offer_json, request_json)
+           VALUES (?, ?, ?, 'pending', ?, ?)`
+        ).bind(
+          this.state.code, newTrade.proposerUserId, newTrade.receiverUserId,
+          JSON.stringify(newTrade.offer), JSON.stringify(newTrade.request)
+        ).run();
+        if (result.meta?.last_row_id) (newTrade as any).dbId = result.meta.last_row_id;
+      } catch {}
+      // Broadcast da nova troca
+      this.broadcast({ type: "trade_proposed", payload: newTrade });
+    } else {
+      throw new Error(`Ação inválida: ${action}. Use accept, reject ou counter.`);
+    }
+
+    // Persiste em D1 (best-effort)
+    if ((trade as any).dbId) {
+      try {
+        await this.env.DB.prepare(
+          `UPDATE trades SET status = ?, resolved_at = datetime('now') WHERE id = ?`
+        ).bind(trade.status, (trade as any).dbId).run();
+      } catch {}
+    }
+
+    this.broadcast({ type: "trade_updated", payload: trade });
+    // Notifica via chat também (sistema)
+    const actionLabel = action === "accept" ? "aceita" : action === "reject" ? "recusada" : "contraproposta";
+    const sysMsg: ChatMessage = {
+      id: cryptoRandomId(),
+      senderUserId: 0,
+      senderUsername: "sistema",
+      text: `🤝 Troca ${actionLabel}: ${trade.proposerName} ↔ ${trade.receiverName}`,
+      timestamp: Date.now(),
+    };
+    this.state.chatLog.push(sysMsg);
+    if (this.state.chatLog.length > 50) this.state.chatLog.shift();
+    this.broadcast({ type: "chat_message", payload: sysMsg });
+  }
+
+  // Move itens/dinheiro entre personagens após troca aceita.
+  // Nota: no modelo homebrew, itens ficam em ch.inventory[] (array de {name, qty, description}).
+  // "money" é tratado como stat separado (se existir) — buscamos por nome.
+  private applyTradeEffects(trade: Trade) {
+    const proposerChars = Object.values(this.state!.characters).filter(c => c.ownerUserId === trade.proposerUserId);
+    const receiverChars = Object.values(this.state!.characters).filter(c => c.ownerUserId === trade.receiverUserId);
+    if (proposerChars.length === 0 || receiverChars.length === 0) return;
+    const proposerCh = proposerChars[0];
+    const receiverCh = receiverChars[0];
+
+    // Move itens do proposer -> receiver
+    for (const item of trade.offer.items) {
+      // Remove do proposer (subtrai qty; se chegar a 0, remove)
+      const propItem = proposerCh.inventory.find(it => it.name === item.name);
+      if (propItem) {
+        propItem.qty = Math.max(0, propItem.qty - item.qty);
+        if (propItem.qty === 0) {
+          proposerCh.inventory = proposerCh.inventory.filter(it => it !== propItem);
+        }
+      }
+      // Adiciona no receiver
+      const recvItem = receiverCh.inventory.find(it => it.name === item.name);
+      if (recvItem) {
+        recvItem.qty += item.qty;
+      } else {
+        receiverCh.inventory.push({ name: item.name, qty: item.qty, description: item.description });
+      }
+    }
+
+    // Move itens do receiver -> proposer (request)
+    for (const item of trade.request.items) {
+      const recvItem = receiverCh.inventory.find(it => it.name === item.name);
+      if (recvItem) {
+        recvItem.qty = Math.max(0, recvItem.qty - item.qty);
+        if (recvItem.qty === 0) {
+          receiverCh.inventory = receiverCh.inventory.filter(it => it !== recvItem);
+        }
+      }
+      const propItem = proposerCh.inventory.find(it => it.name === item.name);
+      if (propItem) {
+        propItem.qty += item.qty;
+      } else {
+        proposerCh.inventory.push({ name: item.name, qty: item.qty, description: item.description });
+      }
+    }
+
+    // Move dinheiro (stat name "Dinheiro" ou "Money")
+    if (trade.offer.money && trade.offer.money > 0) {
+      this.transferMoney(proposerCh, receiverCh, trade.offer.money);
+    }
+    if (trade.request.money && trade.request.money > 0) {
+      this.transferMoney(receiverCh, proposerCh, trade.request.money);
+    }
+
+    // Broadcast update dos personagens afetados
+    this.broadcast({ type: "character_updated", payload: proposerCh });
+    this.broadcast({ type: "character_updated", payload: receiverCh });
+  }
+
+  // Procura um stat do tipo "number" com nome "Dinheiro" (case-insensitive).
+  // No modelo homebrew, dinheiro é um stat como outro qualquer.
+  private transferMoney(from: CharacterState, to: CharacterState, amount: number) {
+    const moneyNames = ["dinheiro", "moedas", "gold", "ouro", "money"];
+    const fromStat = from.stats.find(s => s.type === "number" && moneyNames.includes(s.name.toLowerCase()));
+    const toStat = to.stats.find(s => s.type === "number" && moneyNames.includes(s.name.toLowerCase()));
+    if (!fromStat || !toStat) return;  // sem stat de dinheiro definido — silenciosamente pula
+    const cur = Number(fromStat.valueCurrent ?? 0);
+    const transfer = Math.min(cur, amount);
+    fromStat.valueCurrent = cur - transfer;
+    toStat.valueCurrent = Number(toStat.valueCurrent ?? 0) + transfer;
+  }
+
+  // ============================================================
+  // PURCHASE OFFERS (Feature 4b) — mestre oferece compra a jogador
+  // ============================================================
+  private async handleCreatePurchase(conn: Connection, p: any) {
+    if (!this.state) return;
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode oferecer compras.");
+    const targetUserId = Number(p?.targetUserId);
+    if (!targetUserId) throw new Error("targetUserId é obrigatório.");
+    const itemName = String(p?.itemName ?? "").trim();
+    if (!itemName) throw new Error("Nome do item é obrigatório.");
+    if (itemName.length > 80) throw new Error("Nome muito longo (máx 80).");
+    const itemDescription = p?.itemDescription ? String(p.itemDescription).slice(0, 200) : undefined;
+    const price = clampInt(p?.price, 0, 9999999);
+    const priceType = String(p?.priceType ?? "moedas").slice(0, 20);
+
+    // Acha nome do receiver
+    let targetName = "jogador";
+    const targetChars = Object.values(this.state.characters).filter(c => c.ownerUserId === targetUserId);
+    if (targetChars.length > 0) targetName = targetChars[0].ownerUsername;
+
+    const offer: PurchaseOffer = {
+      id: cryptoRandomId(),
+      roomCode: this.state.code,
+      masterUserId: conn.userId,
+      masterName: conn.username,
+      targetUserId,
+      targetName,
+      itemName: itemName.slice(0, 80),
+      itemDescription,
+      price,
+      priceType,
+      status: "pending",
+      createdAt: Date.now(),
+    };
+    this.state.purchaseOffers.push(offer);
+    if (this.state.purchaseOffers.length > 30) this.state.purchaseOffers.shift();
+
+    // Persiste em D1 (best-effort)
+    try {
+      const result = await this.env.DB.prepare(
+        `INSERT INTO purchase_offers (room_code, target_user_id, item_name, item_description, price, price_type, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending')`
+      ).bind(this.state.code, targetUserId, offer.itemName, itemDescription ?? null, price, priceType).run();
+      if (result.meta?.last_row_id) (offer as any).dbId = result.meta.last_row_id;
+    } catch {}
+
+    this.broadcast({ type: "purchase_offer", payload: offer });
+  }
+
+  private async handleRespondPurchase(conn: Connection, p: any) {
+    if (!this.state) return;
+    const offerId = String(p?.offerId ?? "");
+    const accept = !!p?.accept;
+    const offer = this.state.purchaseOffers.find(o => o.id === offerId);
+    if (!offer) throw new Error("Oferta não encontrada.");
+    if (offer.status !== "pending") throw new Error(`Oferta já ${offer.status}.`);
+    if (offer.targetUserId !== conn.userId) {
+      throw new Error("Apenas o jogador alvo pode responder.");
+    }
+    offer.status = accept ? "accepted" : "rejected";
+    offer.resolvedAt = Date.now();
+
+    // Se aceita: debita preço do personagem e adiciona item no inventário
+    if (accept) {
+      const targetChars = Object.values(this.state.characters).filter(c => c.ownerUserId === offer.targetUserId);
+      if (targetChars.length > 0) {
+        const ch = targetChars[0];
+        // Debita preço (procura stat de dinheiro)
+        if (offer.price > 0) {
+          const moneyNames = ["dinheiro", "moedas", "gold", "ouro", "money"];
+          const moneyStat = ch.stats.find(s => s.type === "number" && moneyNames.includes(s.name.toLowerCase()));
+          if (moneyStat) {
+            const cur = Number(moneyStat.valueCurrent ?? 0);
+            // Se XP, procura stat de XP
+            if (offer.priceType === "xp") {
+              const xpStat = ch.stats.find(s => s.type === "number" && s.name.toLowerCase() === "xp");
+              if (xpStat) {
+                xpStat.valueCurrent = Number(xpStat.valueCurrent ?? 0) - offer.price;
+              }
+            } else {
+              moneyStat.valueCurrent = Math.max(0, cur - offer.price);
+            }
+          }
+        }
+        // Adiciona item ao inventário
+        const existing = ch.inventory.find(it => it.name === offer.itemName);
+        if (existing) {
+          existing.qty += 1;
+        } else {
+          ch.inventory.push({ name: offer.itemName, qty: 1, description: offer.itemDescription });
+        }
+        this.broadcast({ type: "character_updated", payload: ch });
+      }
+    }
+
+    // Persiste em D1 (best-effort)
+    if ((offer as any).dbId) {
+      try {
+        await this.env.DB.prepare(
+          `UPDATE purchase_offers SET status = ? WHERE id = ?`
+        ).bind(offer.status, (offer as any).dbId).run();
+      } catch {}
+    }
+
+    this.broadcast({ type: "purchase_updated", payload: offer });
+    // Notifica via chat (sistema)
+    const sysMsg: ChatMessage = {
+      id: cryptoRandomId(),
+      senderUserId: 0,
+      senderUsername: "sistema",
+      text: `🛒 ${offer.targetName} ${accept ? "comprou" : "recusou"}: ${offer.itemName} (${offer.price} ${offer.priceType})`,
+      timestamp: Date.now(),
+    };
+    this.state.chatLog.push(sysMsg);
+    if (this.state.chatLog.length > 50) this.state.chatLog.shift();
+    this.broadcast({ type: "chat_message", payload: sysMsg });
+  }
+
+  // ============================================================
+  // LEVEL UP POINTS (Feature 4c) — jogador distribui pontos
+  // ============================================================
+  // Fluxo completo:
+  //   1. Mestre envia "set_level_up_points" com { characterId, points }
+  //      → RoomDO cria um LevelUpOffer, envia "level_up_available" só pro
+  //        dono do personagem (broadcast mas cada client filtra por ownerUserId)
+  //   2. Jogador abre o modal (levelup.js), distribui pontos, envia
+  //      "distribute_level_points" (ou alias "level_up_points") com { characterId, allocations }
+  //   3. RoomDO valida, aplica nos stats do tipo "number", broadcast character_updated
+
+  private async handleSetLevelUpPoints(conn: Connection, p: any) {
+    if (!this.state) return;
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode conceder pontos de level up.");
+    const characterId = Number(p?.characterId);
+    if (!characterId) throw new Error("characterId é obrigatório.");
+    const ch = this.state.characters[characterId];
+    if (!ch) throw new Error("Personagem não encontrado na sala.");
+    const points = clampInt(p?.points, 1, 100);
+    if (points <= 0) throw new Error("points deve ser maior que 0.");
+
+    // Stats elegíveis: tipo "number" do personagem
+    const eligibleStats = ch.stats
+      .filter(s => s.type === "number")
+      .map(s => ({ statId: s.id, name: s.name }));
+
+    if (eligibleStats.length === 0) {
+      throw new Error("Este personagem não tem status do tipo 'number' para distribuir pontos.");
+    }
+
+    const offer: LevelUpOffer = {
+      id: cryptoRandomId(),
+      characterId,
+      characterName: ch.name,
+      ownerUserId: ch.ownerUserId,
+      points,
+      eligibleStats,
+      status: "pending",
+      createdAt: Date.now(),
+    };
+    this.state.levelUpOffers.push(offer);
+    if (this.state.levelUpOffers.length > 20) this.state.levelUpOffers.shift();
+
+    // Broadcast pra todos — cada client verifica se é o dono e abre o modal
+    this.broadcast({ type: "level_up_available", payload: offer });
+
+    // Notifica via chat (sistema) — todo mundo vê
+    const sysMsg: ChatMessage = {
+      id: cryptoRandomId(),
+      senderUserId: 0,
+      senderUsername: "sistema",
+      text: `🎉 ${ch.name} recebeu ${points} pontos de atributo pra distribuir!`,
+      timestamp: Date.now(),
+    };
+    this.state.chatLog.push(sysMsg);
+    if (this.state.chatLog.length > 50) this.state.chatLog.shift();
+    this.broadcast({ type: "chat_message", payload: sysMsg });
+  }
+
+  // Handler chamado pelo JOGADOR pra CONFIRMAR a distribuição de pontos.
+  // Recebe allocations = { statId: delta, statId: delta, ... }
+  private async handleLevelUpPoints(conn: Connection, p: any) {
+    if (!this.state) return;
+    if (!conn.characterId) throw new Error("Você precisa estar conectado com um personagem.");
+    const ch = this.state.characters[conn.characterId];
+    if (!ch) throw new Error("Personagem não encontrado.");
+
+    const allocations = p?.allocations;
+    if (!allocations || typeof allocations !== "object") throw new Error("allocations inválido.");
+
+    // Aplica cada alocação
+    for (const statIdStr of Object.keys(allocations)) {
+      const statId = Number(statIdStr);
+      const delta = Number(allocations[statIdStr]);
+      if (!Number.isInteger(delta) || delta < 0) continue;
+      const stat = ch.stats.find(s => s.id === statId);
+      if (!stat || stat.type !== "number") continue;
+      stat.valueCurrent = Number(stat.valueCurrent ?? 0) + delta;
+    }
+
+    this.broadcast({ type: "character_updated", payload: ch });
+
+    // Notifica via chat
+    const sysMsg: ChatMessage = {
+      id: cryptoRandomId(),
+      senderUserId: 0,
+      senderUsername: "sistema",
+      text: `🎉 ${ch.name} distribuiu pontos de atributo!`,
+      timestamp: Date.now(),
+    };
+    this.state.chatLog.push(sysMsg);
+    if (this.state.chatLog.length > 50) this.state.chatLog.shift();
+    this.broadcast({ type: "chat_message", payload: sysMsg });
+  }
+
+  // ============================================================
+  // REVEAL DOCUMENT (Feature 3) — mestre revela documento secreto
+  // ============================================================
+  // O mestre chama a API REST /api/pages/:slug/reveal primeiro (pra
+  // marcar revealed=1 no banco) e DEPOIS envia este WS pra todos
+  // verem a animação simultaneamente.
+  // Nome do evento = "reveal_document" (renomeado de "reveal_secret").
+  // Mantemos alias "reveal_secret" legado no switch de onMessage.
+  private async handleRevealDocument(conn: Connection, p: any) {
+    if (!this.state) return;
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode revelar documentos secretos.");
+    const slug = String(p?.slug ?? "").trim();
+    if (!slug) throw new Error("slug é obrigatório.");
+    const title = String(p?.title ?? slug).slice(0, 200);
+    const contentHtml = String(p?.contentHtml ?? "").slice(0, 50000);  // já vem sanitizado do front
+    const animation = ["envelope", "carta", "pergaminho", "bau", "livro"].includes(p?.animation)
+      ? p.animation : "pergaminho";
+
+    this.broadcast({
+      type: "reveal_document",
+      payload: { slug, title, contentHtml, animation, revealedBy: conn.username },
+    });
+  }
+
   private onClose(ws: WebSocket) {
     const conn = this.connections.get(ws);
     this.connections.delete(ws);
@@ -664,6 +1367,11 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       // Se chatLog não estava no snapshot (snapshot antigo), inicializa vazio
       // e carrega do D1 as últimas 50 mensagens.
       if (!Array.isArray(parsed.chatLog)) parsed.chatLog = [];
+      // Compat: snapshots antigos não têm polls/trades/etc.
+      if (!Array.isArray(parsed.polls)) parsed.polls = [];
+      if (!Array.isArray(parsed.trades)) parsed.trades = [];
+      if (!Array.isArray(parsed.purchaseOffers)) parsed.purchaseOffers = [];
+      if (!Array.isArray(parsed.levelUpOffers)) parsed.levelUpOffers = [];
       if (parsed.chatLog.length === 0) {
         const chatRows = await this.env.DB.prepare(
           `SELECT cl.id, cl.sender_user_id, cl.message, cl.created_at, u.username
@@ -736,6 +1444,11 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       diceLog: this.state.diceLog.slice(-50),
       suggestions: this.state.suggestions,
       chatLog: this.state.chatLog.slice(-50),
+      // Novos campos (Feature 2, 4):
+      polls: this.state.polls,
+      trades: this.state.trades,
+      purchaseOffers: this.state.purchaseOffers,
+      levelUpOffers: this.state.levelUpOffers,
       you: {
         userId: conn.userId,
         username: conn.username,

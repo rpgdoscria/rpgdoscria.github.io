@@ -3,9 +3,13 @@ main = "src/index.ts"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Ajuste para o seu domínio real do GitHub Pages.
-# Pode ser sobrescrito por variável de ambiente CORS_ORIGIN em produção.
-# NUNCA use "*" em produção — apenas em `wrangler dev` local.
+# ============================================================
+# CORS — origens permitidas
+# ============================================================
+# CORS_ORIGIN: usado em desenvolvimento local (python3 -m http.server 8000).
+# PAGES_ORIGIN: URL de produção do GitHub Pages.
+# Em `wrangler dev`, o middleware aceita ambas. Em produção, só PAGES_ORIGIN.
+# NUNCA use "*" — sempre liste explicitamente.
 [vars]
 CORS_ORIGIN = "http://localhost:8000"
 PAGES_ORIGIN = "https://rpgdoscria.github.io"
@@ -16,20 +20,33 @@ RATE_LIMIT_WINDOW_MIN = "15"
 # como `wrangler secret put` (não coloque aqui).
 CLOUDINARY_CLOUD_NAME = "mlaxyiv7"
 
-# D1 — bind do banco
+# ============================================================
+# Configuração do `wrangler dev` local
+# ============================================================
+# Porta onde o Worker sobe (frontend em python3 -m http.server 8000 acessa isto)
+[dev]
+port = 8787
+local_protocol = "http"
+
+# ============================================================
+# D1 — bind do banco SQLite gerenciado
+# ============================================================
 [[d1_databases]]
 binding = "DB"
 database_name = "rpg-wiki-db"
 database_id = "d921d3fc-2c08-41a2-9461-98387a7845fd"
 migrations_dir = "src/migrations"
 
-# NOTA: R2 removido — exigia cartão de crédito mesmo no free tier.
-# Imagens agora vão para Cloudinary (25GB free, sem cartão, com CDN global).
+# ============================================================
+# Cloudinary (substitui R2 — free 25GB sem cartão)
+# ============================================================
 # Setup: crie conta free em cloudinary.com e defina os secrets:
 #   wrangler secret put CLOUDINARY_API_KEY
 #   wrangler secret put CLOUDINARY_API_SECRET
 
+# ============================================================
 # Durable Objects — Sala de Jogo em Tempo Real
+# ============================================================
 # Cada sala vira uma instância isolada do RoomDO, identificada pelo código da sala.
 [[durable_objects.bindings]]
 name = "ROOM"
@@ -40,3 +57,4 @@ class_name = "RoomDO"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RoomDO"]
+

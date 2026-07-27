@@ -46,12 +46,12 @@
 
     overlay.querySelector('#purchase-accept').addEventListener('click', () => {
       const ws = window._roomClient;
-      if (ws) ws.send('accept_purchase', { offerId: payload.offerId, accept: true });
+      if (ws) ws.send('respond_purchase', { offerId: payload.offerId, accept: true });
       overlay.remove();
     });
     overlay.querySelector('#purchase-reject').addEventListener('click', () => {
       const ws = window._roomClient;
-      if (ws) ws.send('accept_purchase', { offerId: payload.offerId, accept: false });
+      if (ws) ws.send('respond_purchase', { offerId: payload.offerId, accept: false });
       overlay.remove();
     });
   }
