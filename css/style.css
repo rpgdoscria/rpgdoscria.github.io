@@ -41,9 +41,10 @@
   --code-bg: #0d0d0d;
   --code-border: #2a2a2a;
 
-  /* Tipografia */
+  /* Tipografia — v5: Poppins para títulos (mais moderna), Inter para corpo */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-serif: 'Lora', 'Georgia', serif;          /* corpo das páginas */
+  --font-serif: 'Poppins', 'Inter', 'Segoe UI', sans-serif;          /* títulos e headers (era Lora) */
+  --font-display: 'Poppins', 'Segoe UI', sans-serif;                  /* display/títulos grandes */
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
 
   /* Espaçamento / raio */
@@ -89,7 +90,7 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: var(--space
 button, input, select, textarea { font: inherit; color: inherit; }
 code, pre { font-family: var(--font-mono); }
 
-/* ---------- header ---------- */
+/* ---------- header (v5: dropdowns categorizados) ---------- */
 .site-header {
   position: sticky;
   top: 0;
@@ -99,17 +100,22 @@ code, pre { font-family: var(--font-mono); }
   border-bottom: 1px solid var(--border-soft);
   display: flex;
   align-items: center;
-  padding: 0 var(--space-5);
-  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  gap: var(--space-3);
+  flex-wrap: nowrap;
+  overflow: visible;
 }
 .site-header .brand {
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 18px;
+  font-size: 17px;
   letter-spacing: 0.02em;
   color: var(--text);
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .site-header .brand:hover { text-decoration: none; }
 .site-header .brand .mark {
@@ -121,12 +127,118 @@ code, pre { font-family: var(--font-mono); }
   font-weight: 900;
   font-size: 14px;
 }
-.site-header nav { display: flex; gap: var(--space-4); align-items: center; }
-.site-header nav a { color: var(--text-muted); font-size: 14px; }
-.site-header nav a:hover { color: var(--text); text-decoration: none; }
-.site-header .spacer { flex: 1; }
+
+/* ===== Menu hamburguer (mobile only) ===== */
+.nav-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 6px;
+}
+.nav-hamburger span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--text);
+  transition: transform 0.2s, opacity 0.2s;
+}
+.nav-hamburger.active span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.nav-hamburger.active span:nth-child(2) { opacity: 0; }
+.nav-hamburger.active span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* ===== Nav com dropdowns ===== */
+.site-nav {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+}
+.nav-menu {
+  list-style: none;
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+.nav-cat {
+  position: relative;
+}
+.nav-cat-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.nav-cat-btn:hover,
+.nav-cat.has-active .nav-cat-btn,
+.nav-cat.open .nav-cat-btn {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.nav-cat.open .nav-cat-btn { color: var(--accent-hover); }
+.nav-caret {
+  font-size: 10px;
+  opacity: 0.7;
+  transition: transform 0.15s;
+}
+.nav-cat.open .nav-caret { transform: rotate(180deg); }
+
+/* ===== Dropdown ===== */
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+  margin-top: 4px;
+}
+.nav-cat.open .nav-dropdown { display: flex; }
+.nav-dropdown a {
+  display: block;
+  padding: 8px 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s, color 0.12s;
+}
+.nav-dropdown a:hover {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.nav-dropdown a.active {
+  color: var(--accent-hover);
+  background: rgba(179, 18, 28, 0.15);
+}
+
+.site-header .spacer { flex: 1; min-width: 0; }
 .site-header .search-box {
-  flex: 0 1 320px;
+  flex: 0 1 240px;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -137,24 +249,28 @@ code, pre { font-family: var(--font-mono); }
 }
 .site-header .search-box input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
-  font-size: 14px;
+  font-size: 13px;
 }
 .site-header .user-chip {
   display: flex; align-items: center; gap: var(--space-2);
   background: var(--surface); border: 1px solid var(--border-soft);
   padding: 4px 10px; border-radius: 999px; font-size: 13px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .site-header .user-chip .role-badge {
-  font-size: 11px; font-weight: 600; padding: 1px 6px;
+  font-size: 10px; font-weight: 600; padding: 1px 6px;
   border-radius: 999px;
   background: var(--bg-elev-2); color: var(--text-muted);
   text-transform: uppercase; letter-spacing: 0.05em;
 }
 .site-header .user-chip .role-badge.admin { background: var(--accent); color: var(--accent-fg); }
 .site-header .user-chip .role-badge.editor { background: #1e3a8a; color: #dbeafe; }
+#btn-logout { flex-shrink: 0; padding: 4px 10px; font-size: 14px; }
 
 /* ---------- container ---------- */
 .container {
@@ -3325,26 +3441,86 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: var(--space
 }
 .container.wide { max-width: 1400px; }
 
-/* ===== Header responsivo ===== */
-.site-header {
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+/* ===== Header responsivo (v5: dropdown + hamburguer) ===== */
+@media (max-width: 768px) {
+  .site-header {
+    padding: 0 var(--space-2);
+    gap: var(--space-2);
+    flex-wrap: nowrap;
+  }
+  .nav-hamburger {
+    display: flex;
+    order: 2;
+  }
+  .site-nav {
+    position: fixed;
+    top: var(--header-h);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-elev);
+    border-top: 1px solid var(--border-soft);
+    flex-direction: column;
+    padding: var(--space-3);
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 40;
+    display: none;
+  }
+  .site-nav.mobile-open {
+    display: block;
+    transform: translateX(0);
+  }
+  .nav-menu {
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+  }
+  .nav-cat {
+    width: 100%;
+  }
+  .nav-cat-btn {
+    width: 100%;
+    justify-content: space-between;
+    padding: 12px 14px;
+    font-size: 15px;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+  }
+  .nav-dropdown {
+    position: static;
+    box-shadow: none;
+    border: none;
+    background: transparent;
+    padding: 4px 0 4px 12px;
+    margin-top: 4px;
+    min-width: 0;
+  }
+  .nav-cat.open .nav-dropdown { display: flex; }
+  .nav-dropdown a {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  .site-header .search-box {
+    display: none;  /* esconde busca no mobile pra economizar espaço */
+  }
+  .site-header .spacer {
+    order: 3;
+  }
+  .site-header .user-chip {
+    order: 4;
+    font-size: 12px;
+  }
+  .site-header .user-chip span:first-child {
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
-.site-header nav {
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  order: 3;
-  width: 100%;
-  justify-content: center;
-}
-.site-header .search-box {
-  order: 2;
-  flex: 1;
-  max-width: 240px;
-}
-.site-header .user-chip {
-  order: 1;
+@media (min-width: 769px) {
+  .site-nav { display: flex !important; }
 }
 
 /* ===== Grids responsivos ===== */
@@ -3625,4 +3801,36 @@ img {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+}
+
+/* ============================================================
+   TAREFA 6 v5 — Inimigos pré-prontos (cards) + modal editor
+   ============================================================ */
+.planning-enemy-card {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.planning-enemy-card .enemy-name {
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.planning-enemy-card .enemy-stats {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Font display aplicada globalmente em títulos principais */
+h1, h2, h3, .brand, .modal-card h3, .room-title, .planning-section h4 {
+  font-family: var(--font-display);
 }
