@@ -3236,3 +3236,393 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: var(--space
   border-color: var(--accent);
   transform: scale(1.15);
 }
+
+/* ============================================================
+   TAREFA 5 (final) — Sub-abas do Planejamento + Mini-wiki
+   ============================================================ */
+.planning-subtabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--border-soft);
+  margin-bottom: var(--space-3);
+  overflow-x: auto;
+}
+.planning-subtab {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.planning-subtab:hover { color: var(--text); }
+.planning-subtab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.planning-subpanel { display: none; }
+.planning-subpanel.active { display: block; animation: fade-in-tab 0.18s ease-out; }
+
+.planning-wiki-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.planning-wiki-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+.planning-wiki-info {
+  flex: 1;
+  min-width: 200px;
+}
+.planning-wiki-info strong {
+  margin-right: 6px;
+}
+
+/* ============================================================
+   TAREFA 7 (final) — Preview do símbolo transparente
+   ============================================================ */
+#symbol-preview {
+  background-image:
+    linear-gradient(45deg, #1a1a1a 25%, transparent 25%),
+    linear-gradient(-45deg, #1a1a1a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1a1a1a 75%),
+    linear-gradient(-45deg, transparent 75%, #1a1a1a 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-color: #0a0a0a;
+}
+
+/* ============================================================
+   TAREFA 8 — RESPONSIVIDADE GLOBAL
+   ============================================================
+   Breakpoints: 480px (mobile), 768px (tablet), 1024px (desktop small)
+   Garante que o layout não quebre com zoom 90-150% ou DevTools aberto.
+*/
+
+/* ===== Container base fluido ===== */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-3);
+  box-sizing: border-box;
+}
+.container.wide { max-width: 1400px; }
+
+/* ===== Header responsivo ===== */
+.site-header {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+.site-header nav {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  order: 3;
+  width: 100%;
+  justify-content: center;
+}
+.site-header .search-box {
+  order: 2;
+  flex: 1;
+  max-width: 240px;
+}
+.site-header .user-chip {
+  order: 1;
+}
+
+/* ===== Grids responsivos ===== */
+.quick-access-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: var(--space-3);
+}
+.grid-2 {
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+.characters-grid,
+.enemies-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: var(--space-3);
+}
+.create-room-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-2);
+}
+
+/* ===== Sala de jogo responsiva ===== */
+.sala-layout {
+  padding: var(--space-2);
+  gap: var(--space-3);
+}
+.sala-header {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.sala-header h1 {
+  font-size: clamp(18px, 4vw, 24px);
+  margin: 0;
+}
+.room-tabs {
+  gap: 2px;
+  padding: 0;
+}
+.room-dice-layout {
+  grid-template-columns: 1fr !important;
+  gap: var(--space-3);
+}
+.side-panel {
+  width: 100%;
+  max-width: none;
+}
+
+/* ===== Modais — sempre centralizados, não estouram viewport ===== */
+.modal-backdrop {
+  padding: 16px;
+  overflow-y: auto;
+}
+.modal-card {
+  max-width: min(100%, 500px);
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 0 auto;
+}
+.modal-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.modal-actions .btn {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* ===== Forms — inputs não estouram ===== */
+input[type="text"],
+input[type="number"],
+input[type="search"],
+input[type="password"],
+input[type="email"],
+select,
+textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.field {
+  width: 100%;
+}
+.flex {
+  flex-wrap: wrap;
+}
+.flex.gap-2 { gap: 8px; }
+.flex.gap-3 { gap: 12px; }
+
+/* ===== Tabelas — scroll horizontal em telas estreitas ===== */
+.prose table,
+.card table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* ===== Wiki responsiva ===== */
+.wiki-layout {
+  grid-template-columns: 1fr !important;
+}
+.wiki-sidebar {
+  position: static !important;
+  width: 100% !important;
+  max-height: none !important;
+  margin-bottom: var(--space-3);
+}
+
+/* ===== Breakpoint 768px (tablet) ===== */
+@media (max-width: 768px) {
+  .container, .container.wide {
+    padding: 0 var(--space-2);
+  }
+  .quick-access-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .characters-grid,
+  .enemies-grid {
+    grid-template-columns: 1fr;
+  }
+  .room-tab-label {
+    display: none;
+  }
+  .room-tab {
+    padding: 10px 12px;
+  }
+  .room-tab-icon {
+    font-size: 18px;
+  }
+  .overview-cards {
+    grid-template-columns: 1fr;
+  }
+  .perfil-grid {
+    grid-template-columns: 1fr;
+  }
+  .dice-quick-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .sala-header .spacer {
+    display: none;
+  }
+  .sala-header #btn-copy-link,
+  .sala-header #btn-lock,
+  .sala-header #btn-end {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+  .symbol-drawer-card {
+    padding: 14px;
+    max-width: 100%;
+  }
+  .symbol-drawer-canvas {
+    width: 100%;
+    height: auto;
+    max-width: 320px;
+  }
+}
+
+/* ===== Breakpoint 480px (mobile) ===== */
+@media (max-width: 480px) {
+  .quick-access-grid {
+    grid-template-columns: 1fr;
+  }
+  .quick-card {
+    padding: 12px;
+  }
+  .quick-icon {
+    font-size: 28px;
+  }
+  .quick-title {
+    font-size: 14px;
+  }
+  .login-wrap {
+    padding: 16px;
+  }
+  .login-card {
+    padding: 16px;
+  }
+  .color-picker-row {
+    justify-content: center;
+  }
+  .color-swatch {
+    width: 32px;
+    height: 32px;
+  }
+  .room-tabs {
+    -webkit-overflow-scrolling: touch;
+  }
+  .chat-bubble-content {
+    max-width: 85%;
+  }
+  .chat-bubble-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+  .dice-visual-bar {
+    padding: 10px;
+  }
+  .dice-visual-die {
+    width: 44px;
+    height: 44px;
+  }
+  .dice-visual-die-number {
+    font-size: 18px;
+  }
+  .dice-visual-total {
+    font-size: 28px;
+  }
+  .planning-section {
+    padding: 12px;
+  }
+  .planning-textarea {
+    min-height: 140px;
+    font-size: 13px;
+  }
+  .planning-wiki-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .perfil-char-mini {
+    padding: 6px;
+  }
+  .perfil-char-mini-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .modal-card {
+    padding: 14px;
+  }
+  .wizard-steps {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .wizard-step-dot {
+    padding: 4px 8px;
+  }
+}
+
+/* ===== Prevenção de zoom quebrar layout (90% - 150%) ===== */
+@media (min-width: 1025px) {
+  .container {
+    padding: 0 var(--space-4);
+  }
+}
+@media (min-resolution: 1.5dppx) {
+  /* Telas HiDPI — garante que bordas finas apareçam corretamente */
+  .room-tab, .btn, .color-swatch {
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ===== Flex/grid utilitários que respeitam viewport ===== */
+.flex.items-center { align-items: center; }
+.flex.justify-between { justify-content: space-between; }
+.flex.justify-center { justify-content: center; }
+.flex-wrap { flex-wrap: wrap; }
+.hidden { display: none !important; }
+
+/* Garantir que imagens não estourem containers */
+img {
+  max-width: 100%;
+  height: auto;
+}
+.prose img,
+.card img {
+  max-width: 100%;
+}
+
+/* Chat container — altura fluida em vez de fixa */
+#chat-mount .chat-container {
+  height: clamp(320px, 50vh, 600px);
+}
+
+/* Scroll horizontal suave em barras de abas */
+.room-tabs,
+.planning-subtabs {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}

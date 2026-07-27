@@ -17,6 +17,7 @@
   let customStats = [];
   let inventory = [];
   let photoUrl = null;
+  let symbolUrl = null;  // Tarefa 7: símbolo branco transparente separado da foto
   let pageId = null;
   let characterName = "";
 
@@ -57,15 +58,27 @@
           </div>
           <div class="field">
             <label>Foto (opcional)</label>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
               <div id="photo-preview" style="width:80px;height:80px;border-radius:8px;background:var(--surface);display:grid;place-items:center;font-size:24px;color:var(--text-muted);overflow:hidden">
                 ${photoUrl ? `<img src="${escapeHtml(photoUrl)}" style="width:100%;height:100%;object-fit:cover">` : "👤"}
               </div>
               <input type="file" id="f-photo" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
               <button type="button" class="btn" id="btn-upload-photo">📷 Escolher foto</button>
-              <button type="button" class="btn btn-ghost" id="btn-draw-symbol">🎨 Desenhar símbolo</button>
               ${photoUrl ? `<button type="button" class="btn btn-ghost" id="btn-remove-photo">Remover</button>` : ""}
             </div>
+          </div>
+
+          <div class="field">
+            <label>Símbolo (opcional — branco sobre transparente)</label>
+            <div class="flex items-center gap-3 flex-wrap">
+              <div id="symbol-preview" style="width:80px;height:80px;border-radius:8px;background:#0a0a0a;display:grid;place-items:center;font-size:24px;color:var(--text-muted);overflow:hidden;position:relative">
+                ${symbolUrl ? `<img src="${escapeHtml(symbolUrl)}" style="width:100%;height:100%;object-fit:contain">` : "🎨"}
+                ${symbolUrl ? `<div style="position:absolute;inset:0;background:repeating-conic-gradient(#222 0% 25%,#333 0% 50%);background-size:12px 12px;z-index:-1"></div>` : ""}
+              </div>
+              <button type="button" class="btn" id="btn-draw-symbol">🎨 Desenhar símbolo</button>
+              ${symbolUrl ? `<button type="button" class="btn btn-ghost" id="btn-remove-symbol">Remover</button>` : ""}
+            </div>
+            <p class="text-xs muted mt-1">O símbolo é uma imagem PNG com traços brancos e fundo transparente — separado da foto.</p>
           </div>
         `;
         break;
@@ -288,17 +301,20 @@
       });
       const rmBtn = document.getElementById("btn-remove-photo");
       if (rmBtn) rmBtn.addEventListener("click", () => { photoUrl = null; renderStep(1); });
-      // Botão "Desenhar símbolo" — abre o canvas modal
+      // Botão "Desenhar símbolo" — abre o canvas modal; salva em symbolUrl (separado da foto)
       const drawBtn = document.getElementById("btn-draw-symbol");
       if (drawBtn) {
         drawBtn.addEventListener("click", () => {
           if (!window.SymbolDrawer) { alert("Desenhista não disponível."); return; }
           window.SymbolDrawer.open((url) => {
-            photoUrl = url;
+            symbolUrl = url;
             renderStep(1);
           });
         });
       }
+      // Remover símbolo
+      const rmSymBtn = document.getElementById("btn-remove-symbol");
+      if (rmSymBtn) rmSymBtn.addEventListener("click", () => { symbolUrl = null; renderStep(1); });
     }
     if (step === 2) {
       const sel = document.getElementById("f-page");
@@ -406,7 +422,7 @@
       if (editingCharacterId) {
         try {
           const ch = await window.api.get(`/api/characters/${editingCharacterId}`);
-          characterName = ch.name; photoUrl = ch.photoUrl; pageId = ch.pageId;
+          characterName = ch.name; photoUrl = ch.photoUrl; symbolUrl = ch.symbolUrl || null; pageId = ch.pageId;
           inventory = (ch.inventory || []).map(it => ({ ...it, equipped: !!it.equipped }));
           // CARREGA TODOS os stats existentes com seus valores atuais
           existingStats = (ch.stats || []).map(s => ({ ...s }));
@@ -416,13 +432,14 @@
     renderStep,
     getName: () => characterName,
     getPhotoUrl: () => photoUrl,
+    getSymbolUrl: () => symbolUrl,
     getPageId: () => pageId,
     getInventory: () => inventory,
     getRuleSetIds: () => Array.from(selectedRuleSetIds),
     hasSelectedRuleSet: () => selectedRuleSetIds.size > 0,
     isEditing: () => isEditingMode(),
     save: async (editingCharacterId) => {
-      const payload = { name: characterName, photoUrl, pageId, inventory };
+      const payload = { name: characterName, photoUrl, symbolUrl, pageId, inventory };
       if (editingCharacterId) {
         // MODO EDIÇÃO: envia TODOS os stats existentes com ID (UPSERT, não DELETE)
         payload.stats = collectExistingStatsForUpdate();

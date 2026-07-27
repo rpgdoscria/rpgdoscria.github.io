@@ -48,7 +48,8 @@ characterRoutes.get("/", async (c) => {
     );
     out.push({
       id: r.id, ownerUserId: r.owner_user_id, ownerUsername: r.owner_username,
-      pageId: r.page_id, name: r.name, photoUrl: r.photo_url, isActive: r.is_active === 1,
+      pageId: r.page_id, name: r.name, photoUrl: r.photo_url, symbolUrl: r.symbol_url || null,
+      isActive: r.is_active === 1,
       inventory: safeJson(r.inventory_json, []), statusEffects: safeJson(r.status_effects_json, []),
       createdAt: r.created_at, updatedAt: r.updated_at,
       stats: stats.map(mapStat),
@@ -70,7 +71,8 @@ characterRoutes.get("/:id", async (c) => {
   const stats = await queryAll<any>(c.env.DB, `SELECT * FROM character_stats WHERE character_id = ? ORDER BY display_order ASC, id ASC`, id);
   return c.json({
     id: r.id, ownerUserId: r.owner_user_id, ownerUsername: r.owner_username,
-    pageId: r.page_id, name: r.name, photoUrl: r.photo_url, isActive: r.is_active === 1,
+    pageId: r.page_id, name: r.name, photoUrl: r.photo_url, symbolUrl: r.symbol_url || null,
+    isActive: r.is_active === 1,
     inventory: safeJson(r.inventory_json, []), statusEffects: safeJson(r.status_effects_json, []),
     createdAt: r.created_at, updatedAt: r.updated_at,
     stats: stats.map(mapStat),
@@ -87,13 +89,14 @@ characterRoutes.post("/", async (c) => {
   if (!name || name.length > 100) return c.json({ error: "Nome é obrigatório (máx 100 chars)." }, 400);
   const pageId = body.pageId ? Number(body.pageId) : null;
   const photoUrl = body.photoUrl ? String(body.photoUrl).slice(0, 500) : null;
+  const symbolUrl = body.symbolUrl ? String(body.symbolUrl).slice(0, 500) : null;
   const inventory = JSON.stringify((Array.isArray(body.inventory) ? body.inventory : []).slice(0, 100));
   const statsArr = Array.isArray(body.stats) ? body.stats : [];
   const ruleSetIds: number[] = Array.isArray(body.ruleSetIds) ? body.ruleSetIds.map((n: number) => Number(n)).filter((n: number) => Number.isInteger(n)) : [];
 
   const result = await c.env.DB.prepare(
-    `INSERT INTO characters (owner_user_id, page_id, name, photo_url, inventory_json, status_effects_json) VALUES (?, ?, ?, ?, ?, '[]')`
-  ).bind(user.sub, pageId, name, photoUrl, inventory).run();
+    `INSERT INTO characters (owner_user_id, page_id, name, photo_url, symbol_url, inventory_json, status_effects_json) VALUES (?, ?, ?, ?, ?, ?, '[]')`
+  ).bind(user.sub, pageId, name, photoUrl, symbolUrl, inventory).run();
   const newId = result.meta.last_row_id as number;
 
   const seenTemplateIds = new Set<number>();
@@ -137,6 +140,7 @@ characterRoutes.put("/:id", async (c) => {
   if (typeof body.name === "string" && body.name.trim()) { fields.push("name = ?"); values.push(body.name.trim().slice(0, 100)); }
   if (body.pageId !== undefined) { fields.push("page_id = ?"); values.push(body.pageId ? Number(body.pageId) : null); }
   if (typeof body.photoUrl !== "undefined") { fields.push("photo_url = ?"); values.push(body.photoUrl ? String(body.photoUrl).slice(0, 500) : null); }
+  if (typeof body.symbolUrl !== "undefined") { fields.push("symbol_url = ?"); values.push(body.symbolUrl ? String(body.symbolUrl).slice(0, 500) : null); }
   if (Array.isArray(body.inventory)) { fields.push("inventory_json = ?"); values.push(JSON.stringify(body.inventory.slice(0, 100))); }
   if (fields.length > 0) {
     fields.push("updated_at = datetime('now')");

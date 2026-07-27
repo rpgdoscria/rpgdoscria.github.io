@@ -64,14 +64,16 @@ pageRoutes.get("/", async (c) => {
     category: string;
     updated_at: string;
     author: string;
+    secret: number;
+    revealed: number;
   }>(
     c.env.DB,
     category
-      ? `SELECT p.id, p.slug, p.title, p.category, p.updated_at, u.username AS author
+      ? `SELECT p.id, p.slug, p.title, p.category, p.updated_at, u.username AS author, p.secret, p.revealed
          FROM pages p JOIN users u ON u.id = p.created_by
          WHERE p.category = ?
          ORDER BY p.updated_at DESC LIMIT 200`
-      : `SELECT p.id, p.slug, p.title, p.category, p.updated_at, u.username AS author
+      : `SELECT p.id, p.slug, p.title, p.category, p.updated_at, u.username AS author, p.secret, p.revealed
          FROM pages p JOIN users u ON u.id = p.created_by
          ORDER BY p.updated_at DESC LIMIT 200`,
     ...(category ? [category] : [])

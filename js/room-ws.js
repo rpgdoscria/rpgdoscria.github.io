@@ -253,11 +253,19 @@
         // ===== Secret Revealed (Feature 3) — não precisa sincronizar estado,
         // apenas dispara a animação no front-end (tratado no onEvent). =====
         case "reveal_document":
-        case "chat_message":
         case "participant_joined":
         case "participant_left":
           // Sem estado local pra atualizar — onEvent cuida da UI.
           break;
+        // ===== Tarefa 2B: chat_message DEVE ser adicionado ao estado local,
+        // senão o onStateChange re-renderiza renderHistory() e apaga a bolha
+        // que onEvent acabou de adicionar. =====
+        case "chat_message": {
+          if (!Array.isArray(s.chatLog)) s.chatLog = [];
+          s.chatLog.push(msg.payload);
+          if (s.chatLog.length > 50) s.chatLog.shift();
+          break;
+        }
         // ===== Tarefa 4: Cor do jogador — atualiza mapa participantColors =====
         case "player_color_set": {
           if (!s.participantColors) s.participantColors = {};

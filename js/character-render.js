@@ -18,13 +18,25 @@
     return escapeHtml(window.DOMPurify.sanitize(String(s ?? ""), { ALLOWED_TAGS: [] }));
   }
 
-  // Avatar do personagem — usa photoUrl se houver, senão placeholder com inicial
+  // Avatar do personagem — usa photoUrl se houver, senão placeholder com inicial.
+  // Se symbolUrl existir, mostra miniatura do símbolo sobreposta no canto.
   function renderAvatar(ch, size = 80) {
     const initial = (ch.name || "?").charAt(0).toUpperCase();
+    const symSize = Math.floor(size * 0.4);
+    let avatarHtml;
     if (ch.photoUrl) {
-      return `<img src="${escapeHtml(ch.photoUrl)}" alt="${escapeHtml(ch.name)}" class="char-avatar" style="width:${size}px;height:${size}px" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'char-avatar-placeholder',style:'width:${size}px;height:${size}px;font-size:${Math.floor(size/2.5)}px',textContent:'${initial}'}))">`;
+      avatarHtml = `<img src="${escapeHtml(ch.photoUrl)}" alt="${escapeHtml(ch.name)}" class="char-avatar" style="width:${size}px;height:${size}px" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'char-avatar-placeholder',style:'width:${size}px;height:${size}px;font-size:${Math.floor(size/2.5)}px',textContent:'${initial}'}))">`;
+    } else {
+      avatarHtml = `<div class="char-avatar-placeholder" style="width:${size}px;height:${size}px;font-size:${Math.floor(size/2.5)}px">${escapeHtml(initial)}</div>`;
     }
-    return `<div class="char-avatar-placeholder" style="width:${size}px;height:${size}px;font-size:${Math.floor(size/2.5)}px">${escapeHtml(initial)}</div>`;
+    // Símbolo (PNG branco transparente) sobreposto no canto inferior direito
+    if (ch.symbolUrl) {
+      avatarHtml = `<div style="position:relative;width:${size}px;height:${size}px;display:inline-block">
+        ${avatarHtml}
+        <img src="${escapeHtml(ch.symbolUrl)}" alt="símbolo" style="position:absolute;bottom:-${Math.floor(symSize*0.15)}px;right:-${Math.floor(symSize*0.15)}px;width:${symSize}px;height:${symSize}px;background:#0a0a0a;border-radius:4px;padding:2px;box-shadow:0 2px 6px rgba(0,0,0,0.5)">
+      </div>`;
+    }
+    return avatarHtml;
   }
 
   // Render de UM stat — depende do tipo

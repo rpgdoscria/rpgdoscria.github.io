@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=202607271115">
-  <link rel="stylesheet" href="css/theme-custom.css?v=202607271115">
+  <link rel="stylesheet" href="css/style.css?v=202607271159">
+  <link rel="stylesheet" href="css/theme-custom.css?v=202607271159">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -232,23 +232,47 @@
         </div>
       </section>
 
-      <!-- Aba Planejamento (mestre only) — Tarefa 5 -->
+      <!-- Aba Planejamento (mestre only) — Tarefa 5 com mini-wiki -->
       <section class="room-tab-panel" id="panel-planning" data-tab-panel="planning" role="tabpanel" aria-labelledby="tab-planning">
-        <div class="planning-section">
-          <h4>📝 Anotações da sessão</h4>
-          <textarea class="planning-textarea" id="planning-notes" placeholder="Notas privadas da sessão: o que aconteceu, o que planeja pro próximo encontro, ganchos de história…"></textarea>
-          <div class="planning-save-status" id="planning-notes-status">—</div>
+        <!-- Sub-abas dentro de Planejamento -->
+        <nav class="planning-subtabs" role="tablist">
+          <button class="planning-subtab active" data-subtab="notes">📝 Anotações</button>
+          <button class="planning-subtab" data-subtab="enemies">⚔️ Inimigos pré-prontos</button>
+          <button class="planning-subtab" data-subtab="wiki">📚 Mini-wiki</button>
+        </nav>
+
+        <!-- Sub-aba Anotações -->
+        <div class="planning-subpanel active" data-subpanel="notes">
+          <div class="planning-section">
+            <h4>📝 Anotações da sessão</h4>
+            <textarea class="planning-textarea" id="planning-notes" placeholder="Notas privadas da sessão: o que aconteceu, o que planeja pro próximo encontro, ganchos de história…"></textarea>
+            <div class="planning-save-status" id="planning-notes-status">—</div>
+          </div>
         </div>
-        <div class="planning-section">
-          <h4>⚔️ Inimigos pré-prontos</h4>
-          <p class="text-sm muted mb-2">Inimigos salvos pra lançar na aba Inimigos durante o combate.</p>
-          <textarea class="planning-textarea" id="planning-enemies" placeholder="Um inimigo por linha, formato livre. Ex:&#10;Goblin Chefe — HP 25, CA 14, ataque +5 (1d6+3)&#10;Orc Xamã — HP 18, CA 12, magia 2x/dia (Raio de Fogo 3d6)"></textarea>
-          <div class="planning-save-status" id="planning-enemies-status">—</div>
+
+        <!-- Sub-aba Inimigos pré-prontos -->
+        <div class="planning-subpanel" data-subpanel="enemies">
+          <div class="planning-section">
+            <h4>⚔️ Inimigos pré-prontos</h4>
+            <p class="text-sm muted mb-2">Inimigos salvos pra lançar na aba Inimigos durante o combate. Use formato livre (um por linha).</p>
+            <textarea class="planning-textarea" id="planning-enemies" placeholder="Ex:&#10;Goblin Chefe — HP 25, CA 14, ataque +5 (1d6+3)&#10;Orc Xamã — HP 18, CA 12, magia 2x/dia (Raio de Fogo 3d6)"></textarea>
+            <div class="planning-save-status" id="planning-enemies-status">—</div>
+          </div>
         </div>
-        <div class="planning-section">
-          <h4>🗺️ Cenários / NPCs / Locais</h4>
-          <textarea class="planning-textarea" id="planning-scenarios" placeholder="Cenários, NPCs, locais, eventos futuros…"></textarea>
-          <div class="planning-save-status" id="planning-scenarios-status">—</div>
+
+        <!-- Sub-aba Mini-wiki (Tarefa 5) -->
+        <div class="planning-subpanel" data-subpanel="wiki">
+          <div class="planning-section">
+            <h4>📚 Mini-wiki de planejamento</h4>
+            <p class="text-sm muted mb-3">Crie páginas da wiki diretamente daqui. Páginas marcadas como <strong>secretas</strong> ficam sempre visíveis pra você (mestre) e podem ser reveladas na aba Documentos durante a sessão.</p>
+            <div class="flex gap-2 mb-3 flex-wrap">
+              <button class="btn btn-sm btn-primary" id="planning-wiki-new">+ Nova página</button>
+              <button class="btn btn-sm btn-ghost" id="planning-wiki-refresh">🔄 Atualizar lista</button>
+            </div>
+            <div id="planning-wiki-list" class="planning-wiki-list">
+              <div class="muted text-sm">Carregando…</div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
@@ -339,26 +363,26 @@
 
   <script src="vendor/purify.min.js"></script>
   <script src="vendor/marked.min.js"></script>
-  <script src="js/config.js?v=202607271115"></script>
-  <script src="js/api.js?v=202607271115"></script>
-  <script src="js/auth.js?v=202607271115"></script>
-  <script src="js/markdown.js?v=202607271115"></script>
-  <script src="js/room-ws.js?v=202607271115"></script>
-  <script src="js/dice-ui.js?v=202607271115"></script>
-  <script src="js/dice-visual.js?v=202607271115"></script>
-  <script src="js/dice-tutorial.js?v=202607271115"></script>
-  <script src="js/room-render.js?v=202607271115"></script>
-  <script src="js/character-render.js?v=202607271115"></script>
-  <script src="js/character-sheet-full.js?v=202607271115"></script>
-  <script src="js/room-chat.js?v=202607271115"></script>
-  <script src="js/damage-system.js?v=202607271115"></script>
-  <script src="js/formula-builder.js?v=202607271115"></script>
-  <script src="js/poll.js?v=202607271115"></script>
-  <script src="js/reveal-animations.js?v=202607271115"></script>
-  <script src="js/trade.js?v=202607271115"></script>
-  <script src="js/levelup.js?v=202607271115"></script>
-  <script src="js/purchase.js?v=202607271115"></script>
-  <script src="js/master-planning.js?v=202607271115"></script>
+  <script src="js/config.js?v=202607271159"></script>
+  <script src="js/api.js?v=202607271159"></script>
+  <script src="js/auth.js?v=202607271159"></script>
+  <script src="js/markdown.js?v=202607271159"></script>
+  <script src="js/room-ws.js?v=202607271159"></script>
+  <script src="js/dice-ui.js?v=202607271159"></script>
+  <script src="js/dice-visual.js?v=202607271159"></script>
+  <script src="js/dice-tutorial.js?v=202607271159"></script>
+  <script src="js/room-render.js?v=202607271159"></script>
+  <script src="js/character-render.js?v=202607271159"></script>
+  <script src="js/character-sheet-full.js?v=202607271159"></script>
+  <script src="js/room-chat.js?v=202607271159"></script>
+  <script src="js/damage-system.js?v=202607271159"></script>
+  <script src="js/formula-builder.js?v=202607271159"></script>
+  <script src="js/poll.js?v=202607271159"></script>
+  <script src="js/reveal-animations.js?v=202607271159"></script>
+  <script src="js/trade.js?v=202607271159"></script>
+  <script src="js/levelup.js?v=202607271159"></script>
+  <script src="js/purchase.js?v=202607271159"></script>
+  <script src="js/master-planning.js?v=202607271159"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");

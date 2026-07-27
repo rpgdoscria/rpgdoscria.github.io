@@ -1,18 +1,17 @@
 // frontend/js/symbol-drawer.js — desenhista de símbolo para personagem
 //
-// Modal com canvas de desenho: pincel, borracha, paleta de cores, tamanho ajustável.
-// Ao salvar, exporta como PNG (data URL), sobe pro Cloudinary (mesmo fluxo da foto)
-// e chama o callback com a URL final.
+// Tarefa 7 (FINAL): símbolo é SEMPRE branco sobre fundo transparente.
+//   - Única cor de pincel: branco (#ffffff)
+//   - Borracha apaga para TRANSPARÊNCIA (não para branco)
+//   - Fundo do canvas é transparente (exibido com padrão xadrez)
+//   - Exporta PNG com canal alpha preservado
 //
 // Implementação do zero com Canvas API (sem bibliotecas externas) — mouse + touch.
+// O canvas usa `clearRect` para transparência real (não pinta branco no fundo).
 
 (function () {
-  const PALETTE = [
-    "#000000", "#ffffff", "#ef4444", "#f97316", "#eab308",
-    "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ec4899",
-    "#92400e", "#78716c",
-  ];
   const CANVAS_SIZE = 320;  // quadrado
+  const BRUSH_COLOR = "#ffffff";  // branco sempre
 
   function open(onSave) {
     // Remove overlay existente
@@ -26,19 +25,14 @@
     overlay.innerHTML = `
       <div class="symbol-drawer-card">
         <h3>🎨 Desenhar símbolo</h3>
-        <p class="text-sm muted mb-3">Desenhe o símbolo do seu personagem. Será salvo como imagem quadrada e usado no lugar da foto.</p>
+        <p class="text-sm muted mb-3">Desenhe o símbolo do seu personagem em <strong>branco sobre fundo transparente</strong>. O símbolo será salvo como PNG com transparência e usado separado da foto.</p>
 
         <div class="symbol-drawer-tools">
-          <label>🎨 Cor:
-            <div class="symbol-drawer-color-palette" id="sd-palette"></div>
-          </label>
-          <label>🖌 Tamanho:
+          <label>🖌 Tamanho do pincel:
             <input type="range" id="sd-size" min="2" max="40" value="8">
             <span id="sd-size-val" class="text-xs muted">8</span>
           </label>
-          <label>👁 Cor de fundo:
-            <input type="color" id="sd-bg" value="#ffffff" style="width:32px;height:32px;border:1px solid var(--border-soft);border-radius:4px;background:transparent;cursor:pointer">
-          </label>
+          <span class="text-xs muted" style="margin-left:auto">Cor: <span style="display:inline-block;width:16px;height:16px;background:#fff;border:1px solid var(--border-soft);border-radius:3px;vertical-align:middle"></span> branco</span>
         </div>
 
         <div class="symbol-drawer-canvas-wrap">
@@ -47,13 +41,13 @@
 
         <div class="symbol-drawer-tools" style="justify-content:space-between">
           <div class="flex gap-2">
-            <button class="btn btn-sm btn-ghost" id="sd-tool-brush" data-active="true">🖌 Pincel</button>
+            <button class="btn btn-sm btn-ghost" id="sd-tool-brush" style="border-color:var(--accent)">🖌 Pincel</button>
             <button class="btn btn-sm btn-ghost" id="sd-tool-eraser">🧽 Borracha</button>
             <button class="btn btn-sm btn-ghost" id="sd-clear">🗑 Limpar</button>
           </div>
           <div class="flex gap-2">
             <button class="btn btn-ghost" id="sd-cancel">Cancelar</button>
-            <button class="btn btn-primary" id="sd-save">💾 Usar como foto</button>
+            <button class="btn btn-primary" id="sd-save">💾 Usar como símbolo</button>
           </div>
         </div>
       </div>
@@ -64,36 +58,11 @@
     const ctx = canvas.getContext("2d");
     let drawing = false;
     let lastX = 0, lastY = 0;
-    let currentColor = "#000000";
     let currentSize = 8;
     let currentTool = "brush";  // "brush" | "eraser"
-    let bgColor = "#ffffff";
 
-    // Preenche fundo branco inicialmente
-    function fillBg() {
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    }
-    fillBg();
-
-    // Renderiza paleta
-    const paletteEl = overlay.querySelector("#sd-palette");
-    PALETTE.forEach(c => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.style.background = c;
-      btn.dataset.color = c;
-      btn.title = c;
-      if (c === currentColor) btn.classList.add("selected");
-      btn.addEventListener("click", () => {
-        currentColor = c;
-        currentTool = "brush";
-        updateToolButtons();
-        paletteEl.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
-        btn.classList.add("selected");
-      });
-      paletteEl.appendChild(btn);
-    });
+    // NÃO preenche fundo — canvas começa transparente.
+    // clearRect já deixa tudo transparente por padrão.
 
     // Tamanho
     const sizeInput = overlay.querySelector("#sd-size");
@@ -103,23 +72,8 @@
       sizeVal.textContent = String(currentSize);
     });
 
-    // Cor de fundo customizada
-    overlay.querySelector("#sd-bg").addEventListener("input", (e) => {
-      bgColor = e.target.value;
-      // Reaplica fundo sem apagar o desenho existente? Complexo.
-      // Solução simples: re-desenha fundo e pede confirmação se já há traços.
-      if (hasContent()) {
-        if (!confirm("Mudar a cor de fundo vai apagar o desenho atual. Continuar?")) {
-          return;
-        }
-      }
-      fillBg();
-    });
-
     // Ferramentas
     function updateToolButtons() {
-      overlay.querySelector("#sd-tool-brush").dataset.active = currentTool === "brush" ? "true" : "false";
-      overlay.querySelector("#sd-tool-eraser").dataset.active = currentTool === "eraser" ? "true" : "false";
       overlay.querySelector("#sd-tool-brush").style.borderColor = currentTool === "brush" ? "var(--accent)" : "transparent";
       overlay.querySelector("#sd-tool-eraser").style.borderColor = currentTool === "eraser" ? "var(--accent)" : "transparent";
     }
@@ -133,24 +87,23 @@
     });
     updateToolButtons();
 
-    // Limpar
+    // Limpar — clearRect deixa transparente
     overlay.querySelector("#sd-clear").addEventListener("click", () => {
       if (!confirm("Limpar todo o canvas?")) return;
-      fillBg();
+      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     });
 
     // Cancelar
     overlay.querySelector("#sd-cancel").addEventListener("click", () => overlay.remove());
 
-    // Salvar — exporta PNG, sobe pro Cloudinary, chama callback
+    // Salvar — exporta PNG com transparência, sobe pro Cloudinary
     overlay.querySelector("#sd-save").addEventListener("click", async () => {
       const saveBtn = overlay.querySelector("#sd-save");
       saveBtn.disabled = true;
       saveBtn.textContent = "Enviando…";
       try {
-        // Exporta como PNG (data URL)
+        // Exporta como PNG preservando alpha (canvas já é transparente onde não há traço)
         const dataUrl = canvas.toDataURL("image/png");
-        // Converte data URL pra Blob
         const blob = dataUrlToBlob(dataUrl);
         const fd = new FormData();
         fd.append("file", blob, `symbol-${Date.now()}.png`);
@@ -161,21 +114,14 @@
         } else {
           alert(res.warning || "Upload falhou");
           saveBtn.disabled = false;
-          saveBtn.textContent = "💾 Usar como foto";
+          saveBtn.textContent = "💾 Usar como símbolo";
         }
       } catch (e) {
         alert("Erro ao salvar: " + e.message);
         saveBtn.disabled = false;
-        saveBtn.textContent = "💾 Usar como foto";
+        saveBtn.textContent = "💾 Usar como símbolo";
       }
     });
-
-    // Verifica se há conteúdo desenhado (heurística: pega 1 pixel amostral)
-    function hasContent() {
-      // Simples — sempre retorna true pra forçar confirm em mudança de bg.
-      // Pra ser preciso precisaríamos comparar pixels; mantemos simples.
-      return true;
-    }
 
     // ===== Desenho (mouse + touch) =====
     function getPos(e) {
@@ -202,29 +148,34 @@
       const pos = getPos(e);
       lastX = pos.x;
       lastY = pos.y;
-      // Desenha um ponto inicial
       drawDot(pos.x, pos.y);
     }
 
     function drawDot(x, y) {
+      ctx.save();
+      ctx.globalCompositeOperation = currentTool === "eraser" ? "destination-out" : "source-over";
       ctx.beginPath();
       ctx.arc(x, y, currentSize / 2, 0, Math.PI * 2);
-      ctx.fillStyle = currentTool === "eraser" ? bgColor : currentColor;
+      ctx.fillStyle = BRUSH_COLOR;
       ctx.fill();
+      ctx.restore();
     }
 
     function moveDraw(e) {
       if (!drawing) return;
       e.preventDefault();
       const pos = getPos(e);
+      ctx.save();
+      ctx.globalCompositeOperation = currentTool === "eraser" ? "destination-out" : "source-over";
       ctx.beginPath();
       ctx.moveTo(lastX, lastY);
       ctx.lineTo(pos.x, pos.y);
-      ctx.strokeStyle = currentTool === "eraser" ? bgColor : currentColor;
+      ctx.strokeStyle = BRUSH_COLOR;
       ctx.lineWidth = currentSize;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.stroke();
+      ctx.restore();
       lastX = pos.x;
       lastY = pos.y;
     }
