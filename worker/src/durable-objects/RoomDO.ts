@@ -201,6 +201,7 @@ interface Connection {
   userId: number;
   username: string;
   isMaster: boolean;
+  isSpectator: boolean;  // Tarefa 1: espectador não tem personagem, só assiste
   characterId?: number;
   color?: string;  // cor escolhida pelo jogador (hex)
   lastMsgAt: number;
@@ -362,6 +363,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     const token = url.searchParams.get("token");
     const characterIdStr = url.searchParams.get("characterId");
     const characterId = characterIdStr ? Number(characterIdStr) : undefined;
+    const isSpectator = url.searchParams.get("isSpectator") === "1" || url.searchParams.get("isSpectator") === "true";
 
     if (!code || !token) {
       return new Response("code e token são obrigatórios", { status: 400 });
@@ -394,7 +396,8 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       userId: payload.sub,
       username: payload.username,
       isMaster,
-      characterId,
+      isSpectator: !isMaster && isSpectator,  // mestre nunca é espectador
+      characterId: isSpectator ? undefined : characterId,
       lastMsgAt: 0,
     };
     this.connections.set(server, conn);
@@ -409,7 +412,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     if (this.state!.chatLog.length > 0) {
       this.sendTo(server, { type: "chat_history", payload: { messages: this.state!.chatLog } });
     }
-    this.broadcast({ type: "participant_joined", payload: { userId: payload.sub, username: payload.username, isMaster } }, server);
+    this.broadcast({ type: "participant_joined", payload: { userId: payload.sub, username: payload.username, isMaster, isSpectator: conn.isSpectator } }, server);
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -1520,6 +1523,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         userId: conn.userId,
         username: conn.username,
         isMaster: conn.isMaster,
+        isSpectator: conn.isSpectator,
         characterId: conn.characterId,
         color: conn.color,
       },

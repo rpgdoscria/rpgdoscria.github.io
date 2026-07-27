@@ -16,9 +16,10 @@
   }
 
   class RoomClient {
-    constructor(code, characterId) {
+    constructor(code, characterId, isSpectator = false) {
       this.code = code;
       this.characterId = characterId;
+      this.isSpectator = isSpectator;
       this.ws = null;
       this.state = null;
       this.connected = false;
@@ -34,11 +35,14 @@
       const token = getToken();
       if (!token) {
         this._notify("error");
-        location.href = "login.html?next=" + encodeURIComponent(location.pathname + location.search);
+        const parts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+        const dp = parts.length > 0 ? "../".repeat(parts.length) : "";
+        location.href = dp + "login?next=" + encodeURIComponent(location.pathname + location.search);
         return;
       }
       const params = new URLSearchParams({ code: this.code, token });
       if (this.characterId) params.set("characterId", String(this.characterId));
+      if (this.isSpectator) params.set("isSpectator", "1");
       const url = `${WS_BASE}/api/rooms/connect?${params}`;
 
       this._notify("reconnecting");

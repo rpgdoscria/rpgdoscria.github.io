@@ -1,10 +1,10 @@
 // frontend/js/character-render.js — componente único de card/ficha de personagem
 //
 // USADO EM 3+ LUGARES (sem duplicar HTML):
-//   1. meus-personagens.html (lista de personagens do usuário)
+//   1. meus-personagens (lista de personagens do usuário)
 //   2. sala-mestre.html (grade de jogadores na visão do mestre)
 //   3. sala-jogador.html (grade de jogadores na visão do jogador — leitura dos outros, editável do próprio)
-//   4. criar-personagem.html (preview final do wizard)
+//   4. criar-personagem (preview final do wizard)
 //
 // Sabe desenhar cada type de stat: bar, number, text, tag_list, checkbox, formula.
 // Toda string vinda do usuário passa por escapeHtml/sanitizeText (DOMPurify).
@@ -142,7 +142,7 @@
             <div>
               <div class="character-name">${escapeHtml(ch.name)}</div>
               <div class="character-owner muted text-xs">jogador: ${escapeHtml(ch.ownerUsername)}</div>
-              ${ch.pageId ? `<a href="wiki/pagina.html?slug=personagem-${ch.id}" class="text-xs">📄 Ver lore</a>` : ""}
+              ${ch.pageId ? `<a href="wiki/pagina?slug=personagem-${ch.id}" class="text-xs">📄 Ver lore</a>` : ""}
             </div>
           </div>
           <div class="character-actions">
@@ -161,7 +161,7 @@
     `;
   }
 
-  // Render de ficha completa (versão detalhada pra meus-personagens.html)
+  // Render de ficha completa (versão detalhada pra meus-personagens)
   function renderCharacterSheet(ch, opts = {}) {
     const { editable = false, isOwn = false } = opts;
     const avatarHtml = renderAvatar(ch, 120);
@@ -173,7 +173,7 @@
           <div>
             <div class="character-name" style="font-size:24px">${escapeHtml(ch.name)}</div>
             <div class="muted text-sm">jogador: ${escapeHtml(ch.ownerUsername)}${ch.isActive ? " · ⭐ ativo" : ""}</div>
-            ${ch.pageId ? `<a href="wiki/pagina.html?id=${ch.pageId}" class="text-sm">📄 Ver página de lore vinculada</a>` : ""}
+            ${ch.pageId ? `<a href="wiki/pagina?id=${ch.pageId}" class="text-sm">📄 Ver página de lore vinculada</a>` : ""}
           </div>
         </div>
         <div class="stats-section">${statsHtml || `<div class="muted">Sem status definidos.</div>`}</div>

@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Entrar em sala — Rpg dos Cria</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500family=Poppins:wght@400;500;600;700family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=202607271242">
-  <link rel="stylesheet" href="css/theme-custom.css?v=202607271242">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../css/style.css?v=202607271331">
+  <link rel="stylesheet" href="../css/theme-custom.css?v=202607271331">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -51,14 +51,14 @@
 
       <p class="muted text-xs mt-6" style="text-align:center">
         Não tem o código? Peça ao mestre.<br>
-        É mestre? <a href="criar-sala.html">Criar nova sala</a>
+        É mestre? <a href="criar-sala">Criar nova sala</a>
       </p>
     </div>
   </main>
 
-  <script src="js/config.js?v=202607271242"></script>
-  <script src="js/api.js?v=202607271242"></script>
-  <script src="js/auth.js?v=202607271242"></script>
+  <script src="../js/config.js?v=202607271331"></script>
+  <script src="../js/api.js?v=202607271331"></script>
+  <script src="../js/auth.js?v=202607271331"></script>
   <script>
     (function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -104,14 +104,14 @@
           alert("Digite o código completo de 6 caracteres.");
           return;
         }
-        // Guarda a cor no sessionStorage — sala.html lê ao conectar e envia via WS
+        // Guarda a cor no sessionStorage — sala lê ao conectar e envia via WS
         try {
           sessionStorage.setItem("rpg_player_color", selectedColor);
         } catch {}
-        // Redireciona pro endereço real da sala. sala.html vai fazer a
+        // Redireciona pro endereço real da sala. sala vai fazer a
         // verificação REST primeiro — se o código não existir, mostra
         // "sala não encontrada" em vez de cair numa tela de criação.
-        location.href = `sala.html?code=${encodeURIComponent(code)}`;
+        location.href = `sala?code=${encodeURIComponent(code)}`;
       });
 
       // Se veio ?code= na URL, pré-preenche e tenta direto

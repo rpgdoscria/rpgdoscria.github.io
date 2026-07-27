@@ -22,7 +22,7 @@
   }
 
   // Mapa de cores dos participantes: userId -> { color, characterName, photoUrl }
-  // Populado por sala.html quando recebe eventos set_player_color ou room_state.
+  // Populado por sala quando recebe eventos set_player_color ou room_state.
   let participantColors = {};
   let currentUserId = null;
   let onSendCallback = null;
@@ -31,7 +31,7 @@
   let chatSendBtn = null;
   let autoScrollEnabled = true;
 
-  // Atualiza as cores dos participantes — chamado externamente por sala.html
+  // Atualiza as cores dos participantes — chamado externamente por sala
   function setParticipantColors(map) {
     participantColors = Object.assign({}, participantColors, map);
   }

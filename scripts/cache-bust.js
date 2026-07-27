@@ -51,7 +51,12 @@ function findHtmlFiles(dir) {
   const out = [];
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isFile() && entry.name.endsWith(".html")) {
+    if (entry.isDirectory()) {
+      // Procura index.html dentro da subpasta (ex: sala/index.html)
+      const subIndex = path.join(dir, entry.name, "index.html");
+      if (fs.existsSync(subIndex)) out.push(subIndex);
+    } else if (entry.isFile() && entry.name.endsWith(".html") && entry.name !== "index.html") {
+      // Arquivos .html soltos (não move — legado)
       out.push(path.join(dir, entry.name));
     }
   }

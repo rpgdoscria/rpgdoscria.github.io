@@ -4,6 +4,13 @@
   const cfg = window.WIKI_CONFIG || {};
   const SITE_NAME = cfg.SITE_NAME || "Wiki RPG";
 
+  // Helper: calcula prefixo de profundidade baseado no path atual.
+  // "/sala/" → "../", "/wiki/editar/" → "../../", "/" → ""
+  function depthPrefix() {
+    const parts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+    return parts.length === 0 ? "" : "../".repeat(parts.length);
+  }
+
   // ---- sessão ----
   function currentSession() {
     const user = window.api.getUser();
@@ -15,7 +22,7 @@
   function logout() {
     window.api.setToken(null);
     window.api.setUser(null);
-    location.href = "login.html";
+    location.href = depthPrefix() + "login";
   }
 
   async function login(username, password) {
@@ -50,7 +57,7 @@
     const RANK = { viewer: 1, editor: 2, admin: 3 };
     if (!sess) {
       const next = encodeURIComponent(location.pathname + location.search + location.hash);
-      location.href = `login.html?next=${next}`;
+      location.href = depthPrefix() + `login?next=${next}`;
       return null;
     }
     if (RANK[sess.user.role] < RANK[minRole]) {
@@ -60,9 +67,9 @@
     }
     // BUG CORRIGIDO: se o usuário tem mustChangePassword=1, força a troca antes
     // de qualquer outra tela (exceto na própria tela de troca e no logout).
-    const onChangePage = location.pathname.endsWith("change-password.html");
+    const onChangePage = location.pathname.endsWith("change-password");
     if (sess.user.mustChangePassword && !onChangePage) {
-      location.href = "change-password.html";
+      location.href = depthPrefix() + "change-password";
       return null;
     }
     return sess;
@@ -76,8 +83,16 @@
     const sess = currentSession();
     const user = sess ? sess.user : null;
     const inWiki = location.pathname.includes("/wiki/");
-    const rel = (p) => inWiki ? "../" + p : p;
-    const wikiHref = inWiki ? "index.html" : "wiki/index.html";
+    // Calcula profundidade do path atual pra ajustar links relativos.
+    // Raiz "/" → depth 0; "/sala/" → depth 1; "/wiki/editar/" → depth 2
+    const pathParts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+    // "/wiki/" → ["wiki"] → depth 1; "/sala/" → ["sala"] → depth 1; "/wiki/editar/" → ["wiki","editar"] → depth 2
+    // Mas "index.html" na raiz → [] → depth 0
+    const depth = pathParts.length;
+    const prefix = depth === 0 ? "" : "../".repeat(depth);
+    const wikiPrefix = (depth === 0 ? "" : prefix) + (inWiki ? "" : "wiki/");
+    const rel = (p) => prefix + p;
+    const wikiHref = inWiki ? (depth > 1 ? prefix + "index.html" : "index.html") : wikiPrefix;
 
     const isAdmin = user && user.role === "admin";
     const isMaster = user && (user.role === "admin" || user.isGameMaster);
@@ -89,25 +104,25 @@
       label: "Wiki",
       items: [
         { href: wikiHref, label: "Página Inicial", key: "wiki" },
-        { href: inWiki ? "editar.html?new=true" : "wiki/editar.html?new=true", label: "Criar Página", key: "new", minRole: "editor" },
+        { href: wikiPrefix + "editar?new=true", label: "Criar Página", key: "new", minRole: "editor" },
       ],
     });
     categories.push({
       key: "characters",
       label: "Personagens",
       items: [
-        { href: rel("meus-personagens.html"), label: "Meus Personagens", key: "characters" },
-        { href: rel("criar-personagem.html"), label: "Criar Personagem" },
-        { href: rel("gerenciar-sets-regras.html"), label: "Sets de Regras", key: "rulesets", minMaster: true },
+        { href: rel("meus-personagens"), label: "Meus Personagens", key: "characters" },
+        { href: rel("criar-personagem"), label: "Criar Personagem" },
+        { href: rel("gerenciar-sets-regras"), label: "Sets de Regras", key: "rulesets", minMaster: true },
       ],
     });
     categories.push({
       key: "rooms",
       label: "Salas",
       items: [
-        { href: rel("criar-sala.html"), label: "Criar Sala", key: "rooms", minMaster: true },
-        { href: rel("entrar-sala.html"), label: "Entrar em Sala", key: "join" },
-        { href: rel("perfil.html"), label: "Minhas Salas", minMaster: true },
+        { href: rel("criar-sala"), label: "Criar Sala", key: "rooms", minMaster: true },
+        { href: rel("entrar-sala"), label: "Entrar em Sala", key: "join" },
+        { href: rel("perfil"), label: "Minhas Salas", minMaster: true },
       ],
     });
     if (isAdmin) {
@@ -115,8 +130,8 @@
         key: "admin",
         label: "Admin",
         items: [
-          { href: rel("admin.html"), label: "Painel Admin", key: "admin" },
-          { href: rel("gerenciar-status.html"), label: "Gerenciar Status", key: "stats" },
+          { href: rel("admin"), label: "Painel Admin", key: "admin" },
+          { href: rel("gerenciar-status"), label: "Gerenciar Status", key: "stats" },
         ],
       });
     }
@@ -149,16 +164,16 @@
 
     // User chip + conta (sempre visível, não em dropdown)
     const userChip = user
-      ? `<a class="user-chip" href="${rel("perfil.html")}" style="text-decoration:none;color:inherit">
+      ? `<a class="user-chip" href="${rel("perfil")}" style="text-decoration:none;color:inherit">
            <span>${escapeHtml(user.username)}</span>
            <span class="role-badge ${user.role}">${user.role}</span>
          </a>
          <button class="btn btn-ghost btn-sm" id="btn-logout" title="Sair">⎋</button>`
-      : `<a class="btn btn-primary btn-sm" href="${rel("login.html")}">Entrar</a>`;
+      : `<a class="btn btn-primary btn-sm" href="${rel("login")}">Entrar</a>`;
 
     return `
       <header class="site-header">
-        <a class="brand" href="${rel("index.html")}">
+        <a class="brand" href="${rel("") || "."}">
           <span class="mark">R</span>
           <span>${escapeHtml(SITE_NAME)}</span>
         </a>
@@ -190,8 +205,7 @@
         e.preventDefault();
         const q = document.getElementById("search-input").value.trim();
         if (q) {
-          const inWiki = location.pathname.includes("/wiki/");
-          location.href = (inWiki ? "index.html" : "wiki/index.html") + `?q=${encodeURIComponent(q)}`;
+          location.href = wikiPrefix + `?q=${encodeURIComponent(q)}`;
         }
       });
     }
@@ -264,11 +278,11 @@
 
   // ---- redirect após login ----
   // Se o usuário tem mustChangePassword, força troca antes de ir ao destino.
-  // Padrão (sem ?next=): vai pra perfil.html (dashboard pessoal) em vez de index.html.
+  // Padrão (sem ?next=): vai pra perfil (dashboard pessoal) em vez de index.html.
   function redirectToNext() {
     const sess = currentSession();
     if (sess && sess.user && sess.user.mustChangePassword) {
-      location.href = "change-password.html";
+      location.href = depthPrefix() + "change-password";
       return;
     }
     const params = new URLSearchParams(location.search);
@@ -276,7 +290,7 @@
     if (next && next.startsWith("/") && !next.startsWith("//")) {
       location.href = next;
     } else {
-      location.href = "perfil.html";
+      location.href = depthPrefix() + "perfil";
     }
   }
 

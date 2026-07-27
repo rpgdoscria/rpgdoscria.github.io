@@ -109,7 +109,7 @@
           </div>
           <div class="flex gap-1">
             <button class="btn btn-sm btn-ghost" data-wiki-edit="${esc(p.slug)}">✎ Editar</button>
-            <a class="btn btn-sm btn-ghost" href="wiki/pagina.html?slug=${encodeURIComponent(p.slug)}" target="_blank">↗ Ver</a>
+            <a class="btn btn-sm btn-ghost" href="wiki/pagina?slug=${encodeURIComponent(p.slug)}" target="_blank">↗ Ver</a>
           </div>
         </div>
       `).join("");

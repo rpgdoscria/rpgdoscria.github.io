@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Criar sala — Rpg dos Cria</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500family=Poppins:wght@400;500;600;700family=Inter:wght@400;500;600;700&family=Lora:wght@400;600;700&family=JetBrains+Mono:wght@400;500family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=202607271242">
-  <link rel="stylesheet" href="css/theme-custom.css?v=202607271242">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../css/style.css?v=202607271331">
+  <link rel="stylesheet" href="../css/theme-custom.css?v=202607271331">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -40,7 +40,7 @@
     <section class="mt-6">
       <div class="flex gap-2 items-center flex-wrap">
         <button class="btn btn-primary" id="btn-create" disabled>Criar sala</button>
-        <a href="index.html" class="btn btn-ghost">Cancelar</a>
+        <a href="../../index.html" class="btn btn-ghost">Cancelar</a>
         <span class="text-xs muted" id="create-hint">Digite um nome para a sala</span>
       </div>
     </section>
@@ -54,9 +54,9 @@
     </section>
   </main>
 
-  <script src="js/config.js?v=202607271242"></script>
-  <script src="js/api.js?v=202607271242"></script>
-  <script src="js/auth.js?v=202607271242"></script>
+  <script src="../js/config.js?v=202607271331"></script>
+  <script src="../js/api.js?v=202607271331"></script>
+  <script src="../js/auth.js?v=202607271331"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -139,18 +139,18 @@
               </div>
               <div class="spacer"></div>
               ${r.isActive ? `
-                <a class="btn btn-sm btn-primary" href="sala.html?code=${encodeURIComponent(r.code)}">Reabrir</a>
+                <a class="btn btn-sm btn-primary" href="sala?code=${encodeURIComponent(r.code)}">Reabrir</a>
                 <button class="btn btn-sm" data-copy="${escapeHtml(r.code)}">Copiar link</button>
                 <button class="btn btn-sm btn-ghost" data-end-code="${escapeHtml(r.code)}">Encerrar</button>
               ` : `
-                <a class="btn btn-sm btn-ghost" href="sala.html?code=${encodeURIComponent(r.code)}">Tentar reabrir</a>
+                <a class="btn btn-sm btn-ghost" href="sala?code=${encodeURIComponent(r.code)}">Tentar reabrir</a>
                 <button class="btn btn-sm btn-danger" data-delete-code="${escapeHtml(r.code)}">Excluir</button>
               `}
             </div>
           `).join("");
           rl.querySelectorAll('button[data-copy]').forEach(b => {
             b.addEventListener("click", () => {
-              const link = `${location.origin}${location.pathname.replace(/[^/]*$/, "")}sala.html?code=${b.dataset.copy}`;
+              const link = `${location.origin}${location.pathname.replace(/[^/]*$/, "")}sala?code=${b.dataset.copy}`;
               navigator.clipboard.writeText(link).then(() => {
                 b.textContent = "✓ Copiado!";
                 setTimeout(() => { b.textContent = "Copiar link"; }, 2000);
@@ -190,8 +190,8 @@
         try {
           const res = await window.api.post("/api/rooms", { name, characterIds: Array.from(selected) });
           // characterIds pode ser vazio — jogadores entram depois com seus próprios personagens
-          // Redireciona IMEDIATAMENTE para o endereço real da sala (sala.html).
-          location.href = `sala.html?code=${encodeURIComponent(res.code)}`;
+          // Redireciona IMEDIATAMENTE para o endereço real da sala (sala).
+          location.href = `sala?code=${encodeURIComponent(res.code)}`;
         } catch (e) {
           showAlert("error", e.message);
           btnCreate.disabled = false;
