@@ -4358,3 +4358,368 @@ h1, h2, h3, .brand, .modal-card h3, .room-title, .planning-section h4 {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
   pointer-events: none;
 }
+
+/* ============================================================
+   MIGRATION 0013 — Permissões por stat + inventário popup + ficha compacta
+   ============================================================ */
+
+/* ===== Ficha compacta — stats em grid 2 colunas ===== */
+.stats-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+.stats-grid-compact .stat-row {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border-soft);
+}
+.stats-grid-compact .stat-row.compact .stat-label {
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+.stats-grid-compact .stat-row.compact .stat-bar-track {
+  height: 6px;
+}
+.stats-grid-compact .stat-row.compact .stat-bar-values {
+  font-size: 12px;
+}
+.stats-grid-compact .stat-row.compact .stat-number-value {
+  font-size: 16px;
+}
+.stats-grid-compact .stat-row.compact .btn-stat-quick {
+  font-size: 11px;
+  padding: 1px 5px;
+  min-width: 22px;
+}
+/* Em telas pequenas, 1 coluna só */
+@media (max-width: 480px) {
+  .stats-grid-compact { grid-template-columns: 1fr; }
+}
+
+/* ===== Stat row: label com nome + ações (permissão, deletar) ===== */
+.stat-row .stat-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+.stat-row .stat-label-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stat-row .stat-label-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.stat-perm-toggle, .stat-perm-locked {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.stat-perm-toggle.editable {
+  background: rgba(74, 222, 128, 0.15);
+  border-color: var(--success);
+  color: var(--success);
+}
+.stat-perm-toggle.locked {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.stat-perm-toggle:hover {
+  filter: brightness(1.2);
+}
+.stat-perm-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.stat-delete-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.stat-delete-btn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* ===== Botão de inventário (abre popup) ===== */
+.inventory-open-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.inv-count-badge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 16px;
+}
+
+/* ===== Ficha completa compacta (character-sheet-full.js) ===== */
+.sheet-full-compact {
+  padding: var(--space-3) !important;
+  gap: var(--space-2) !important;
+}
+.sheet-full-compact .sheet-full-header {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+.sheet-full-compact .sheet-full-header-info {
+  flex: 1;
+  min-width: 0;
+}
+.sheet-full-compact .sheet-full-name {
+  font-size: 20px !important;
+  margin: 0 !important;
+}
+.sheet-full-compact .sheet-full-owner {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.sheet-full-compact .sheet-full-bars-featured {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.sheet-full-compact .sheet-full-bar-featured {
+  flex: 1;
+  min-width: 140px;
+}
+.sheet-full-compact .sheet-full-bar-featured-label {
+  font-size: 12px;
+}
+.sheet-full-compact .sheet-full-bar-featured-track {
+  height: 6px;
+}
+.sheet-full-compact .sheet-full-bar-pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.sheet-full-compact .sheet-full-bar-pill {
+  font-size: 11px;
+  padding: 2px 6px;
+}
+.sheet-full-compact .sheet-full-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.sheet-full-compact .sheet-full-section h3 {
+  font-size: 13px !important;
+  margin: 0 0 var(--space-2) 0 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.sheet-full-compact .sheet-full-attrs-grid {
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 6px;
+}
+.sheet-full-compact .sheet-full-attr {
+  padding: 4px;
+  text-align: center;
+}
+.sheet-full-compact .sheet-full-attr-label {
+  font-size: 10px !important;
+}
+.sheet-full-compact .sheet-full-attr-value {
+  font-size: 18px !important;
+}
+.sheet-full-compact .sheet-full-characteristic {
+  padding: 2px 0;
+  font-size: 13px;
+}
+.sheet-full-compact .sheet-full-characteristic-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+.sheet-full-compact .sheet-full-checkbox-row,
+.sheet-full-compact .sheet-full-formula-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 4px 0;
+}
+.sheet-full-compact .sheet-full-checkbox-item,
+.sheet-full-compact .sheet-full-formula-item {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+@media (max-width: 600px) {
+  .sheet-full-compact .sheet-full-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Modal de Inventário (popup) ===== */
+.inv-modal-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: var(--space-2);
+}
+.inv-modal-section {
+  padding: var(--space-2) var(--space-3);
+}
+.inv-modal-section + .inv-modal-section {
+  border-top: 1px solid var(--border-soft);
+}
+.inv-modal-section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-2) 0;
+  font-weight: 600;
+}
+.inv-modal-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border-soft);
+}
+.inv-modal-row:last-child { border-bottom: none; }
+.inv-modal-row-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.inv-item-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.3);
+}
+.inv-item-icon-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: linear-gradient(135deg, var(--bg-elev-2), var(--bg));
+}
+.inv-modal-row-info {
+  flex: 1;
+  min-width: 0;
+}
+.inv-modal-row-name {
+  font-size: 14px;
+  font-weight: 500;
+  word-break: break-word;
+}
+.inv-modal-row-qty {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+.inv-modal-row-desc {
+  margin-top: 2px;
+  word-break: break-word;
+}
+.inv-modal-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ===== Form de adicionar item no modal ===== */
+.inv-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+.inv-add-icon-preview {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 2px dashed var(--border-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.inv-add-icon-preview:hover {
+  border-color: var(--accent);
+}
+.inv-add-fields {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.inv-add-fields input[type="text"],
+.inv-add-fields input[type="number"] {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+.inv-add-fields input:focus {
+  border-color: var(--accent);
+}
+.inv-add-form textarea {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+  font-family: var(--font-sans);
+}
+.inv-add-form textarea:focus {
+  border-color: var(--accent);
+}
+

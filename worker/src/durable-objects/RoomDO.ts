@@ -23,7 +23,7 @@ export interface RoomEnv {
 
 // ---------- Tipos de estado da sala ----------
 interface Bar { name: string; current: number; max: number; color: string; }
-interface InventoryItem { name: string; qty: number; description?: string; }
+interface InventoryItem { name: string; qty: number; description?: string; equipped?: boolean; iconUrl?: string | null; }
 interface StatusEffect { id: string; text: string; }
 
 // Stat flexível (homebrew) — mesmo formato do banco character_stats.
@@ -40,6 +40,7 @@ interface CharacterStat {
   valueBool?: number | null;
   color?: string | null;
   displayOrder: number;
+  playerEditable?: boolean;  // Migration 0013: se true, o jogador dono pode editar este stat
 }
 
 interface CharacterState {
@@ -427,7 +428,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         ).bind(characterId).first<any>();
         if (r) {
           const stats = await this.env.DB.prepare(
-            `SELECT id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order
+            `SELECT id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order, player_editable
              FROM character_stats WHERE character_id = ? ORDER BY display_order ASC, id ASC`
           ).bind(characterId).all<any>();
           const ch: CharacterState = {
@@ -520,6 +521,9 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         case "reveal_secret": await this.handleRevealDocument(conn, msg.payload); break; // alias legado
         // ===== Tarefa 4: Cor pessoal do jogador =====
         case "set_player_color": await this.handleSetPlayerColor(conn, msg.payload); break;
+        // ===== Migration 0013: Permissões por stat + delete stat =====
+        case "delete_stat": await this.handleDeleteStat(conn, msg.payload); break;
+        case "set_stat_permission": await this.handleSetStatPermission(conn, msg.payload); break;
         default:
           this.sendTo(ws, { type: "error", payload: { message: `Tipo de mensagem desconhecido: ${msg.type}` } });
       }
@@ -596,6 +600,16 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     if (!conn.characterId) throw new Error("Você não está conectado com um personagem.");
     if (!this.state!.characters[conn.characterId]) throw new Error("Personagem não está na sala.");
     const ch = this.state!.characters[conn.characterId];
+    // Migration 0013: jogador só pode atualizar stats marcados como playerEditable.
+    // Se o stat não for editável pelo jogador, rejeita silenciosamente (não lança erro
+    // pra não poluir o console — só ignora a mudança).
+    const statId = Number(p?.statId);
+    if (statId) {
+      const stat = ch.stats.find(s => s.id === statId);
+      if (stat && !stat.playerEditable) {
+        throw new Error("Este status só pode ser editado pelo mestre.");
+      }
+    }
     // Jogador só pode atualizar stats do próprio personagem (não inventário, não nome).
     // Formato novo: { statId, value } — value depende do tipo daquele stat.
     this.applyStatUpdate(ch, p);
@@ -614,8 +628,54 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         name: String(it.name).slice(0, 80),
         qty: clampInt(it.qty, 0, 9999),
         description: it.description ? String(it.description).slice(0, 200) : undefined,
+        equipped: !!it.equipped,
+        iconUrl: it.iconUrl ? String(it.iconUrl).slice(0, 500) : null,
       })).slice(0, 100);
     }
+    // Mestre pode mudar permissão de um stat on the fly
+    if (p?.statId && typeof p?.playerEditable === "boolean") {
+      const stat = ch.stats.find(s => s.id === Number(p.statId));
+      if (stat) stat.playerEditable = !!p.playerEditable;
+    }
+    this.broadcast({ type: "character_updated", payload: ch });
+  }
+
+  // Migration 0013: mestre deleta um stat da ficha do personagem em tempo real.
+  private async handleDeleteStat(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode deletar status.");
+    const characterId = Number(p?.characterId);
+    const statId = Number(p?.statId);
+    if (!characterId || !statId) throw new Error("characterId e statId são obrigatórios.");
+    const ch = this.state!.characters[characterId];
+    if (!ch) throw new Error("Personagem não encontrado na sala.");
+    const idx = ch.stats.findIndex(s => s.id === statId);
+    if (idx < 0) throw new Error("Status não encontrado neste personagem.");
+    ch.stats.splice(idx, 1);
+    // Persiste no D1 também (DELETE do banco)
+    try {
+      await this.env.DB.prepare(`DELETE FROM character_stats WHERE id = ? AND character_id = ?`).bind(statId, characterId).run();
+    } catch {}
+    this.broadcast({ type: "character_updated", payload: ch });
+  }
+
+  // Migration 0013: mestre alterna permissão de edição do stat pelo jogador.
+  private async handleSetStatPermission(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode alterar permissões de status.");
+    const characterId = Number(p?.characterId);
+    const statId = Number(p?.statId);
+    const playerEditable = !!p?.playerEditable;
+    if (!characterId || !statId) throw new Error("characterId e statId são obrigatórios.");
+    const ch = this.state!.characters[characterId];
+    if (!ch) throw new Error("Personagem não encontrado na sala.");
+    const stat = ch.stats.find(s => s.id === statId);
+    if (!stat) throw new Error("Status não encontrado neste personagem.");
+    stat.playerEditable = playerEditable;
+    // Persiste no D1
+    try {
+      await this.env.DB.prepare(
+        `UPDATE character_stats SET player_editable = ?, updated_at = datetime('now') WHERE id = ? AND character_id = ?`
+      ).bind(playerEditable ? 1 : 0, statId, characterId).run();
+    } catch {}
     this.broadcast({ type: "character_updated", payload: ch });
   }
 
@@ -1661,5 +1721,6 @@ function sanitizeStat(s: any): CharacterStat | null {
     valueBool: s.valueBool ? 1 : 0,
     color: s.color && /^#[0-9a-f]{6}$/i.test(s.color) ? s.color : null,
     displayOrder: Number(s.displayOrder ?? 0),
+    playerEditable: !!(s.playerEditable ?? s.player_editable),
   };
 }

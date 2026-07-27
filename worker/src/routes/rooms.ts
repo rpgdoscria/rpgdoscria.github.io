@@ -102,7 +102,7 @@ roomRoutes.post("/", async (c) => {
       // Carrega stats do personagem (substitui hp_current/hp_max/money/bars antigos)
       const stats = await queryAll<any>(
         c.env.DB,
-        `SELECT id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order
+        `SELECT id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order, player_editable
          FROM character_stats WHERE character_id = ? ORDER BY display_order ASC, id ASC`,
         r.id
       );
@@ -125,6 +125,7 @@ roomRoutes.post("/", async (c) => {
           valueBool: s.value_bool,
           color: s.color,
           displayOrder: s.display_order,
+          playerEditable: s.player_editable === 1,
         })),
         inventory: safeJson(r.inventory_json, []),
         statusEffects: safeJson(r.status_effects_json, []),
@@ -485,6 +486,7 @@ roomRoutes.get("/characters", async (c) => {
         valueCurrent: s.value_current, valueMax: s.value_max,
         valueText: s.value_text, valueBool: s.value_bool,
         color: s.color, displayOrder: s.display_order,
+        playerEditable: s.player_editable === 1,
       })),
       inventory: safeJson(r.inventory_json, []),
       statusEffects: safeJson(r.status_effects_json, []),

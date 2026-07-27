@@ -1,10 +1,15 @@
 // frontend/js/character-sheet-full.js — renderização da Ficha Completa (aba da sala)
 //
+// v10 (este patch): LAYOUT COMPACTO + inventário como popup + permissões por stat.
+//   - Layout em 2 colunas (atributos | características) em vez de empilhado
+//   - Menos padding/margens para caber mais info na tela
+//   - Inventário virou botão que abre modal (não mais seção inline)
+//   - Stats mostram badge de permissão (🔒/🔓) e mestre vê botão deletar
+//
 // Layout dinâmico que se adapta a qualquer combinação de status:
 // - Faixa superior: foto + nome + 2-3 primeiros bars em destaque + bars extras como pills
 // - Painel "Atributos": grade de status number
 // - Painel "Características": status text + tag_list
-// - Painel "Inventário/Equipamento": separado entre equipado e mochila
 // - Área secundária: checkbox + formula
 
 (function () {
@@ -26,7 +31,6 @@
 
   function renderFull(ch, opts = {}) {
     const { editable = false, isMaster = false, isOwn = false, onStatUpdate } = opts;
-    const canEdit = editable && (isOwn || isMaster);
 
     // Separa stats por tipo
     const bars = (ch.stats || []).filter(s => s.type === "bar").sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
@@ -36,10 +40,10 @@
     const checkboxes = (ch.stats || []).filter(s => s.type === "checkbox");
     const formulas = (ch.stats || []).filter(s => s.type === "formula");
 
-    // Faixa superior
-    const featuredBars = bars.slice(0, 3);
-    const extraBars = bars.slice(3);
-    const avatar = window.characterRender.renderAvatar(ch, 80);
+    // Faixa superior — bars em destaque (até 2, era 3)
+    const featuredBars = bars.slice(0, 2);
+    const extraBars = bars.slice(2);
+    const avatar = window.characterRender.renderAvatar(ch, 64);
 
     const featuredBarsHtml = featuredBars.map(s => {
       const cur = Number(s.valueCurrent ?? 0);
@@ -50,7 +54,7 @@
         <div class="sheet-full-bar-featured">
           <div class="sheet-full-bar-featured-label">
             <span>${escapeHtml(s.name)}</span>
-            <span style="color:${col}">${cur} / ${max}</span>
+            <span style="color:${col}">${cur}/${max}</span>
           </div>
           <div class="sheet-full-bar-featured-track">
             <div class="sheet-full-bar-featured-fill" style="width:${pct}%;background:${col}"></div>
@@ -63,9 +67,9 @@
       return `<span class="sheet-full-bar-pill">${escapeHtml(s.name)} <strong>${s.valueCurrent ?? 0}/${s.valueMax ?? 0}</strong></span>`;
     }).join("");
 
-    // Atributos (number)
+    // Atributos (number) — grade compacta 4 colunas
     const attrsHtml = numbers.length === 0
-      ? `<div class="muted text-sm">Nenhum atributo numérico.</div>`
+      ? ``
       : `<div class="sheet-full-attrs-grid">${numbers.map(s => `
           <div class="sheet-full-attr">
             <div class="sheet-full-attr-label">${escapeHtml(s.name)}</div>
@@ -73,9 +77,9 @@
           </div>
         `).join("")}</div>`;
 
-    // Características (text + tag_list)
+    // Características (text + tag_list) — uma linha cada, compacto
     const charsHtml = [...texts, ...tagLists].length === 0
-      ? `<div class="muted text-sm">Nenhuma característica.</div>`
+      ? ``
       : [...texts, ...tagLists].map(s => {
           let val = s.valueText || "";
           if (s.type === "tag_list") {
@@ -83,63 +87,67 @@
           }
           return `
             <div class="sheet-full-characteristic">
-              <div class="sheet-full-characteristic-label">${escapeHtml(s.name)}</div>
-              <div class="sheet-full-characteristic-value">${s.type === "tag_list" ? val : sanitizeText(val)}</div>
+              <span class="sheet-full-characteristic-label">${escapeHtml(s.name)}:</span>
+              <span class="sheet-full-characteristic-value">${s.type === "tag_list" ? val : sanitizeText(val)}</span>
             </div>
           `;
         }).join("");
 
-    // Inventário (equipado vs mochila)
-    const equipped = (ch.inventory || []).filter(it => it.equipped);
-    const backpack = (ch.inventory || []).filter(it => !it.equipped);
-    const invHtml = (ch.inventory || []).length === 0
-      ? `<div class="muted text-sm">Sem itens.</div>`
-      : `
-        ${equipped.length > 0 ? `
-          <div class="sheet-full-inv-section">
-            <h4>⚔️ Equipado (${equipped.length})</h4>
-            ${equipped.map(it => `<div class="sheet-full-inv-item"><span class="sheet-full-inv-qty">${it.qty}×</span><span>${sanitizeText(it.name)}</span></div>`).join("")}
-          </div>` : ""}
-        ${backpack.length > 0 ? `
-          <div class="sheet-full-inv-section">
-            <h4>🎒 Mochila (${backpack.length})</h4>
-            ${backpack.map(it => `<div class="sheet-full-inv-item"><span class="sheet-full-inv-qty">${it.qty}×</span><span>${sanitizeText(it.name)}</span></div>`).join("")}
-          </div>` : ""}
-      `;
-
-    // Secundário (checkbox + formula)
-    const secondaryHtml = (checkboxes.length === 0 && formulas.length === 0)
+    // Secundário (checkbox + formula) — em linha, compacto
+    const checkboxesHtml = checkboxes.length === 0
       ? ""
-      : `<div class="sheet-full-secondary">
-          ${checkboxes.length > 0 ? `
-            <div class="sheet-full-section">
-              <h3>Estados</h3>
-              ${checkboxes.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span class="stat-checkbox ${s.valueBool ? "on" : "off"}">${s.valueBool ? "✓" : "○"}</span><span>${escapeHtml(s.name)}</span></div>`).join("")}
-            </div>` : ""}
-          ${formulas.length > 0 ? `
-            <div class="sheet-full-section">
-              <h3>Fórmulas</h3>
-              ${formulas.map(s => `<div style="padding:4px 0"><span class="text-sm muted">${escapeHtml(s.name)}:</span> <code class="stat-formula">${escapeHtml(s.valueText || "")}</code></div>`).join("")}
-            </div>` : ""}
-        </div>`;
+      : `<div class="sheet-full-checkbox-row">${checkboxes.map(s => `<span class="sheet-full-checkbox-item"><span class="stat-checkbox ${s.valueBool ? "on" : "off"}">${s.valueBool ? "✓" : "○"}</span> ${escapeHtml(s.name)}</span>`).join("")}</div>`;
+
+    const formulasHtml = formulas.length === 0
+      ? ""
+      : `<div class="sheet-full-formula-row">${formulas.map(s => `<span class="sheet-full-formula-item"><span class="text-xs muted">${escapeHtml(s.name)}:</span> <code class="stat-formula">${escapeHtml(s.valueText || "")}</code></span>`).join("")}</div>`;
+
+    // Inventário como botão (não mais seção inline)
+    const invCount = (ch.inventory || []).length;
+    const invBtn = `<button class="btn btn-sm btn-ghost inventory-open-btn" data-action="open-inventory" data-character-id="${ch.id}" data-character-name="${escapeHtml(ch.name)}" title="Ver inventário">
+      🎒 Inventário <span class="inv-count-badge">${invCount}</span>
+    </button>`;
+
+    // Verifica se há conteúdo em cada seção pra decidir se mostra
+    const hasAttrs = numbers.length > 0;
+    const hasChars = [...texts, ...tagLists].length > 0;
+    const hasSecondary = checkboxes.length > 0 || formulas.length > 0;
+    const hasBars = bars.length > 0;
+
+    // Layout compacto: 2 colunas quando há ambos atributos e características
+    const twoColLayout = hasAttrs && hasChars;
 
     return `
-      <div class="sheet-full" data-character-id="${ch.id}">
+      <div class="sheet-full sheet-full-compact" data-character-id="${ch.id}">
         <div class="sheet-full-header">
           ${avatar}
-          <div>
+          <div class="sheet-full-header-info">
             <h2 class="sheet-full-name">${escapeHtml(ch.name)}</h2>
-            <div class="sheet-full-owner">jogador: ${escapeHtml(ch.ownerUsername)}${ch.pageId ? ` · <a href="/page?id=${ch.pageId}">ver lore</a>` : ""}</div>
+            <div class="sheet-full-owner">jogador: ${escapeHtml(ch.ownerUsername)}</div>
           </div>
+          <div class="sheet-full-header-actions">
+            ${invBtn}
+          </div>
+        </div>
+        ${hasBars ? `
           <div class="sheet-full-bars-featured">
             ${featuredBarsHtml}
             ${extraBarsHtml ? `<div class="sheet-full-bar-pills">${extraBarsHtml}</div>` : ""}
+          </div>` : ""}
+        ${twoColLayout ? `
+          <div class="sheet-full-two-col">
+            <div class="sheet-full-section"><h3>📊 Atributos</h3>${attrsHtml}</div>
+            <div class="sheet-full-section"><h3>📝 Características</h3>${charsHtml}</div>
           </div>
-        </div>
-        <div class="sheet-full-section"><h3>📊 Atributos</h3>${attrsHtml}</div>
-        <div class="sheet-full-section"><h3>📝 Características</h3>${charsHtml}</div>
-        <div class="sheet-full-section"><h3>🎒 Inventário / Equipamento</h3>${invHtml}</div>
-        ${secondaryHtml}
+        ` : `
+          ${hasAttrs ? `<div class="sheet-full-section"><h3>📊 Atributos</h3>${attrsHtml}</div>` : ""}
+          ${hasChars ? `<div class="sheet-full-section"><h3>📝 Características</h3>${charsHtml}</div>` : ""}
+        `}
+        ${hasSecondary ? `
+          <div class="sheet-full-secondary">
+            ${checkboxesHtml}
+            ${formulasHtml}
+          </div>` : ""}
       </div>
     `;
   }

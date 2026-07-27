@@ -227,6 +227,151 @@ characterRoutes.patch("/:id/stat/:statId", async (c) => {
   return c.json({ ok: true, updatedStats });
 });
 
+// ---------- DELETE /api/characters/:id/stats/:statId ----------
+// Remove um stat da ficha do personagem (mestre only, ou dono se stat custom).
+characterRoutes.delete("/:id/stats/:statId", async (c) => {
+  const user = c.get("user") as JwtPayload | undefined;
+  if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const id = Number(c.req.param("id"));
+  const statId = Number(c.req.param("statId"));
+
+  const ch = await queryFirst<{ owner: number }>(c.env.DB, `SELECT owner_user_id AS owner FROM characters WHERE id = ?`, id);
+  if (!ch) return c.json({ error: "Personagem não encontrado." }, 404);
+  const userRow = await queryFirst<{ role: string }>(c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub);
+  const isMaster = userRow && userRow.role === "admin";
+
+  const stat = await queryFirst<any>(c.env.DB, `SELECT * FROM character_stats WHERE id = ? AND character_id = ?`, statId, id);
+  if (!stat) return c.json({ error: "Status não encontrado." }, 404);
+
+  // Permissão: mestre sempre; dono só se for customizado (criado por ele)
+  if (!isMaster && !(ch.owner === user.sub && stat.is_custom === 1)) {
+    return c.json({ error: "Sem permissão para remover este status." }, 403);
+  }
+
+  await c.env.DB.prepare(`DELETE FROM character_stats WHERE id = ? AND character_id = ?`).bind(statId, id).run();
+  await audit(c.env.DB, user.sub, "character.stat.delete", `char=${id} stat=${statId} name=${stat.name}`, null);
+  return c.json({ ok: true });
+});
+
+// ---------- PATCH /api/characters/:id/stats/:statId/permission ----------
+// Mestre alterna permissão de edição pelo jogador (player_editable).
+characterRoutes.patch("/:id/stats/:statId/permission", async (c) => {
+  const user = c.get("user") as JwtPayload | undefined;
+  if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const id = Number(c.req.param("id"));
+  const statId = Number(c.req.param("statId"));
+
+  const userRow = await queryFirst<{ role: string }>(c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub);
+  if (!userRow || userRow.role !== "admin") {
+    return c.json({ error: "Apenas o mestre pode alterar permissões de status." }, 403);
+  }
+
+  let body: any;
+  try { body = await c.req.json(); } catch { return c.json({ error: "JSON inválido." }, 400); }
+  const playerEditable = body?.playerEditable ? 1 : 0;
+
+  await c.env.DB.prepare(
+    `UPDATE character_stats SET player_editable = ?, updated_at = datetime('now') WHERE id = ? AND character_id = ?`
+  ).bind(playerEditable, statId, id).run();
+  await audit(c.env.DB, user.sub, "character.stat.permission", `char=${id} stat=${statId} editable=${playerEditable}`, null);
+  return c.json({ ok: true, playerEditable: playerEditable === 1 });
+});
+
+// ---------- GET /api/characters/:id/inventory ----------
+// Lista itens do inventário (tabela nova character_inventory_items).
+characterRoutes.get("/:id/inventory", async (c) => {
+  const user = c.get("user") as JwtPayload | undefined;
+  if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const id = Number(c.req.param("id"));
+  const items = await queryAll<any>(
+    c.env.DB,
+    `SELECT id, name, qty, description, equipped, icon_url, sort_order FROM character_inventory_items WHERE character_id = ? ORDER BY sort_order ASC, id ASC`,
+    id
+  );
+  return c.json({
+    items: items.map(it => ({
+      id: it.id, name: it.name, qty: it.qty, description: it.description,
+      equipped: it.equipped === 1, iconUrl: it.icon_url, sortOrder: it.sort_order,
+    })),
+  });
+});
+
+// ---------- POST /api/characters/:id/inventory ----------
+// Adiciona um item ao inventário (dono ou mestre).
+characterRoutes.post("/:id/inventory", async (c) => {
+  const user = c.get("user") as JwtPayload | undefined;
+  if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const id = Number(c.req.param("id"));
+  const ch = await queryFirst<{ owner: number }>(c.env.DB, `SELECT owner_user_id AS owner FROM characters WHERE id = ?`, id);
+  if (!ch) return c.json({ error: "Personagem não encontrado." }, 404);
+  const userRow = await queryFirst<{ role: string }>(c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub);
+  const isMaster = userRow && userRow.role === "admin";
+  if (!isMaster && ch.owner !== user.sub) return c.json({ error: "Sem permissão." }, 403);
+
+  let body: any;
+  try { body = await c.req.json(); } catch { return c.json({ error: "JSON inválido." }, 400); }
+  const name = String(body?.name ?? "").trim();
+  if (!name) return c.json({ error: "Nome do item é obrigatório." }, 400);
+  const qty = Math.max(0, Math.min(9999, Number(body?.qty ?? 1) || 1));
+  const description = body.description ? String(body.description).slice(0, 200) : null;
+  const equipped = body.equipped ? 1 : 0;
+  const iconUrl = body.iconUrl ? String(body.iconUrl).slice(0, 500) : null;
+
+  // sort_order = max + 1
+  const maxOrder = await queryFirst<{ m: number }>(c.env.DB, `SELECT COALESCE(MAX(sort_order), -1) AS m FROM character_inventory_items WHERE character_id = ?`, id);
+  const sortOrder = (maxOrder?.m ?? -1) + 1;
+
+  const res = await c.env.DB.prepare(
+    `INSERT INTO character_inventory_items (character_id, name, qty, description, equipped, icon_url, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, name.slice(0, 80), qty, description, equipped, iconUrl, sortOrder).run();
+  const newId = res.meta.last_row_id as number;
+  await audit(c.env.DB, user.sub, "character.inventory.add", `char=${id} item=${name}`, null);
+  return c.json({ ok: true, id: newId }, 201);
+});
+
+// ---------- PUT /api/characters/:id/inventory/:itemId ----------
+characterRoutes.put("/:id/inventory/:itemId", async (c) => {
+  const user = c.get("user") as JwtPayload | undefined;
+  if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const id = Number(c.req.param("id"));
+  const itemId = Number(c.req.param("itemId"));
+  const ch = await queryFirst<{ owner: number }>(c.env.DB, `SELECT owner_user_id AS owner FROM characters WHERE id = ?`, id);
+  if (!ch) return c.json({ error: "Personagem não encontrado." }, 404);
+  const userRow = await queryFirst<{ role: string }>(c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub);
+  const isMaster = userRow && userRow.role === "admin";
+  if (!isMaster && ch.owner !== user.sub) return c.json({ error: "Sem permissão." }, 403);
+
+  let body: any;
+  try { body = await c.req.json(); } catch { return c.json({ error: "JSON inválido." }, 400); }
+  const fields: string[] = [];
+  const vals: (string | number | null)[] = [];
+  if (typeof body.name === "string" && body.name.trim()) { fields.push("name = ?"); vals.push(body.name.trim().slice(0, 80)); }
+  if (body.qty !== undefined) { fields.push("qty = ?"); vals.push(Math.max(0, Math.min(9999, Number(body.qty) || 0))); }
+  if (body.description !== undefined) { fields.push("description = ?"); vals.push(body.description ? String(body.description).slice(0, 200) : null); }
+  if (body.equipped !== undefined) { fields.push("equipped = ?"); vals.push(body.equipped ? 1 : 0); }
+  if (body.iconUrl !== undefined) { fields.push("icon_url = ?"); vals.push(body.iconUrl ? String(body.iconUrl).slice(0, 500) : null); }
+  if (fields.length === 0) return c.json({ error: "Nada para atualizar." }, 400);
+  fields.push("updated_at = datetime('now')");
+  vals.push(itemId, id);
+  await c.env.DB.prepare(`UPDATE character_inventory_items SET ${fields.join(", ")} WHERE id = ? AND character_id = ?`).bind(...vals).run();
+  return c.json({ ok: true });
+});
+
+// ---------- DELETE /api/characters/:id/inventory/:itemId ----------
+characterRoutes.delete("/:id/inventory/:itemId", async (c) => {
+  const user = c.get("user") as JwtPayload | undefined;
+  if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const id = Number(c.req.param("id"));
+  const itemId = Number(c.req.param("itemId"));
+  const ch = await queryFirst<{ owner: number }>(c.env.DB, `SELECT owner_user_id AS owner FROM characters WHERE id = ?`, id);
+  if (!ch) return c.json({ error: "Personagem não encontrado." }, 404);
+  const userRow = await queryFirst<{ role: string }>(c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub);
+  const isMaster = userRow && userRow.role === "admin";
+  if (!isMaster && ch.owner !== user.sub) return c.json({ error: "Sem permissão." }, 403);
+  await c.env.DB.prepare(`DELETE FROM character_inventory_items WHERE id = ? AND character_id = ?`).bind(itemId, id).run();
+  return c.json({ ok: true });
+});
+
 // ---------- helpers ----------
 function mapStat(s: any) {
   return {
@@ -236,6 +381,7 @@ function mapStat(s: any) {
     valueText: s.value_text, valueBool: s.value_bool,
     color: s.color, displayOrder: s.display_order,
     addedViaRuleSetId: s.added_via_rule_set_id ?? null,
+    playerEditable: s.player_editable === 1,
   };
 }
 
@@ -246,6 +392,9 @@ async function insertStat(db: D1Database, characterId: number, s: any, order: nu
   const statTemplateId = s.statTemplateId ? Number(s.statTemplateId) : null;
   const isCustom = statTemplateId ? 0 : 1;
   const color = s.color && /^#[0-9a-f]{6}$/i.test(s.color) ? s.color : null;
+  // Stats customizados (sem template) nascem editáveis pelo jogador.
+  // Stats de template seguem o default do banco (player_editable=0).
+  const playerEditable = isCustom === 1 ? 1 : (s.playerEditable ? 1 : 0);
   let valueCurrent: number | null = null, valueMax: number | null = null;
   let valueText: string | null = null, valueBool: number | null = null;
   if (type === "bar") { valueMax = clampNum(s.valueMax ?? 0, 0, 1e9); valueCurrent = clampNum(s.valueCurrent ?? valueMax, 0, 1e9); }
@@ -253,9 +402,9 @@ async function insertStat(db: D1Database, characterId: number, s: any, order: nu
   else if (type === "text" || type === "tag_list" || type === "formula") { valueText = s.valueText ? String(s.valueText).slice(0, 2000) : (type === "tag_list" ? "[]" : ""); }
   else if (type === "checkbox") { valueBool = s.valueBool ? 1 : 0; }
   await db.prepare(
-    `INSERT INTO character_stats (character_id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order, added_via_rule_set_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(characterId, statTemplateId, isCustom, name.slice(0, 50), type, valueCurrent, valueMax, valueText, valueBool, color, order, ruleSetId).run();
+    `INSERT INTO character_stats (character_id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order, added_via_rule_set_id, player_editable)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(characterId, statTemplateId, isCustom, name.slice(0, 50), type, valueCurrent, valueMax, valueText, valueBool, color, order, ruleSetId, playerEditable).run();
 }
 
 // UPSERT: atualiza um stat existente preservando o que não foi enviado

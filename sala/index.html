@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202607271620">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271620">
+  <link rel="stylesheet" href="/css/style.css?v=202607271735">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202607271735">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -345,28 +345,61 @@
     </div>
   </div>
 
+  <!-- ===== Modal de Inventário (popup) — Migration 0013 ===== -->
+  <div id="inventory-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:640px;max-height:90vh">
+      <div class="flex items-center justify-between mb-3">
+        <h3 style="margin:0">🎒 Inventário — <span id="inv-modal-char-name">—</span></h3>
+        <button class="btn btn-sm btn-ghost" id="inv-modal-close">✕</button>
+      </div>
+      <div id="inv-modal-alert"></div>
+      <div id="inv-modal-list" class="inv-modal-list"></div>
+      <div class="inv-modal-add-section mt-3">
+        <h4 style="font-size:14px;margin:0 0 8px 0">+ Adicionar item</h4>
+        <div class="inv-add-form">
+          <div class="inv-add-icon-preview" id="inv-add-icon-preview" title="Clique para desenhar o ícone">
+            <span class="muted text-xs">sem ícone</span>
+          </div>
+          <div class="inv-add-fields">
+            <input type="text" id="inv-add-name" placeholder="Nome do item" maxlength="80" style="flex:1">
+            <input type="number" id="inv-add-qty" value="1" min="0" max="9999" style="width:80px" title="Quantidade">
+            <label class="text-xs muted" style="display:flex;align-items:center;gap:4px;cursor:pointer">
+              <input type="checkbox" id="inv-add-equipped"> Equipado
+            </label>
+          </div>
+          <textarea id="inv-add-desc" placeholder="Descrição (opcional, máx 200 chars)" maxlength="200" rows="2" style="width:100%"></textarea>
+          <div class="flex gap-2 justify-end">
+            <button class="btn btn-ghost btn-sm" id="inv-add-draw">🎨 Desenhar ícone</button>
+            <button class="btn btn-primary btn-sm" id="inv-add-save">+ Adicionar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/vendor/purify.min.js"></script>
   <script src="/vendor/marked.min.js"></script>
-  <script src="/js/config.js?v=202607271620"></script>
-  <script src="/js/api.js?v=202607271620"></script>
-  <script src="/js/auth.js?v=202607271620"></script>
-  <script src="/js/markdown.js?v=202607271620"></script>
-  <script src="/js/room-ws.js?v=202607271620"></script>
-  <script src="/js/dice-ui.js?v=202607271620"></script>
-  <script src="/js/dice-visual.js?v=202607271620"></script>
-  <script src="/js/dice-tutorial.js?v=202607271620"></script>
-  <script src="/js/room-render.js?v=202607271620"></script>
-  <script src="/js/character-render.js?v=202607271620"></script>
-  <script src="/js/character-sheet-full.js?v=202607271620"></script>
-  <script src="/js/room-chat.js?v=202607271620"></script>
-  <script src="/js/damage-system.js?v=202607271620"></script>
-  <script src="/js/formula-builder.js?v=202607271620"></script>
-  <script src="/js/poll.js?v=202607271620"></script>
-  <script src="/js/reveal-animations.js?v=202607271620"></script>
-  <script src="/js/trade.js?v=202607271620"></script>
-  <script src="/js/levelup.js?v=202607271620"></script>
-  <script src="/js/purchase.js?v=202607271620"></script>
-  <script src="/js/master-planning.js?v=202607271620"></script>
+  <script src="/js/config.js?v=202607271735"></script>
+  <script src="/js/api.js?v=202607271735"></script>
+  <script src="/js/auth.js?v=202607271735"></script>
+  <script src="/js/markdown.js?v=202607271735"></script>
+  <script src="/js/room-ws.js?v=202607271735"></script>
+  <script src="/js/dice-ui.js?v=202607271735"></script>
+  <script src="/js/dice-visual.js?v=202607271735"></script>
+  <script src="/js/dice-tutorial.js?v=202607271735"></script>
+  <script src="/js/room-render.js?v=202607271735"></script>
+  <script src="/js/character-render.js?v=202607271735"></script>
+  <script src="/js/character-sheet-full.js?v=202607271735"></script>
+  <script src="/js/item-drawer.js?v=202607271735"></script>
+  <script src="/js/room-chat.js?v=202607271735"></script>
+  <script src="/js/damage-system.js?v=202607271735"></script>
+  <script src="/js/formula-builder.js?v=202607271735"></script>
+  <script src="/js/poll.js?v=202607271735"></script>
+  <script src="/js/reveal-animations.js?v=202607271735"></script>
+  <script src="/js/trade.js?v=202607271735"></script>
+  <script src="/js/levelup.js?v=202607271735"></script>
+  <script src="/js/purchase.js?v=202607271735"></script>
+  <script src="/js/master-planning.js?v=202607271735"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -1039,6 +1072,37 @@
             });
           });
         });
+        // ===== Migration 0013: Deletar stat da ficha (mestre only) =====
+        document.querySelectorAll('button[data-action="delete-stat"]').forEach(b => {
+          b.addEventListener("click", () => {
+            const card = b.closest("[data-character-id]");
+            const characterId = card ? Number(card.dataset.characterId) : null;
+            const statId = Number(b.dataset.statId);
+            if (!characterId || !statId) return;
+            if (!confirm("Deletar este status da ficha do personagem? Esta ação é permanente.")) return;
+            client.send("delete_stat", { characterId, statId });
+          });
+        });
+        // ===== Migration 0013: Alternar permissão de edição do stat (mestre only) =====
+        document.querySelectorAll('button[data-action="toggle-perm"]').forEach(b => {
+          b.addEventListener("click", () => {
+            const card = b.closest("[data-character-id]");
+            const characterId = card ? Number(card.dataset.characterId) : null;
+            const statId = Number(b.dataset.statId);
+            if (!characterId || !statId) return;
+            // Lê o estado atual do botão (se tem classe "editable", está liberado; clicar = bloquear)
+            const currentlyEditable = b.classList.contains("editable");
+            client.send("set_stat_permission", { characterId, statId, playerEditable: !currentlyEditable });
+          });
+        });
+        // ===== Migration 0013: Abrir modal de inventário (popup) =====
+        document.querySelectorAll('button[data-action="open-inventory"]').forEach(b => {
+          b.addEventListener("click", () => {
+            const characterId = Number(b.dataset.characterId);
+            const characterName = b.dataset.characterName || "";
+            openInventoryModal(characterId, characterName);
+          });
+        });
         document.querySelectorAll('button[data-action="accept-suggestion"]').forEach(b => {
           b.addEventListener("click", () => {
             client.send("roll_dice", { formula: b.dataset.formula, label: b.dataset.label });
@@ -1288,6 +1352,188 @@
           text,
         });
         document.getElementById("status-modal").classList.add("hidden");
+      });
+
+      // ===== Migration 0013: Modal de Inventário (popup) =====
+      let inventoryModalCharId = null;
+      let inventoryModalPendingIcon = null;  // URL do ícone desenhado (a ser salvo com o item)
+
+      function openInventoryModal(characterId, characterName) {
+        inventoryModalCharId = characterId;
+        inventoryModalPendingIcon = null;
+        document.getElementById("inv-modal-char-name").textContent = characterName;
+        document.getElementById("inv-modal-alert").innerHTML = "";
+        // Limpa form de adicionar
+        document.getElementById("inv-add-name").value = "";
+        document.getElementById("inv-add-qty").value = "1";
+        document.getElementById("inv-add-equipped").checked = false;
+        document.getElementById("inv-add-desc").value = "";
+        const preview = document.getElementById("inv-add-icon-preview");
+        preview.innerHTML = `<span class="muted text-xs">sem ícone</span>`;
+        document.getElementById("inventory-modal").classList.remove("hidden");
+        loadInventoryItems(characterId);
+      }
+
+      async function loadInventoryItems(characterId) {
+        const listEl = document.getElementById("inv-modal-list");
+        listEl.innerHTML = `<div class="muted text-sm">Carregando…</div>`;
+        try {
+          // Tenta carregar da nova tabela; se falhar (ex: migration não rodada ainda),
+          // cai pro inventário em memória do estado da sala.
+          let items = [];
+          try {
+            const data = await window.api.get(`/api/characters/${characterId}/inventory`);
+            items = data.items || [];
+          } catch {
+            const ch = currentState?.characters.find(c => c.id === characterId);
+            items = (ch?.inventory || []).map((it, i) => ({
+              id: i, name: it.name, qty: it.qty, description: it.description,
+              equipped: !!it.equipped, iconUrl: it.iconUrl || null,
+            }));
+          }
+          renderInventoryItems(items);
+        } catch (e) {
+          listEl.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+        }
+      }
+
+      function renderInventoryItems(items) {
+        const listEl = document.getElementById("inv-modal-list");
+        if (!items || items.length === 0) {
+          listEl.innerHTML = `<div class="muted text-sm" style="padding:16px;text-align:center">Sem itens no inventário.</div>`;
+          return;
+        }
+        // Separa equipados da mochila
+        const equipped = items.filter(it => it.equipped);
+        const backpack = items.filter(it => !it.equipped);
+        listEl.innerHTML = `
+          ${equipped.length > 0 ? `
+            <div class="inv-modal-section">
+              <h4 class="inv-modal-section-title">⚔️ Equipado (${equipped.length})</h4>
+              ${equipped.map(it => renderInventoryItemRow(it)).join("")}
+            </div>` : ""}
+          ${backpack.length > 0 ? `
+            <div class="inv-modal-section">
+              <h4 class="inv-modal-section-title">🎒 Mochila (${backpack.length})</h4>
+              ${backpack.map(it => renderInventoryItemRow(it)).join("")}
+            </div>` : ""}
+        `;
+        // Bind dos botões de editar/deletar/excluir
+        listEl.querySelectorAll('button[data-inv-action="delete"]').forEach(b => {
+          b.addEventListener("click", async () => {
+            if (!confirm("Remover este item do inventário?")) return;
+            const itemId = Number(b.dataset.itemId);
+            try {
+              await window.api.del(`/api/characters/${inventoryModalCharId}/inventory/${itemId}`);
+              showAlert("success", "Item removido.");
+              loadInventoryItems(inventoryModalCharId);
+            } catch (e) { alert(e.message); }
+          });
+        });
+        listEl.querySelectorAll('button[data-inv-action="edit-icon"]').forEach(b => {
+          b.addEventListener("click", () => {
+            const itemId = Number(b.dataset.itemId);
+            const currentItem = items.find(it => it.id === itemId);
+            window.ItemDrawer.open(async (iconUrl) => {
+              try {
+                await window.api.put(`/api/characters/${inventoryModalCharId}/inventory/${itemId}`, { iconUrl });
+                showAlert("success", "Ícone atualizado!");
+                loadInventoryItems(inventoryModalCharId);
+              } catch (e) { alert(e.message); }
+            }, currentItem?.iconUrl);
+          });
+        });
+      }
+
+      function renderInventoryItemRow(it) {
+        const iconHtml = it.iconUrl
+          ? `<img src="${escapeHtml(it.iconUrl)}" alt="${escapeHtml(it.name)}" class="inv-item-icon">`
+          : `<div class="inv-item-icon-placeholder" title="Sem ícone">${escapeHtml((it.name || "?").charAt(0).toUpperCase())}</div>`;
+        return `
+          <div class="inv-modal-row">
+            <div class="inv-modal-row-icon">${iconHtml}</div>
+            <div class="inv-modal-row-info">
+              <div class="inv-modal-row-name">${escapeHtml(it.name)} <span class="inv-modal-row-qty">×${it.qty}</span></div>
+              ${it.description ? `<div class="inv-modal-row-desc muted text-xs">${escapeHtml(it.description)}</div>` : ""}
+            </div>
+            <div class="inv-modal-row-actions">
+              <button class="btn btn-sm btn-ghost" data-inv-action="edit-icon" data-item-id="${it.id}" title="Desenhar/editar ícone">🎨</button>
+              <button class="btn btn-sm btn-danger" data-inv-action="delete" data-item-id="${it.id}" title="Remover item">×</button>
+            </div>
+          </div>
+        `;
+      }
+
+      // Fecha modal
+      document.getElementById("inv-modal-close").addEventListener("click", () => {
+        document.getElementById("inventory-modal").classList.add("hidden");
+      });
+      // Clique fora fecha
+      document.getElementById("inventory-modal").addEventListener("click", (e) => {
+        if (e.target.id === "inventory-modal") {
+          document.getElementById("inventory-modal").classList.add("hidden");
+        }
+      });
+      // Preview do ícone — clicar abre o desenhista
+      document.getElementById("inv-add-icon-preview").addEventListener("click", () => {
+        window.ItemDrawer.open((iconUrl) => {
+          inventoryModalPendingIcon = iconUrl;
+          const preview = document.getElementById("inv-add-icon-preview");
+          preview.innerHTML = `<img src="${escapeHtml(iconUrl)}" alt="ícone" style="width:100%;height:100%;object-fit:contain">`;
+        });
+      });
+      // Botão "Desenhar ícone" também abre
+      document.getElementById("inv-add-draw").addEventListener("click", () => {
+        window.ItemDrawer.open((iconUrl) => {
+          inventoryModalPendingIcon = iconUrl;
+          const preview = document.getElementById("inv-add-icon-preview");
+          preview.innerHTML = `<img src="${escapeHtml(iconUrl)}" alt="ícone" style="width:100%;height:100%;object-fit:contain">`;
+        });
+      });
+      // Salvar novo item
+      document.getElementById("inv-add-save").addEventListener("click", async () => {
+        const name = document.getElementById("inv-add-name").value.trim();
+        const qty = parseInt(document.getElementById("inv-add-qty").value, 10) || 1;
+        const equipped = document.getElementById("inv-add-equipped").checked;
+        const description = document.getElementById("inv-add-desc").value.trim();
+        if (!name) {
+          document.getElementById("inv-modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`;
+          return;
+        }
+        try {
+          await window.api.post(`/api/characters/${inventoryModalCharId}/inventory`, {
+            name, qty, equipped, description, iconUrl: inventoryModalPendingIcon,
+          });
+          // Atualiza estado da sala em tempo real via WS (pra outros clientes verem)
+          if (currentState) {
+            const ch = currentState.characters.find(c => c.id === inventoryModalCharId);
+            if (ch && isMaster) {
+              // Re-busca inventário completo e envia via WS pra sincronizar
+              try {
+                const data = await window.api.get(`/api/characters/${inventoryModalCharId}/inventory`);
+                if (data.items) {
+                  client.send("update_character", {
+                    characterId: inventoryModalCharId,
+                    inventory: data.items,
+                  });
+                }
+              } catch {}
+            }
+          }
+          document.getElementById("inv-modal-alert").innerHTML = `<div class="alert alert-success">Item adicionado!</div>`;
+          setTimeout(() => { document.getElementById("inv-modal-alert").innerHTML = ""; }, 2000);
+          // Limpa form
+          document.getElementById("inv-add-name").value = "";
+          document.getElementById("inv-add-qty").value = "1";
+          document.getElementById("inv-add-equipped").checked = false;
+          document.getElementById("inv-add-desc").value = "";
+          inventoryModalPendingIcon = null;
+          const preview = document.getElementById("inv-add-icon-preview");
+          preview.innerHTML = `<span class="muted text-xs">sem ícone</span>`;
+          loadInventoryItems(inventoryModalCharId);
+        } catch (e) {
+          document.getElementById("inv-modal-alert").innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+        }
       });
 
       // ===== Presets =====
