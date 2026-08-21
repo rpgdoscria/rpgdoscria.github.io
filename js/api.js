@@ -26,6 +26,16 @@
     } catch { /* ignore */ }
   }
 
+  // O servidor pode entregar páginas em `pasta/index.html` com barra final.
+  // A comparação normalizada evita redirecionar `/login/` para login de novo
+  // quando uma requisição recebe 401.
+  function isPage(page) {
+    const path = (location.pathname || "/")
+      .replace(/\/+$/, "")
+      .replace(/\/index\.html$/, "") || "/";
+    return path === `/${page}` || path.endsWith(`/${page}`);
+  }
+
   async function apiFetch(path, opts = {}) {
     const token = getToken();
     const headers = Object.assign({}, opts.headers || {});
@@ -46,7 +56,7 @@
       // (somente se não estivermos já em /login)
       setToken(null);
       setUser(null);
-      const onLoginPage = location.pathname.endsWith("login");
+      const onLoginPage = isPage("login");
       if (!onLoginPage) {
         const next = encodeURIComponent(location.pathname + location.search + location.hash);
         location.href = `/login?next=${next}`;

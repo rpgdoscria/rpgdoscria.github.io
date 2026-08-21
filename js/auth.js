@@ -18,6 +18,16 @@
     location.href = "/login";
   }
 
+  // URLs servidas como `pasta/index.html` podem chegar com uma barra final
+  // (ex.: `/change-password/`). Normalize antes de comparar o nome da página
+  // para não redirecionar o usuário para a própria tela em loop.
+  function isPage(page) {
+    const path = (location.pathname || "/")
+      .replace(/\/+$/, "")
+      .replace(/\/index\.html$/, "") || "/";
+    return path === `/${page}` || path.endsWith(`/${page}`);
+  }
+
   async function login(username, password) {
     const data = await window.api.post("/api/auth/login", { username, password });
     window.api.setToken(data.token);
@@ -60,7 +70,7 @@
     }
     // BUG CORRIGIDO: se o usuário tem mustChangePassword=1, força a troca antes
     // de qualquer outra tela (exceto na própria tela de troca e no logout).
-    const onChangePage = location.pathname.endsWith("change-password");
+    const onChangePage = isPage("change-password");
     if (sess.user.mustChangePassword && !onChangePage) {
       location.href = "/change-password";
       return null;
