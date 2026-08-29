@@ -35,6 +35,13 @@
         <div id="sidebar-categories"></div>
       </div>
 
+      <div class="wiki-sidebar-section wiki-export-section">
+        <div class="wiki-sidebar-section-title">Exportar wiki</div>
+        <button class="btn btn-ghost btn-sm" id="btn-export-csv" type="button">⇩ CSV</button>
+        <button class="btn btn-ghost btn-sm" id="btn-export-zip" type="button">⇩ ZIP por categoria</button>
+        <div id="wiki-export-status" class="muted text-xs" aria-live="polite"></div>
+      </div>
+
       <!-- Últimas alterações (compacto, últimas 5) -->
       <div class="wiki-sidebar-section">
         <div class="wiki-sidebar-section-title">Últimas alterações</div>
@@ -71,6 +78,7 @@
   <script src="/js/auth.js?v=202608211800"></script>
   <script src="/js/markdown.js?v=202608211800"></script>
   <script src="/js/wiki/wiki-core.js?v=202608211800"></script>
+  <script src="/js/wiki/wiki-export.js?v=202608292000"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "wiki");
@@ -83,6 +91,29 @@
       if (sess.user.role === "viewer") {
         document.getElementById("btn-new-page").classList.add("hidden");
       }
+
+      const exportStatus = document.getElementById("wiki-export-status");
+      const exportButtons = [
+        document.getElementById("btn-export-csv"),
+        document.getElementById("btn-export-zip"),
+      ];
+      async function exportWiki(format) {
+        exportButtons.forEach((button) => { button.disabled = true; });
+        exportStatus.textContent = "Preparando exportação…";
+        try {
+          const data = await window.api.get("/api/pages/export");
+          const pages = data.pages || [];
+          if (format === "csv") window.wikiExport.exportCsv(pages);
+          else window.wikiExport.exportZip(pages);
+          exportStatus.textContent = `${pages.length} página(s) exportada(s).`;
+        } catch (e) {
+          exportStatus.textContent = `Erro: ${e.message || "falha ao exportar"}`;
+        } finally {
+          exportButtons.forEach((button) => { button.disabled = false; });
+        }
+      }
+      document.getElementById("btn-export-csv").addEventListener("click", () => exportWiki("csv"));
+      document.getElementById("btn-export-zip").addEventListener("click", () => exportWiki("zip"));
 
       const params = new URLSearchParams(location.search);
       const q = params.get("q");
