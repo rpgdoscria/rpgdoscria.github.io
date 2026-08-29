@@ -100,6 +100,53 @@ pageRoutes.get("/", async (c) => {
   return c.json({ pages: rows, recent, categories: DEFAULT_CATEGORIES });
 });
 
+// GET /api/pages/export — exporta todas as páginas visíveis ao usuário.
+// Administradores também recebem o conteúdo de documentos secretos ainda não
+// revelados; para os demais usuários, esses documentos viram placeholders sem
+// conteúdo, preservando as mesmas regras de acesso da visualização individual.
+pageRoutes.get("/export", requireRole("viewer"), async (c) => {
+  const user = c.get("user") as JwtPayload;
+  const rows = await queryAll<{
+    id: number;
+    slug: string;
+    title: string;
+    category: string;
+    content_md: string;
+    created_at: string;
+    updated_at: string;
+    author: string;
+    secret: number;
+    revealed: number;
+  }>(
+    c.env.DB,
+    `SELECT p.id, p.slug, p.title, p.category, p.content_md,
+            p.created_at, p.updated_at, u.username AS author,
+            p.secret, p.revealed
+     FROM pages p JOIN users u ON u.id = p.created_by
+     ORDER BY p.category COLLATE NOCASE ASC, p.title COLLATE NOCASE ASC`
+  );
+
+  const isAdmin = user.role === "admin";
+  return c.json({
+    pages: rows.map((page) => {
+      const restricted = page.secret === 1 && page.revealed === 0 && !isAdmin;
+      return {
+        id: page.id,
+        slug: page.slug,
+        title: restricted ? "🔒 Documento secreto" : page.title,
+        category: page.category,
+        content_md: restricted ? "" : page.content_md,
+        created_at: page.created_at,
+        updated_at: page.updated_at,
+        author: restricted ? "???" : page.author,
+        secret: page.secret === 1,
+        revealed: page.revealed === 1,
+        restricted,
+      };
+    }),
+  });
+});
+
 // GET /api/pages/:slug
 pageRoutes.get("/:slug", async (c) => {
   const slug = c.req.param("slug");
@@ -426,4 +473,3 @@ pageRoutes.post("/:slug/reveal", requireRole("admin"), async (c) => {
     content_md: page.content_md,
   });
 });
-
