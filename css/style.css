@@ -1001,17 +1001,27 @@ code, pre { font-family: var(--font-mono); }
 .reveal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
   display: grid;
   place-items: center;
   z-index: 200;
   padding: var(--space-4);
   overflow-y: auto;
+  --reveal-paper: var(--bg-elev);
+  --reveal-paper-light: var(--bg-elev-2);
+  --reveal-edge: var(--border-soft);
+  --reveal-accent: var(--accent);
+  --reveal-accent-strong: var(--accent-hover);
 }
 .reveal-modal {
   position: relative;
   max-width: 600px;
   width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+  box-shadow: var(--shadow-lg);
 }
 .reveal-anim {
   opacity: 0;
@@ -1046,8 +1056,8 @@ code, pre { font-family: var(--font-mono); }
 
 /* ENVELOPE */
 .reveal-envelope {
-  background: #8B4513;
-  border-radius: 4px;
+  background: var(--reveal-accent);
+  border-radius: var(--radius);
   padding: 0;
   overflow: hidden;
   position: relative;
@@ -1056,31 +1066,31 @@ code, pre { font-family: var(--font-mono); }
   width: 0; height: 0;
   border-left: 50% solid transparent;
   border-right: 50% solid transparent;
-  border-top: 80px solid #A0522D;
+  border-top: 80px solid var(--reveal-accent-strong);
   margin: 0 auto;
   transform-origin: top;
   transition: transform 0.6s;
 }
 .reveal-envelope.animating .envelope-flap { transform: rotateX(180deg); }
-.envelope-body { background: #F5E6C8; padding: 20px; }
+.envelope-body { background: var(--reveal-paper-light); padding: 20px; }
 .envelope-letter {
-  background: #FFFAF0;
+  background: var(--reveal-paper);
   padding: 24px;
-  border: 1px solid #D2B48C;
+  border: 1px solid var(--reveal-edge);
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 /* CARTA */
 .reveal-carta {
-  background: #F5E6C8;
-  border-radius: 2px;
+  background: var(--reveal-paper-light);
+  border-radius: var(--radius);
   padding: 0;
   overflow: hidden;
 }
 .carta-fold {
-  background: #FFFAF0;
+  background: var(--reveal-paper);
   padding: 24px;
-  border: 1px solid #D2B48C;
+  border: 1px solid var(--reveal-edge);
   transform: scaleY(0);
   transform-origin: top;
   transition: transform 0.8s ease;
@@ -1093,15 +1103,15 @@ code, pre { font-family: var(--font-mono); }
 }
 .pergaminho-roll-top, .pergaminho-roll-bottom {
   height: 20px;
-  background: #8B4513;
+  background: var(--reveal-accent);
   border-radius: 10px;
   margin: 0 -4px;
 }
 .pergaminho-body {
-  background: #F5E6C8;
+  background: var(--reveal-paper-light);
   padding: 24px;
-  border-left: 4px solid #8B4513;
-  border-right: 4px solid #8B4513;
+  border-left: 4px solid var(--reveal-accent);
+  border-right: 4px solid var(--reveal-accent);
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.8s ease;
@@ -1115,7 +1125,7 @@ code, pre { font-family: var(--font-mono); }
 }
 .bau-lid {
   height: 30px;
-  background: #8B4513;
+  background: var(--reveal-accent);
   border-radius: 15px 15px 0 0;
   transform-origin: bottom;
   transform: rotateX(0deg);
@@ -1123,7 +1133,7 @@ code, pre { font-family: var(--font-mono); }
 }
 .reveal-bau.animating .bau-lid { transform: rotateX(-120deg); }
 .bau-body {
-  background: #654321;
+  background: var(--bg);
   padding: 16px;
   border-radius: 0 0 8px 8px;
   position: relative;
@@ -1133,13 +1143,13 @@ code, pre { font-family: var(--font-mono); }
   position: absolute;
   top: 0; left: 50%;
   width: 200px; height: 200px;
-  background: radial-gradient(circle, rgba(255,215,0,0.4) 0%, transparent 70%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--reveal-accent-strong) 40%, transparent) 0%, transparent 70%);
   transform: translateX(-50%) scale(0);
   transition: transform 0.8s;
 }
 .reveal-bau.animating .bau-glow { transform: translateX(-50%) scale(1.5); }
 .bau-content {
-  background: #F5E6C8;
+  background: var(--reveal-paper-light);
   padding: 20px;
   border-radius: 4px;
   opacity: 0;
@@ -1153,7 +1163,7 @@ code, pre { font-family: var(--font-mono); }
   perspective: 1000px;
 }
 .livro-cover {
-  background: #4A0000;
+  background: var(--reveal-accent);
   border-radius: 4px 8px 8px 4px;
   padding: 0;
   transform-style: preserve-3d;
@@ -1163,7 +1173,7 @@ code, pre { font-family: var(--font-mono); }
 }
 .reveal-livro.animating .livro-cover { transform: rotateY(-180deg); }
 .livro-page {
-  background: #FFFAF0;
+  background: var(--reveal-paper);
   padding: 24px;
   border-radius: 0 4px 4px 0;
   box-shadow: inset 4px 0 8px rgba(0,0,0,0.2);
@@ -5654,6 +5664,5 @@ h1, h2, h3, .brand, .modal-card h3, .room-title, .planning-section h4 {
   padding: 2px 6px;
   border-radius: 3px;
 }
-
 
 
