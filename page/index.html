@@ -8,8 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608301830">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301830">
+  <link rel="stylesheet" href="/css/style.css?v=202608301638">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301638">
+  <link rel="canonical" href="/wiki/pagina">
+  <script>
+    location.replace("/wiki/pagina" + location.search + location.hash);
+  </script>
 </head>
 <body>
   <div id="header-mount"></div>
@@ -20,10 +24,10 @@
 
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/purify.min.js"></script>
-  <script src="/js/config.js?v=202608301830"></script>
-  <script src="/js/api.js?v=202608301830"></script>
-  <script src="/js/auth.js?v=202608301830"></script>
-  <script src="/js/markdown.js?v=202608301830"></script>
+  <script src="/js/config.js?v=202608301638"></script>
+  <script src="/js/api.js?v=202608301638"></script>
+  <script src="/js/auth.js?v=202608301638"></script>
+  <script src="/js/markdown.js?v=202608301638"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount");
@@ -52,7 +56,7 @@
               A página "<strong>${escapeHtml(slug)}</strong>" ainda não existe.
             </div>
             ${canEdit
-              ? `<a class="btn btn-primary" href="/edit?title=${encodeURIComponent(slug)}">Criar esta página</a>`
+              ? `<a class="btn btn-primary" href="/wiki/editar?new=true&title=${encodeURIComponent(slug)}">Criar esta página</a>`
               : `<p class="muted">Peça a um editor para criá-la.</p>`}
           `;
           return;
@@ -84,8 +88,8 @@
         </div>
 
         <div class="flex gap-2 mb-6 flex-wrap">
-          ${canEdit ? `<a class="btn btn-sm" href="/edit?slug=${encodeURIComponent(page.slug)}">✎ Editar</a>` : ""}
-          <a class="btn btn-sm" href="/history?slug=${encodeURIComponent(page.slug)}">📜 Histórico</a>
+          ${canEdit ? `<a class="btn btn-sm" href="/wiki/editar?slug=${encodeURIComponent(page.slug)}">✎ Editar</a>` : ""}
+          <a class="btn btn-sm" href="/wiki/historico?slug=${encodeURIComponent(page.slug)}">📜 Histórico</a>
           <button class="btn btn-sm" id="btn-backlinks">↶ O que aponta pra cá</button>
           ${isAdmin ? `<button class="btn btn-sm btn-danger" id="btn-delete">🗑 Excluir</button>` : ""}
         </div>
@@ -113,7 +117,7 @@
               blList.innerHTML = `<div class="muted text-sm">Nenhuma página aponta para esta.</div>`;
             } else {
               blList.innerHTML = bl.map(p => `
-                <a class="page-list-item" href="/page?slug=${encodeURIComponent(p.slug)}">
+                <a class="page-list-item" href="/wiki/pagina?slug=${encodeURIComponent(p.slug)}">
                   <div class="title">${escapeHtml(p.title)}</div>
                   <div class="meta">atualizada em ${formatDate(p.updated_at)}</div>
                 </a>
@@ -145,7 +149,7 @@
           e.preventDefault();
           const title = a.getAttribute("data-wiki-title");
           if (canEdit) {
-            location.href = `/edit?title=${encodeURIComponent(title)}`;
+            location.href = `/wiki/editar?new=true&title=${encodeURIComponent(title)}`;
           } else {
             alert(`A página "${title}" ainda não existe. Peça a um editor para criá-la.`);
           }

@@ -8,8 +8,29 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608301830">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301830">
+  <link rel="stylesheet" href="/css/style.css?v=202608301638">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301638">
+  <style>
+    .admin-intro { padding:16px 18px; margin-bottom:22px; border:1px solid var(--border-soft); border-radius:var(--radius); background:linear-gradient(135deg, rgba(179,18,28,.10), rgba(255,255,255,.02)); }
+    .admin-user-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .admin-assets-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin:14px 0 20px; }
+    .admin-assets-stat { padding:10px 12px; border:1px solid var(--border-soft); border-radius:10px; background:var(--surface); }
+    .admin-assets-stat strong { display:block; font-size:20px; }
+    .admin-assets-stat span { color:var(--text-muted); font-size:11px; }
+    .admin-assets-section { margin-top:20px; }
+    .admin-assets-section h4 { margin:0 0 8px; font-size:15px; }
+    .admin-assets-list { border:1px solid var(--border-soft); border-radius:10px; overflow:hidden; }
+    .admin-assets-list:empty { display:none; }
+    .admin-asset-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border-soft); }
+    .admin-asset-row:last-child { border-bottom:0; }
+    .admin-asset-row .asset-main { min-width:0; }
+    .admin-asset-row .asset-title { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .admin-asset-row .asset-meta { color:var(--text-muted); font-size:12px; line-height:1.45; }
+    .admin-asset-row .spacer { flex:1; }
+    .admin-duplicate-tag { color:var(--warning); border-color:var(--warning); }
+    .admin-assets-empty { padding:12px; color:var(--text-muted); font-size:13px; }
+    @media (max-width:600px) { .admin-asset-row { align-items:flex-start; flex-wrap:wrap; } .admin-asset-row .spacer { display:none; } }
+  </style>
 </head>
 <body>
   <div id="header-mount"></div>
@@ -17,6 +38,10 @@
   <main class="container wide">
     <h1 style="font-family: var(--font-serif); font-size: 28px; margin: 0 0 var(--space-5) 0;">Painel de administração</h1>
     <div id="alert-mount"></div>
+    <div class="admin-intro">
+      <strong>Controle do sistema</strong>
+      <p class="muted text-sm" style="margin:5px 0 0">Consulte o conteúdo associado a cada usuário, gerencie permissões e remova fichas repetidas com confirmação. As ações administrativas ficam registradas no log.</p>
+    </div>
 
     <section class="mb-6">
       <div class="flex items-center justify-between mb-4">
@@ -102,6 +127,13 @@
         </select>
       </div>
       <div class="field">
+        <label>Forçar troca de senha no próximo login?</label>
+        <select id="em-must-change">
+          <option value="1">Sim</option>
+          <option value="0">Não</option>
+        </select>
+      </div>
+      <div class="field">
         <label>Nova senha (deixe em branco para manter)</label>
         <input type="text" id="em-password" placeholder="mín. 8 caracteres">
       </div>
@@ -131,9 +163,40 @@
     </div>
   </div>
 
-  <script src="/js/config.js?v=202608301830"></script>
-  <script src="/js/api.js?v=202608301830"></script>
-  <script src="/js/auth.js?v=202608301830"></script>
-  <script src="/js/admin.js?v=202608301830"></script>
+  <!-- Modal de visão dos recursos de um usuário -->
+  <div id="user-assets-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.78);display:grid;place-items:center;z-index:100;padding:var(--space-4)">
+    <div class="card" style="width:100%;max-width:900px;max-height:90vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="gap:12px">
+        <div>
+          <h3 id="assets-title" style="margin:0">Conteúdo do usuário</h3>
+          <p id="assets-subtitle" class="muted text-sm" style="margin:4px 0 0"></p>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="assets-close">Fechar</button>
+      </div>
+      <div id="assets-alert"></div>
+      <div id="assets-summary" class="admin-assets-summary"></div>
+      <div class="admin-assets-section">
+        <h4>Personagens e fichas</h4>
+        <div id="assets-characters" class="admin-assets-list"><div class="admin-assets-empty">Carregando…</div></div>
+      </div>
+      <div class="admin-assets-section">
+        <h4>Páginas criadas</h4>
+        <div id="assets-pages" class="admin-assets-list"></div>
+      </div>
+      <div class="admin-assets-section">
+        <h4>Crônicas relacionadas</h4>
+        <div id="assets-chronicles" class="admin-assets-list"></div>
+      </div>
+      <div class="admin-assets-section">
+        <h4>Salas, presets e regras</h4>
+        <div id="assets-other" class="admin-assets-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/config.js?v=202608301638"></script>
+  <script src="/js/api.js?v=202608301638"></script>
+  <script src="/js/auth.js?v=202608301638"></script>
+  <script src="/js/admin.js?v=202608301638"></script>
 </body>
 </html>

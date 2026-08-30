@@ -11,6 +11,16 @@ GET https://rpg-wiki-api.genericbr-paypal.workers.dev/api/ai/context
 Header: X-Wiki-Context-Key: <chave-do-guia-personalizado>
 ```
 
+O formato padrão é JSON estruturado. Para obter uma versão textual mais confortável para leitura de agentes, use `?format=markdown`. Para baixar uma cópia completa em um único arquivo, use `?format=zip`; o ZIP separa as páginas nas pastas das categorias, inclui `wiki.csv`, crônicas por personagem e arquivos JSON com o contexto do RPG.
+
+```text
+GET https://rpg-wiki-api.genericbr-paypal.workers.dev/api/ai/context?format=markdown
+GET https://rpg-wiki-api.genericbr-paypal.workers.dev/api/ai/context?format=zip
+Header: X-Wiki-Context-Key: <chave-do-guia-personalizado>
+```
+
+O modo `markdown` baixa `wiki-contexto.md`. O modo `zip` baixa `wiki-contexto-rpg.zip`, contendo `contexto.md` para leitura narrativa, `contexto.json` para processamento estruturado, páginas Markdown separadas por categoria, `cronicas/` separada por personagem e dados auxiliares em `rpg/`. Ambos continuam sendo somente leitura e usam a mesma chave do endpoint JSON.
+
 A chave é criada pelo Worker, armazenada somente como hash e vinculada ao usuário que baixou o guia. Ela vale por 90 dias. Nunca envie a chave na URL, em prompts públicos, no código do site ou em logs. O endpoint devolve `401` sem a chave, com chave incorreta, expirada ou revogada.
 
 Exemplo com cURL:

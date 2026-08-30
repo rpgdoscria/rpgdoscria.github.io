@@ -8,8 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608301830">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301830">
+  <link rel="stylesheet" href="/css/style.css?v=202608301638">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301638">
+  <link rel="canonical" href="/wiki/editar">
+  <script>
+    location.replace("/wiki/editar" + location.search + location.hash);
+  </script>
 </head>
 <body>
   <div id="header-mount"></div>
@@ -30,7 +34,7 @@
       </div>
 
       <div class="field">
-        <label>Conteúdo (Markdown)</label>
+        <label>Conteúdo (Markdown + HTML seguro)</label>
         <div class="editor-split">
           <div class="editor-pane">
             <div class="pane-header">
@@ -40,13 +44,21 @@
                 <input type="file" id="img-input" accept="image/*" class="hidden">
               </span>
             </div>
-            <textarea id="content" placeholder="Escreva em Markdown… use [[Nome da Página]] para links internos."></textarea>
+            <textarea id="content" placeholder="Escreva em Markdown ou HTML… use [[Nome da Página]] para links internos."></textarea>
           </div>
           <div class="editor-pane">
             <div class="pane-header">Pré-visualização</div>
             <div class="preview prose" id="preview"></div>
           </div>
         </div>
+        <details class="editor-help" style="margin-top:10px">
+          <summary>Usar HTML na página</summary>
+          <p>Você pode combinar Markdown com HTML semântico, como <code>&lt;div&gt;</code>, <code>&lt;table&gt;</code>, <code>&lt;details&gt;</code>, <code>&lt;mark&gt;</code> e imagens com <code>src</code>. O site remove scripts, eventos JavaScript, embeds e formulários por segurança.</p>
+          <pre><code>&lt;details open&gt;
+  &lt;summary&gt;Informação secreta&lt;/summary&gt;
+  Texto que pode ser expandido.
+&lt;/details&gt;</code></pre>
+        </details>
       </div>
 
       <div class="field">
@@ -63,10 +75,10 @@
 
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/purify.min.js"></script>
-  <script src="/js/config.js?v=202608301830"></script>
-  <script src="/js/api.js?v=202608301830"></script>
-  <script src="/js/auth.js?v=202608301830"></script>
-  <script src="/js/markdown.js?v=202608301830"></script>
-  <script src="/js/editor.js?v=202608301830"></script>
+  <script src="/js/config.js?v=202608301638"></script>
+  <script src="/js/api.js?v=202608301638"></script>
+  <script src="/js/auth.js?v=202608301638"></script>
+  <script src="/js/markdown.js?v=202608301638"></script>
+  <script src="/js/editor.js?v=202608301638"></script>
 </body>
 </html>

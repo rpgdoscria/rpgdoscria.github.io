@@ -55,7 +55,13 @@
     const pre = preProcessWikilinks(md);
     const raw = window.marked.parse(pre);
     const clean = window.DOMPurify.sanitize(raw, {
-      ADD_ATTR: ["data-wiki-title", "target", "rel"],
+      // O conteúdo da wiki pode misturar Markdown com HTML semântico. Estes
+      // elementos são úteis para caixas, detalhes, tabelas e destaques, mas
+      // scripts, embeds e formulários continuam sempre bloqueados.
+      ADD_TAGS: ["details", "summary", "mark", "kbd", "del", "ins", "sub", "sup"],
+      ADD_ATTR: ["data-wiki-title", "target", "rel", "open"],
+      FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "textarea", "button", "link", "meta", "base"],
+      FORBID_ATTR: ["onabort", "onblur", "onchange", "onclick", "ondblclick", "onerror", "onfocus", "oninput", "onload", "onmouseenter", "onmouseleave", "onmouseover", "onkeydown", "onkeypress", "onkeyup", "onsubmit"],
       ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|#|\/)|data:image\/)/i,
     });
     return postProcess(clean, knownSlugs);

@@ -24,7 +24,7 @@ async function canManageCharacter(db: D1Database, user: JwtPayload, characterId:
   return !!row && row.owner_user_id === user.sub;
 }
 
-function mapChronicle(row: any) {
+function mapChronicle(row: any, user: JwtPayload) {
   return {
     id: Number(row.id),
     characterId: Number(row.character_id),
@@ -38,14 +38,32 @@ function mapChronicle(row: any) {
     createdByUsername: row.created_by_username ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    canManage: user.role === "admin" || Number(row.character_owner_user_id) === Number(user.sub),
   };
 }
 
 const SELECT_CHRONICLES = `
-  SELECT cr.*, c.name AS character_name, u.username AS created_by_username
+  SELECT cr.*, c.name AS character_name, c.owner_user_id AS character_owner_user_id, u.username AS created_by_username
   FROM chronicles cr
   JOIN characters c ON c.id = cr.character_id
   JOIN users u ON u.id = cr.created_by`;
+
+chronicleRoutes.get("/characters", async (c) => {
+  const user = await getUser(c);
+  if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const rows = await queryAll<any>(c.env.DB,
+    `SELECT c.id, c.name, c.owner_user_id, u.username AS owner_username
+     FROM characters c JOIN users u ON u.id = c.owner_user_id
+     ORDER BY c.name COLLATE NOCASE, c.id ASC`
+  );
+  return c.json({ characters: rows.map(row => ({
+    id: Number(row.id),
+    name: row.name,
+    ownerUserId: Number(row.owner_user_id),
+    ownerUsername: row.owner_username,
+    canManage: user.role === "admin" || Number(row.owner_user_id) === Number(user.sub),
+  })) });
+});
 
 chronicleRoutes.get("/", async (c) => {
   const user = await getUser(c);
@@ -61,7 +79,7 @@ chronicleRoutes.get("/", async (c) => {
       : `${SELECT_CHRONICLES} ORDER BY cr.updated_at DESC, cr.id DESC LIMIT 300`,
     ...(characterId ? [characterId] : [])
   );
-  return c.json({ chronicles: rows.map(mapChronicle) });
+  return c.json({ chronicles: rows.map(row => mapChronicle(row, user)) });
 });
 
 chronicleRoutes.get("/:id", async (c) => {
@@ -70,7 +88,7 @@ chronicleRoutes.get("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const row = await queryFirst<any>(c.env.DB, `${SELECT_CHRONICLES} WHERE cr.id = ?`, id);
   if (!row) return c.json({ error: "Crônica não encontrada." }, 404);
-  return c.json(mapChronicle(row));
+  return c.json(mapChronicle(row, user));
 });
 
 chronicleRoutes.post("/", async (c) => {

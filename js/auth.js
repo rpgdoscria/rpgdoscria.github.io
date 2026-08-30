@@ -104,6 +104,7 @@
       items: [
         { href: "/meus-personagens", label: "Meus Personagens", key: "characters" },
         { href: "/criar-personagem", label: "Criar Personagem" },
+        { href: "/cronicas", label: "Crônicas", key: "chronicles" },
         { href: "/gerenciar-sets-regras", label: "Sets de Regras", key: "rulesets", minMaster: true },
       ],
     });
@@ -113,7 +114,7 @@
       items: [
         { href: "/criar-sala", label: "Criar Sala", key: "rooms", minMaster: true },
         { href: "/entrar-sala", label: "Entrar em Sala", key: "join" },
-        { href: "/perfil", label: "Minhas Salas", minMaster: true },
+        { href: "/perfil", label: "Minhas Salas", key: "perfil", minMaster: true },
       ],
     });
     if (isAdmin) {

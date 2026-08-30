@@ -176,11 +176,10 @@ if (fs.existsSync(cacheBustPath)) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      // Procura index.html dentro da subpasta (ex: sala/index.html)
-      const subIndex = path.join(dir, entry.name, "index.html");
-      if (fs.existsSync(subIndex)) out.push(subIndex);
-    } else if (entry.isFile() && entry.name.endsWith(".html") && entry.name !== "index.html") {
-      // Arquivos .html soltos (não move — legado)
+      if (entry.name === ".git" || entry.name === "node_modules") continue;
+      out.push(...findHtmlFiles(path.join(dir, entry.name)));
+    } else if (entry.isFile() && entry.name.endsWith(".html")) {
+      // Arquivos .html soltos e índices de qualquer profundidade.
       out.push(path.join(dir, entry.name));
     }
   }

@@ -8,38 +8,75 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608301830">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301830">
+  <link rel="stylesheet" href="/css/style.css?v=202608301638">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301638">
   <style>
-    .chronicles-layout { display:grid; grid-template-columns:minmax(220px, .75fr) minmax(0, 1.7fr); gap:20px; align-items:start; }
-    .chronicle-list { display:grid; gap:10px; max-height:calc(100vh - 210px); overflow:auto; padding-right:3px; }
-    .chronicle-item { width:100%; text-align:left; border:1px solid var(--border-color, #334155); background:var(--surface, #111827); color:inherit; border-radius:12px; padding:12px; cursor:pointer; }
-    .chronicle-item.active { border-color:var(--accent, #a78bfa); box-shadow:0 0 0 1px var(--accent, #a78bfa); }
-    .chronicle-cover { width:100%; max-height:260px; object-fit:cover; border-radius:12px; margin-bottom:16px; }
+    .chronicles-hero { position:relative; overflow:hidden; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:26px 28px; margin-bottom:18px; border:1px solid color-mix(in srgb, var(--accent, #a78bfa) 35%, var(--border-color, #334155)); border-radius:18px; background:radial-gradient(circle at 86% 8%, color-mix(in srgb, var(--accent, #a78bfa) 22%, transparent), transparent 38%), linear-gradient(135deg, color-mix(in srgb, var(--surface, #111827) 88%, var(--accent, #a78bfa)), var(--surface, #111827)); box-shadow:0 16px 40px rgba(0,0,0,.14); }
+    .chronicles-hero::after { content:"✦"; position:absolute; right:22%; top:-28px; color:color-mix(in srgb, var(--accent, #a78bfa) 45%, transparent); font-size:120px; line-height:1; transform:rotate(18deg); pointer-events:none; }
+    .chronicles-hero-copy { position:relative; z-index:1; display:flex; align-items:center; gap:16px; }
+    .chronicles-hero-mark { display:grid; place-items:center; width:56px; height:56px; flex:0 0 56px; border:1px solid color-mix(in srgb, var(--accent, #a78bfa) 60%, transparent); border-radius:16px; background:color-mix(in srgb, var(--accent, #a78bfa) 18%, transparent); color:var(--accent, #a78bfa); font-size:26px; box-shadow:inset 0 0 18px color-mix(in srgb, var(--accent, #a78bfa) 13%, transparent); }
+    .chronicles-eyebrow { margin:0 0 5px; color:var(--accent, #a78bfa); font-size:11px; font-weight:800; letter-spacing:.15em; text-transform:uppercase; }
+    .chronicles-title { margin:0; font-family:var(--font-serif); font-size:32px; letter-spacing:-.02em; }
+    .chronicles-subtitle { margin:5px 0 0; max-width:560px; color:var(--text-muted, #94a3b8); font-size:14px; }
+    .chronicles-hero .btn { position:relative; z-index:1; white-space:nowrap; }
+    .chronicles-toolbar { display:flex; align-items:end; justify-content:space-between; gap:18px; padding:16px 18px; margin-bottom:20px; border:1px solid var(--border-color, #334155); border-radius:14px; background:color-mix(in srgb, var(--surface, #111827) 92%, var(--accent, #a78bfa)); }
+    .chronicles-toolbar label { display:block; margin-bottom:7px; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+    .chronicles-toolbar select { min-width:min(460px, 70vw); }
+    .chronicles-guide { max-width:560px; }
+    .chronicles-guide summary { color:var(--accent, #a78bfa); font-weight:600; }
+    .chronicles-layout { display:grid; grid-template-columns:minmax(240px, .75fr) minmax(0, 1.7fr); gap:20px; align-items:start; }
+    .chronicles-sidebar { position:sticky; top:18px; min-width:0; }
+    .chronicles-sidebar-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .chronicles-sidebar-heading h2 { margin:0; font-size:18px; }
+    .chronicles-sidebar-heading span { color:var(--text-muted, #94a3b8); font-size:12px; }
+    .chronicle-list { display:grid; gap:10px; max-height:calc(100vh - 290px); overflow:auto; padding:2px 3px 2px 0; }
+    .chronicle-item { width:100%; text-align:left; border:1px solid var(--border-color, #334155); background:var(--surface, #111827); color:inherit; border-radius:13px; padding:13px; cursor:pointer; transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+    .chronicle-item:hover { transform:translateY(-1px); border-color:color-mix(in srgb, var(--accent, #a78bfa) 55%, var(--border-color, #334155)); }
+    .chronicle-item.active { border-color:var(--accent, #a78bfa); box-shadow:0 0 0 1px var(--accent, #a78bfa), 0 8px 22px rgba(0,0,0,.12); }
+    .chronicle-item-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
+    .chronicle-item-icon { color:var(--accent, #a78bfa); font-size:14px; }
+    .chronicle-item-arrow { color:var(--text-muted, #94a3b8); font-size:16px; }
+    .chronicle-item-title { overflow:hidden; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+    .chronicle-item-excerpt { display:-webkit-box; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-height:1.45; }
+    .chronicle-reader { min-height:480px; padding:24px; border-top:3px solid color-mix(in srgb, var(--accent, #a78bfa) 75%, transparent); }
+    .chronicle-reader-head { padding-bottom:16px; border-bottom:1px solid var(--border-color, #334155); }
+    .chronicle-reader-head h2 { font-size:28px; letter-spacing:-.02em; }
+    .chronicle-view-actions { display:flex; gap:8px; }
+    .chronicle-empty { display:grid; place-items:center; min-height:420px; padding:36px 18px; text-align:center; }
+    .chronicle-empty-icon { display:grid; place-items:center; width:64px; height:64px; margin:0 auto 14px; border-radius:50%; background:color-mix(in srgb, var(--accent, #a78bfa) 14%, transparent); color:var(--accent, #a78bfa); font-size:28px; }
+    .chronicle-cover { width:100%; max-height:300px; object-fit:cover; border-radius:14px; margin:20px 0 4px; border:1px solid var(--border-color, #334155); box-shadow:0 12px 28px rgba(0,0,0,.16); }
     .chronicle-content { min-height:260px; line-height:1.7; }
+    .chronicle-content h1, .chronicle-content h2, .chronicle-content h3 { font-family:var(--font-serif); }
+    .chronicle-content blockquote { margin-left:0; padding:10px 16px; border-left:3px solid var(--accent, #a78bfa); background:color-mix(in srgb, var(--accent, #a78bfa) 8%, transparent); border-radius:0 8px 8px 0; }
     .chronicle-content img { max-width:100%; height:auto; border-radius:10px; }
     .chronicle-content pre { overflow:auto; padding:12px; border-radius:8px; background:rgba(0,0,0,.25); }
     .chronicle-editor { min-height:320px; width:100%; resize:vertical; font-family:var(--font-mono, monospace); line-height:1.55; }
     .chronicle-editor[hidden], #chronicle-preview[hidden] { display:none; }
-    @media (max-width: 800px) { .chronicles-layout { grid-template-columns:1fr; } .chronicle-list { max-height:none; } }
+    @media (max-width: 800px) { .chronicles-hero { align-items:flex-start; flex-direction:column; padding:22px; } .chronicles-hero::after { right:0; } .chronicles-toolbar { align-items:stretch; flex-direction:column; } .chronicles-toolbar select { min-width:0; width:100%; } .chronicles-layout { grid-template-columns:1fr; } .chronicles-sidebar { position:static; } .chronicle-list { max-height:none; } .chronicle-reader { padding:18px; } }
   </style>
 </head>
 <body>
   <div id="header-mount"></div>
   <main class="container wide">
-    <div class="flex items-center justify-between mb-4" style="gap:12px;flex-wrap:wrap">
-      <div>
-        <h1 style="font-family:var(--font-serif);font-size:28px;margin:0">Crônicas</h1>
-        <p class="muted text-sm" style="margin:4px 0 0">Histórias permanentes ligadas às fichas dos personagens.</p>
+    <section class="chronicles-hero">
+      <div class="chronicles-hero-copy">
+        <div class="chronicles-hero-mark" aria-hidden="true">✦</div>
+        <div>
+          <p class="chronicles-eyebrow">Arquivo narrativo</p>
+          <h1 class="chronicles-title">Crônicas</h1>
+          <p class="chronicles-subtitle">Registre as histórias que transformam seus personagens e deixe cada capítulo ligado à ficha para sempre.</p>
+        </div>
       </div>
       <a class="btn" href="/meus-personagens">← Meus personagens</a>
-    </div>
+    </section>
 
     <div id="alert-mount"></div>
-    <div class="card" style="padding:14px;margin-bottom:18px">
-      <label for="character-select" class="text-sm" style="display:block;margin-bottom:6px">Personagem da crônica</label>
-      <select id="character-select" class="input" style="max-width:460px"></select>
-      <details style="margin-top:12px">
+    <div class="chronicles-toolbar">
+      <div>
+        <label for="character-select">Personagem da crônica</label>
+        <select id="character-select" class="input"></select>
+      </div>
+      <details class="chronicles-guide">
         <summary class="muted text-sm" style="cursor:pointer">Como usar as crônicas?</summary>
         <div class="muted text-sm" style="margin-top:8px;line-height:1.6">
           <p style="margin:0 0 6px"><strong>1.</strong> Escolha o personagem e clique em <strong>+ Nova</strong>. Cada crônica fica permanentemente ligada à ficha selecionada.</p>
@@ -51,23 +88,24 @@
     </div>
 
     <div class="chronicles-layout">
-      <aside>
-        <div class="flex items-center justify-between mb-2">
-          <h2 style="font-size:18px;margin:0">Histórias</h2>
+      <aside class="chronicles-sidebar">
+        <div class="chronicles-sidebar-heading">
+          <h2>Histórias</h2>
+          <span>por personagem</span>
           <button id="new-chronicle" class="btn btn-sm btn-primary">+ Nova</button>
         </div>
         <div id="chronicle-list" class="chronicle-list"></div>
       </aside>
 
-      <section class="card" style="padding:20px">
-        <div id="empty-state" class="muted" style="padding:48px 12px;text-align:center">Selecione um personagem para ver ou criar uma crônica.</div>
+      <section class="card chronicle-reader">
+        <div id="empty-state" class="muted chronicle-empty"><div><div class="chronicle-empty-icon" aria-hidden="true">✧</div><strong>Seu próximo capítulo começa aqui</strong><p style="margin:7px 0 0">Selecione um personagem e crie uma crônica para registrar a jornada.</p></div></div>
         <div id="chronicle-view" hidden>
-          <div class="flex items-center justify-between" style="gap:12px;flex-wrap:wrap">
+          <div class="chronicle-reader-head flex items-center justify-between" style="gap:12px;flex-wrap:wrap">
             <div>
               <h2 id="view-title" style="font-family:var(--font-serif);margin:0 0 4px"></h2>
               <div id="view-meta" class="muted text-xs"></div>
             </div>
-            <div class="flex gap-2">
+            <div class="chronicle-view-actions">
               <button id="edit-chronicle" class="btn btn-sm">Editar</button>
               <button id="delete-chronicle" class="btn btn-sm btn-danger">Apagar</button>
             </div>
@@ -116,36 +154,37 @@
 
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/purify.min.js"></script>
-  <script src="/js/config.js?v=202608301830"></script>
-  <script src="/js/api.js?v=202608301830"></script>
-  <script src="/js/auth.js?v=202608301830"></script>
-  <script src="/js/markdown.js?v=202608301830"></script>
+  <script src="/js/config.js?v=202608301638"></script>
+  <script src="/js/api.js?v=202608301638"></script>
+  <script src="/js/auth.js?v=202608301638"></script>
+  <script src="/js/markdown.js?v=202608301638"></script>
   <script>
     (async function () {
-      window.auth.mountHeader("#header-mount", "characters");
+      window.auth.mountHeader("#header-mount", "chronicles");
       const sess = window.auth.requireAuth("viewer");
       if (!sess) return;
 
       const $ = id => document.getElementById(id);
-      const state = { characters: [], chronicles: [], selectedId: null, editingId: null };
+      const state = { characters: [], chronicles: [], selectedCharacterId: null, selectedChronicleId: null, editingId: null };
       const params = new URLSearchParams(location.search);
       const requestedCharacterId = Number(params.get("characterId")) || null;
 
       function escapeHtml(s) { return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#39;"}[m])); }
       function alertBox(type, message) { $("alert-mount").innerHTML = `<div class="alert alert-${type}">${escapeHtml(message)}</div>`; }
       function clearAlert() { $("alert-mount").innerHTML = ""; }
-      function selectedCharacter() { return state.characters.find(c => Number(c.id) === Number(state.selectedId)); }
+      function selectedCharacter() { return state.characters.find(c => Number(c.id) === Number(state.selectedCharacterId)); }
       function setQueryCharacter(id) { history.replaceState(null, "", `/cronicas?characterId=${encodeURIComponent(id)}`); }
       function renderList() {
         const list = $("chronicle-list");
         if (!state.chronicles.length) { list.innerHTML = `<div class="muted text-sm card" style="padding:18px">Nenhuma crônica ainda. Clique em “+ Nova” para começar.</div>`; return; }
-        list.innerHTML = state.chronicles.map(ch => `<button type="button" class="chronicle-item ${Number(ch.id) === Number(state.selectedId) ? "active" : ""}" data-id="${ch.id}"><div style="font-weight:700">${escapeHtml(ch.title)}</div><div class="muted text-xs" style="margin-top:4px">${escapeHtml(ch.excerpt || "Sem resumo")}</div></button>`).join("");
+        list.innerHTML = state.chronicles.map(ch => `<button type="button" class="chronicle-item ${Number(ch.id) === Number(state.selectedChronicleId) ? "active" : ""}" data-id="${ch.id}"><div class="chronicle-item-top"><span class="chronicle-item-icon" aria-hidden="true">✦</span><span class="chronicle-item-arrow" aria-hidden="true">›</span></div><div class="chronicle-item-title">${escapeHtml(ch.title)}</div><div class="chronicle-item-excerpt muted text-xs" style="margin-top:5px">${escapeHtml(ch.excerpt || "Sem resumo")}</div></button>`).join("");
         list.querySelectorAll("[data-id]").forEach(btn => btn.addEventListener("click", () => selectChronicle(Number(btn.dataset.id))));
       }
       function renderSelected() {
-        const ch = state.chronicles.find(item => Number(item.id) === Number(state.selectedId));
-        if (!ch) { $("chronicle-view").hidden = true; $("empty-state").hidden = false; return; }
+        const ch = state.chronicles.find(item => Number(item.id) === Number(state.selectedChronicleId));
+        if (!ch) { $("chronicle-view").hidden = true; $("chronicle-form").hidden = true; $("empty-state").hidden = false; $("edit-chronicle").hidden = true; $("delete-chronicle").hidden = true; return; }
         $("empty-state").hidden = true; $("chronicle-view").hidden = false;
+        $("edit-chronicle").hidden = !ch.canManage; $("delete-chronicle").hidden = !ch.canManage;
         $("view-title").textContent = ch.title;
         $("view-meta").textContent = `${ch.characterName || "Personagem"} · atualizado em ${new Date(ch.updatedAt).toLocaleString("pt-BR")}`;
         const cover = $("view-cover");
@@ -153,8 +192,9 @@
         cover.onerror = () => { cover.hidden = true; };
         $("chronicle-content").innerHTML = window.md.render(ch.contentMd || "");
       }
-      function selectChronicle(id) { state.selectedId = id; state.editingId = null; $("chronicle-form").hidden = true; renderList(); renderSelected(); }
+      function selectChronicle(id) { state.selectedChronicleId = id; state.editingId = null; $("chronicle-form").hidden = true; renderList(); renderSelected(); }
       function openForm(ch) {
+        if (!selectedCharacter()?.canManage || (ch && !ch.canManage)) { alertBox("error", "Somente o dono do personagem ou o mestre pode editar crônicas desta ficha."); return; }
         state.editingId = ch ? Number(ch.id) : null;
         $("chronicle-view").hidden = true; $("empty-state").hidden = true; $("chronicle-form").hidden = false;
         $("form-heading").textContent = ch ? "Editar crônica" : `Nova crônica para ${selectedCharacter()?.name || "personagem"}`;
@@ -163,25 +203,25 @@
         $("chronicle-title").focus();
       }
       async function loadChronicles() {
-        state.chronicles = (await window.api.get(`/api/chronicles?characterId=${encodeURIComponent(state.selectedId)}`)).chronicles || [];
+        state.chronicles = (await window.api.get(`/api/chronicles?characterId=${encodeURIComponent(state.selectedCharacterId)}`)).chronicles || [];
         renderList();
-        if (state.chronicles.length) selectChronicle(state.chronicles[0].id); else { state.selectedId = null; renderSelected(); }
+        if (state.chronicles.length) selectChronicle(state.chronicles[0].id); else { state.selectedChronicleId = null; renderSelected(); }
       }
       function insertAtCursor(text) { const el = $("chronicle-markdown"); const start = el.selectionStart; el.value = el.value.slice(0, start) + text + el.value.slice(el.selectionEnd); el.focus(); el.selectionStart = el.selectionEnd = start + text.length; }
 
-      $("character-select").addEventListener("change", async event => { state.selectedId = Number(event.target.value); setQueryCharacter(state.selectedId); await loadChronicles(); });
-      $("new-chronicle").addEventListener("click", () => { if (selectedCharacter()) openForm(null); else alertBox("error", "Selecione um personagem primeiro."); });
-      $("edit-chronicle").addEventListener("click", () => openForm(state.chronicles.find(ch => Number(ch.id) === Number(state.selectedId))));
-      $("delete-chronicle").addEventListener("click", async () => { if (!state.selectedId || !confirm("Apagar esta crônica?")) return; try { await window.api.del(`/api/chronicles/${state.selectedId}`); alertBox("success", "Crônica apagada."); await loadChronicles(); } catch (e) { alertBox("error", e.message); } });
+      $("character-select").addEventListener("change", async event => { state.selectedCharacterId = Number(event.target.value); setQueryCharacter(state.selectedCharacterId); await loadChronicles(); });
+      $("new-chronicle").addEventListener("click", () => { if (selectedCharacter()?.canManage) openForm(null); else alertBox("error", "Somente o dono do personagem ou o mestre pode criar crônicas nesta ficha."); });
+      $("edit-chronicle").addEventListener("click", () => openForm(state.chronicles.find(ch => Number(ch.id) === Number(state.selectedChronicleId))));
+      $("delete-chronicle").addEventListener("click", async () => { if (!state.selectedChronicleId || !confirm("Apagar esta crônica?")) return; try { await window.api.del(`/api/chronicles/${state.selectedChronicleId}`); alertBox("success", "Crônica apagada."); await loadChronicles(); } catch (e) { alertBox("error", e.message); } });
       [$("cancel-edit"), $("cancel-edit-bottom")].forEach(btn => btn.addEventListener("click", () => { state.editingId ? selectChronicle(state.editingId) : ( $("chronicle-form").hidden = true, renderSelected() ); }));
       $("insert-image").addEventListener("click", () => { const url = prompt("Cole a URL pública da imagem:"); if (url) insertAtCursor(`![Descrição da imagem](${url})`); });
       $("toggle-preview").addEventListener("click", () => { const preview = $("chronicle-preview"); const editing = !$("chronicle-markdown").hidden; preview.innerHTML = window.md.render($("chronicle-markdown").value); preview.hidden = !editing; $("chronicle-markdown").hidden = editing; $("toggle-preview").textContent = editing ? "Voltar ao editor" : "Pré-visualizar"; });
-      $("chronicle-form").addEventListener("submit", async event => { event.preventDefault(); clearAlert(); const body = { characterId: state.selectedId, title: $("chronicle-title").value.trim(), excerpt: $("chronicle-excerpt").value.trim(), coverImageUrl: $("chronicle-cover").value.trim() || null, contentMd: $("chronicle-markdown").value }; try { if (state.editingId) await window.api.put(`/api/chronicles/${state.editingId}`, body); else { const created = await window.api.post("/api/chronicles", body); state.selectedId = Number(created.id); } alertBox("success", "Crônica salva."); await loadChronicles(); } catch (e) { alertBox("error", e.message); } });
+      $("chronicle-form").addEventListener("submit", async event => { event.preventDefault(); clearAlert(); const body = { characterId: state.selectedCharacterId, title: $("chronicle-title").value.trim(), excerpt: $("chronicle-excerpt").value.trim(), coverImageUrl: $("chronicle-cover").value.trim() || null, contentMd: $("chronicle-markdown").value }; try { if (state.editingId) await window.api.put(`/api/chronicles/${state.editingId}`, body); else await window.api.post("/api/chronicles", body); alertBox("success", "Crônica salva."); await loadChronicles(); } catch (e) { alertBox("error", e.message); } });
 
       try {
-        const data = await window.api.get("/api/characters"); state.characters = data.characters || [];
+        const data = await window.api.get("/api/chronicles/characters"); state.characters = data.characters || [];
         if (!state.characters.length) { $("character-select").innerHTML = `<option>Nenhum personagem encontrado</option>`; $("new-chronicle").disabled = true; return; }
-        const initial = state.characters.find(c => Number(c.id) === requestedCharacterId) || state.characters[0]; state.selectedId = Number(initial.id); $("character-select").innerHTML = state.characters.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join(""); $("character-select").value = String(state.selectedId); setQueryCharacter(state.selectedId); await loadChronicles();
+        const initial = state.characters.find(c => Number(c.id) === requestedCharacterId) || state.characters[0]; state.selectedCharacterId = Number(initial.id); $("character-select").innerHTML = state.characters.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml(c.ownerUsername || "jogador")}</option>`).join(""); $("character-select").value = String(state.selectedCharacterId); setQueryCharacter(state.selectedCharacterId); await loadChronicles();
       } catch (e) { alertBox("error", e.message); }
     })();
   </script>
