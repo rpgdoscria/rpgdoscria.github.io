@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608301715">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301715">
+  <link rel="stylesheet" href="/css/style.css?v=202608301800">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301800">
   <style>
     .chronicles-layout { display:grid; grid-template-columns:minmax(220px, .75fr) minmax(0, 1.7fr); gap:20px; align-items:start; }
     .chronicle-list { display:grid; gap:10px; max-height:calc(100vh - 210px); overflow:auto; padding-right:3px; }
@@ -39,6 +39,15 @@
     <div class="card" style="padding:14px;margin-bottom:18px">
       <label for="character-select" class="text-sm" style="display:block;margin-bottom:6px">Personagem da crônica</label>
       <select id="character-select" class="input" style="max-width:460px"></select>
+      <details style="margin-top:12px">
+        <summary class="muted text-sm" style="cursor:pointer">Como usar as crônicas?</summary>
+        <div class="muted text-sm" style="margin-top:8px;line-height:1.6">
+          <p style="margin:0 0 6px"><strong>1.</strong> Escolha o personagem e clique em <strong>+ Nova</strong>. Cada crônica fica permanentemente ligada à ficha selecionada.</p>
+          <p style="margin:0 0 6px"><strong>2.</strong> Dê um título, escreva o resumo e registre o acontecimento em Markdown. Use títulos para capítulos, listas para fatos e tabelas quando precisar organizar informações.</p>
+          <p style="margin:0 0 6px"><strong>3.</strong> Conecte a história à wiki usando <code>[[Nome da página]]</code> e adicione imagens com <code>![descrição](https://res.cloudinary.com/...)</code>.</p>
+          <p style="margin:0"><strong>4.</strong> Use <strong>Pré-visualizar</strong>, revise as consequências e clique em <strong>Salvar crônica</strong>. Para continuar depois, abra a crônica na lista e use <strong>Editar</strong>.</p>
+        </div>
+      </details>
     </div>
 
     <div class="chronicles-layout">
@@ -107,10 +116,10 @@
 
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/purify.min.js"></script>
-  <script src="/js/config.js?v=202608301715"></script>
-  <script src="/js/api.js?v=202608301715"></script>
-  <script src="/js/auth.js?v=202608301715"></script>
-  <script src="/js/markdown.js?v=202608301715"></script>
+  <script src="/js/config.js?v=202608301800"></script>
+  <script src="/js/api.js?v=202608301800"></script>
+  <script src="/js/auth.js?v=202608301800"></script>
+  <script src="/js/markdown.js?v=202608301800"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "characters");

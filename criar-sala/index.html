@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608301715">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301715">
+  <link rel="stylesheet" href="/css/style.css?v=202608301800">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301800">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -47,6 +47,15 @@
         <a href="/" class="btn btn-ghost">Cancelar</a>
       </div>
       <p class="text-xs muted" id="create-hint" style="text-align:center;margin-top:8px">Digite um nome para a sala</p>
+
+      <div class="card" style="margin-top:22px;padding:16px;text-align:left">
+        <h3 style="margin:0 0 6px">🤖 Planejamento com agente de IA</h3>
+        <p class="text-sm muted" style="margin:0 0 12px">Baixe um guia Markdown personalizado com uma chave vinculada ao seu usuário. O agente poderá ler o contexto da wiki e cada leitura ficará identificada no log.</p>
+        <button class="btn btn-ghost" id="btn-download-ai-guide">⬇️ Baixar guia personalizado (.md)</button>
+        <button class="btn btn-ghost" id="btn-load-ai-access-log">🧾 Ver acessos do agente</button>
+        <div id="ai-guide-status" class="text-xs muted" style="margin-top:8px"></div>
+        <div id="ai-access-log" class="text-xs" style="margin-top:10px"></div>
+      </div>
     </div>
 
     <!-- Lista de salas existentes -->
@@ -56,9 +65,9 @@
     </div>
   </main>
 
-  <script src="/js/config.js?v=202608301715"></script>
-  <script src="/js/api.js?v=202608301715"></script>
-  <script src="/js/auth.js?v=202608301715"></script>
+  <script src="/js/config.js?v=202608301800"></script>
+  <script src="/js/api.js?v=202608301800"></script>
+  <script src="/js/auth.js?v=202608301800"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -78,6 +87,48 @@
       function escapeHtml(s) {
         return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
       }
+
+      document.getElementById("btn-download-ai-guide").addEventListener("click", async () => {
+        const button = document.getElementById("btn-download-ai-guide");
+        const status = document.getElementById("ai-guide-status");
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner"></span> Gerando guia…';
+        status.textContent = "A chave será vinculada ao seu usuário e terá validade de 90 dias.";
+        try {
+          const markdown = await window.api.fetch("/api/ai/agent-guide");
+          const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = "GUIA-AGENTE-RPG.md";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          status.textContent = "Guia baixado. Guarde o arquivo em local privado: ele contém a chave do seu usuário.";
+          showAlert("success", "Guia personalizado baixado.");
+        } catch (e) {
+          status.textContent = "Não foi possível gerar o guia.";
+          showAlert("error", e.message);
+        } finally {
+          button.disabled = false;
+          button.textContent = "⬇️ Baixar guia personalizado (.md)";
+        }
+      });
+
+      document.getElementById("btn-load-ai-access-log").addEventListener("click", async () => {
+        const button = document.getElementById("btn-load-ai-access-log");
+        const mount = document.getElementById("ai-access-log");
+        button.disabled = true;
+        try {
+          const data = await window.api.get("/api/ai/access-log");
+          const rows = data.accesses || [];
+          mount.innerHTML = rows.length
+            ? `<div class="muted" style="margin-bottom:4px">Últimos acessos registrados:</div>${rows.slice(0, 10).map(row => `<div style="padding:4px 0;border-top:1px solid var(--border-soft)"><strong>${escapeHtml(row.username)}</strong> · ${escapeHtml(row.accessedAt)} · ${row.pagesCount ?? 0} páginas · ${row.chroniclesCount ?? 0} crônicas</div>`).join("")}`
+            : `<div class="muted">Nenhum agente acessou o contexto ainda.</div>`;
+        } catch (e) { mount.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`; }
+        finally { button.disabled = false; }
+      });
 
       const selected = new Set();
       const nameInput = document.getElementById("room-name");

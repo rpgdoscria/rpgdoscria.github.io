@@ -2,20 +2,22 @@
 
 Este projeto disponibiliza um endpoint **somente leitura** para um agente de IA consultar a wiki e os dados importantes do RPG antes de propor ou escrever novas seções. O objetivo é que o mestre consiga entregar o contexto ao agente e começar o planejamento de uma sessão, arco, NPC, encontro ou página nova imediatamente.
 
+Este arquivo versionado é apenas a documentação pública do contrato e **não contém uma chave real**. Para receber um Markdown personalizado com a chave ligada ao seu usuário, entre em `/criar-sala` como mestre e clique em **“Baixar guia personalizado (.md)”**. A leitura feita com essa chave fica registrada para identificar qual usuário autorizou o agente.
+
 ## Acesso
 
 ```text
 GET https://rpg-wiki-api.genericbr-paypal.workers.dev/api/ai/context
-Header: X-Wiki-Context-Key: <AI_CONTEXT_KEY>
+Header: X-Wiki-Context-Key: <chave-do-guia-personalizado>
 ```
 
-A chave fica configurada como o secret `AI_CONTEXT_KEY` do Cloudflare Worker. Nunca envie a chave na URL, em prompts públicos, no código do site ou em logs. O endpoint devolve `401` sem a chave ou com uma chave incorreta e `503` se o secret não estiver configurado.
+A chave é criada pelo Worker, armazenada somente como hash e vinculada ao usuário que baixou o guia. Ela vale por 90 dias. Nunca envie a chave na URL, em prompts públicos, no código do site ou em logs. O endpoint devolve `401` sem a chave, com chave incorreta, expirada ou revogada.
 
 Exemplo com cURL:
 
 ```bash
 curl -sS \
-  -H "X-Wiki-Context-Key: ${AI_CONTEXT_KEY}" \
+  -H "X-Wiki-Context-Key: ${WIKI_CONTEXT_KEY}" \
   "https://rpg-wiki-api.genericbr-paypal.workers.dev/api/ai/context"
 ```
 
@@ -24,7 +26,7 @@ Exemplo em JavaScript:
 ```js
 const response = await fetch(
   "https://rpg-wiki-api.genericbr-paypal.workers.dev/api/ai/context",
-  { headers: { "X-Wiki-Context-Key": process.env.AI_CONTEXT_KEY } }
+  { headers: { "X-Wiki-Context-Key": process.env.WIKI_CONTEXT_KEY } }
 );
 const context = await response.json();
 ```
@@ -34,6 +36,7 @@ const context = await response.json();
 O JSON contém:
 
 - `readOnly`: sempre `true` neste endpoint.
+- `accessedBy`: usuário ao qual a chave foi vinculada; cada acesso também fica no log de auditoria técnico.
 - `wiki.categories`: categorias existentes.
 - `wiki.pages`: todas as páginas, seus títulos, slugs, categorias e conteúdo Markdown. Como o acesso é protegido por uma chave própria da integração, páginas secretas também aparecem; trate a resposta como informação confidencial.
 - `chronicles`: crônicas ligadas aos personagens, com título, resumo, capa e `contentMd`.
@@ -84,7 +87,8 @@ Responda nesta ordem:
 
 - A resposta usa `Cache-Control: no-store`.
 - O endpoint não recebe a chave por query string.
-- A chave deve ser armazenada em um secret do ambiente do agente, por exemplo `AI_CONTEXT_KEY`, e não em arquivos versionados.
+- A chave deve ser copiada do guia baixado para um secret do ambiente do agente, por exemplo `WIKI_CONTEXT_KEY`, e não para arquivos versionados.
+- Para gerar ou renovar a chave, o mestre deve baixar outro guia em `/criar-sala`. A nova chave fica vinculada ao mesmo usuário e possui validade própria.
 - Não publique a resposta completa: ela pode conter inventários, dados de salas e páginas secretas.
 - Se o endpoint retornar erro, pare e informe o operador; não tente contornar a proteção nem use endpoints de escrita.
 
@@ -98,4 +102,4 @@ O mesmo upload aceita áudio para o soundboard, com limite de 20 MB por faixa. A
 
 ## Operações da aplicação relacionadas
 
-As crônicas são persistidas pela API autenticada em `/api/chronicles`. A página `/cronicas?characterId=<id>` permite visualizar, editar e vincular histórias aos personagens. O editor de páginas fica em `/edit?slug=<slug>`. O soundboard fica na aba “Soundboard” de cada sala; somente o mestre cria, remove e toca faixas. O endpoint de contexto apenas lê esse material para auxiliar o planejamento do agente.
+As crônicas são persistidas pela API autenticada em `/api/chronicles`. A página `/cronicas?characterId=<id>` permite visualizar, editar e vincular histórias aos personagens. O editor de páginas fica em `/edit?slug=<slug>`. O guia personalizado é baixado em `/criar-sala`; o endpoint `/api/ai/agent-guide` cria a chave e o arquivo em uma resposta que não fica em cache. O soundboard fica na aba “Soundboard” de cada sala; somente o mestre cria, remove e toca faixas. O endpoint de contexto apenas lê esse material para auxiliar o planejamento do agente.

@@ -188,6 +188,8 @@ adminRoutes.delete("/users/:id", async (c) => {
     { table: "dice_log",      column: "roller_user_id" },
     { table: "stat_templates", column: "created_by" },
     { table: "audit_log",     column: "user_id" },
+    { table: "ai_context_tokens", column: "user_id" },
+    { table: "ai_context_access_log", column: "user_id" },
   ];
   let totalAssociated = 0;
   const details: Record<string, number> = {};
