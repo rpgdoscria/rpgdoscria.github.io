@@ -1,4 +1,4 @@
-// routes/upload.ts — upload de imagem para Cloudinary (free tier, 25GB, sem cartão)
+// routes/upload.ts — upload de imagens e áudios para Cloudinary.
 //
 // BUG CORRIGIDO (401 do Cloudinary):
 // A assinatura anterior não incluía o parâmetro `folder` no hash SHA-1, mas o
@@ -27,7 +27,21 @@ const ALLOWED_TYPES = new Set([
   "image/gif",
   // SVG removido: pode conter <script> que executa no navegador.
 ]);
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_AUDIO_TYPES = new Set([
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/ogg",
+  "audio/opus",
+  "audio/flac",
+  "audio/aac",
+  "audio/mp4",
+  "audio/x-m4a",
+  "audio/webm",
+]);
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_AUDIO_BYTES = 20 * 1024 * 1024; // 20 MB por faixa do soundboard
 
 uploadRoutes.post("/", requireRole("editor"), async (c) => {
   const user = c.get("user") as JwtPayload;
@@ -52,11 +66,14 @@ uploadRoutes.post("/", requireRole("editor"), async (c) => {
     return c.json({ error: "Campo 'file' ausente ou inválido." }, 400);
   }
   const f = file as { name: string; type: string; size: number; arrayBuffer: () => Promise<ArrayBuffer> };
-  if (!ALLOWED_TYPES.has(f.type)) {
-    return c.json({ error: `Tipo não permitido: ${f.type}.` }, 400);
+  const isImage = ALLOWED_TYPES.has(f.type);
+  const isAudio = ALLOWED_AUDIO_TYPES.has(f.type);
+  if (!isImage && !isAudio) {
+    return c.json({ error: `Tipo não permitido: ${f.type}. Envie uma imagem ou áudio compatível.` }, 400);
   }
-  if (f.size > MAX_BYTES) {
-    return c.json({ error: "Arquivo excede 5 MB." }, 400);
+  const maxBytes = isAudio ? MAX_AUDIO_BYTES : MAX_IMAGE_BYTES;
+  if (f.size > maxBytes) {
+    return c.json({ error: isAudio ? "Áudio excede 20 MB." : "Imagem excede 5 MB." }, 400);
   }
 
   // Validação de magic bytes (Content-Type do cliente pode ser forjado)
@@ -75,7 +92,7 @@ uploadRoutes.post("/", requireRole("editor"), async (c) => {
   // por nome, concatenados como "name=value&name=value", com a API secret
   // anexada no final, antes de gerar o hash SHA-1.
   const timestamp = Math.floor(Date.now() / 1000);
-  const folder = "rpg-wiki";
+  const folder = isAudio ? "rpg-wiki/soundboard" : "rpg-wiki";
 
   // 1. Monta objeto com todos os params que vão no form (exceto file, api_key, signature)
   const paramsToSign: Record<string, string> = {
@@ -99,7 +116,9 @@ uploadRoutes.post("/", requireRole("editor"), async (c) => {
   uploadForm.append("timestamp", String(timestamp));
   uploadForm.append("folder", folder);
 
-  const uploadUrl = `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/image/upload`;
+  // Cloudinary usa resource_type=video para arquivos de áudio.
+  const resourceType = isAudio ? "video" : "image";
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
 
   let resp: Response;
   try {
@@ -143,14 +162,18 @@ uploadRoutes.post("/", requireRole("editor"), async (c) => {
     public_id: string;
     bytes: number;
     format: string;
+    duration?: number;
   };
 
-  await audit(env.DB, user.sub, "upload.image", result.public_id, `${f.type} ${f.size}b → ${result.bytes}b`);
+  await audit(env.DB, user.sub, isAudio ? "upload.audio" : "upload.image", result.public_id, `${f.type} ${f.size}b → ${result.bytes}b`);
   return c.json({
     ok: true,
     url: result.secure_url,
     publicId: result.public_id,
     bytes: result.bytes,
+    kind: isAudio ? "audio" : "image",
+    format: result.format,
+    duration: result.duration ?? null,
   });
 });
 
@@ -181,5 +204,20 @@ function hasValidMagicBytes(buf: Uint8Array): boolean {
     buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
     buf.length >= 12 && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
   ) return true;
+  // WAV: RIFF....WAVE
+  if (
+    buf.length >= 12 && buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x41 && buf[10] === 0x56 && buf[11] === 0x45
+  ) return true;
+  // OGG/Opus
+  if (buf[0] === 0x4f && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53) return true;
+  // FLAC
+  if (buf[0] === 0x66 && buf[1] === 0x4c && buf[2] === 0x61 && buf[3] === 0x43) return true;
+  // MP3 com ID3 ou frame sync MPEG.
+  if ((buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)) return true;
+  // MP4/M4A: assinatura ftyp nos bytes 4–7.
+  if (buf.length >= 8 && buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) return true;
+  // WebM/Matroska (EBML).
+  if (buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) return true;
   return false;
 }

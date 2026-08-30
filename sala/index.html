@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608301525">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301525">
+  <link rel="stylesheet" href="/css/style.css?v=202608301715">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301715">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -81,6 +81,9 @@
         </button>
         <button class="room-tab hidden" id="tab-planning" data-tab="planning" role="tab" aria-selected="false" aria-controls="panel-planning">
           <span class="room-tab-icon">🛠</span><span class="room-tab-label">Planejamento</span>
+        </button>
+        <button class="room-tab" id="tab-soundboard" data-tab="soundboard" role="tab" aria-selected="false" aria-controls="panel-soundboard">
+          <span class="room-tab-icon">🎵</span><span class="room-tab-label">Soundboard</span>
         </button>
       </nav>
 
@@ -266,6 +269,33 @@
               <div class="muted text-sm">Carregando…</div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- ===== Soundboard da mesa — faixas Cloudinary, controles do mestre ===== -->
+      <section class="room-tab-panel" id="panel-soundboard" data-tab-panel="soundboard" role="tabpanel" aria-labelledby="tab-soundboard">
+        <div class="side-panel" style="max-width:900px;margin:0 auto">
+          <div class="flex items-center justify-between" style="gap:12px;flex-wrap:wrap">
+            <div>
+              <h2 style="font-size:18px;margin:0">🎵 Soundboard da mesa</h2>
+              <p class="muted text-sm" style="margin:4px 0 0">O mestre controla as faixas; todos os jogadores escutam quando o navegador permitir áudio.</p>
+            </div>
+            <div class="flex gap-2">
+              <button class="btn btn-sm btn-ghost" id="soundboard-enable-audio">🔊 Ativar áudio</button>
+              <button class="btn btn-sm hidden" id="soundboard-stop">⏹ Parar</button>
+              <button class="btn btn-sm btn-primary hidden" id="soundboard-add-toggle">+ Adicionar faixa</button>
+            </div>
+          </div>
+          <div id="soundboard-alert" class="mt-2"></div>
+          <form id="soundboard-add-form" class="card hidden" style="padding:14px;margin-top:14px">
+            <div class="grid-2">
+              <div class="field"><label for="soundboard-title">Nome da faixa</label><input id="soundboard-title" required maxlength="100" placeholder="Ex.: Taverna — noite chuvosa"></div>
+              <div class="field"><label for="soundboard-category">Categoria</label><input id="soundboard-category" maxlength="50" value="Geral" placeholder="Ambiente, combate…"></div>
+            </div>
+            <div class="field"><label for="soundboard-file">Arquivo de áudio (Cloudinary, até 20 MB)</label><input type="file" id="soundboard-file" accept="audio/mpeg,audio/wav,audio/ogg,audio/opus,audio/flac,audio/aac,audio/mp4,audio/webm" required></div>
+            <div class="flex gap-2"><button type="submit" class="btn btn-primary" id="soundboard-save">☁️ Enviar e adicionar</button><button type="button" class="btn" id="soundboard-add-cancel">Cancelar</button></div>
+          </form>
+          <div id="soundboard-list" class="soundboard-list" style="margin-top:16px"><div class="muted text-sm">Nenhuma faixa adicionada ainda.</div></div>
         </div>
       </section>
     </div>
@@ -504,29 +534,29 @@
 
   <script src="/vendor/purify.min.js"></script>
   <script src="/vendor/marked.min.js"></script>
-  <script src="/js/config.js?v=202608301525"></script>
-  <script src="/js/api.js?v=202608301525"></script>
-  <script src="/js/auth.js?v=202608301525"></script>
-  <script src="/js/markdown.js?v=202608301525"></script>
-  <script src="/js/room-ws.js?v=202608301525"></script>
-  <script src="/js/dice-ui.js?v=202608301525"></script>
-  <script src="/js/dice-visual.js?v=202608301525"></script>
-  <script src="/js/dice-tutorial.js?v=202608301525"></script>
-  <script src="/js/room-render.js?v=202608301525"></script>
-  <script src="/js/character-render.js?v=202608301525"></script>
-  <script src="/js/character-sheet-full.js?v=202608301525"></script>
-  <script src="/js/item-drawer.js?v=202608301525"></script>
-  <script src="/js/enemy-illustration-drawer.js?v=202608301525"></script>
-  <script src="/js/item-proposal.js?v=202608301525"></script>
-  <script src="/js/room-chat.js?v=202608301525"></script>
-  <script src="/js/damage-system.js?v=202608301525"></script>
-  <script src="/js/formula-builder.js?v=202608301525"></script>
-  <script src="/js/poll.js?v=202608301525"></script>
-  <script src="/js/reveal-animations.js?v=202608301525"></script>
-  <script src="/js/trade.js?v=202608301525"></script>
-  <script src="/js/levelup.js?v=202608301525"></script>
-  <script src="/js/purchase.js?v=202608301525"></script>
-  <script src="/js/master-planning.js?v=202608301525"></script>
+  <script src="/js/config.js?v=202608301715"></script>
+  <script src="/js/api.js?v=202608301715"></script>
+  <script src="/js/auth.js?v=202608301715"></script>
+  <script src="/js/markdown.js?v=202608301715"></script>
+  <script src="/js/room-ws.js?v=202608301715"></script>
+  <script src="/js/dice-ui.js?v=202608301715"></script>
+  <script src="/js/dice-visual.js?v=202608301715"></script>
+  <script src="/js/dice-tutorial.js?v=202608301715"></script>
+  <script src="/js/room-render.js?v=202608301715"></script>
+  <script src="/js/character-render.js?v=202608301715"></script>
+  <script src="/js/character-sheet-full.js?v=202608301715"></script>
+  <script src="/js/item-drawer.js?v=202608301715"></script>
+  <script src="/js/enemy-illustration-drawer.js?v=202608301715"></script>
+  <script src="/js/item-proposal.js?v=202608301715"></script>
+  <script src="/js/room-chat.js?v=202608301715"></script>
+  <script src="/js/damage-system.js?v=202608301715"></script>
+  <script src="/js/formula-builder.js?v=202608301715"></script>
+  <script src="/js/poll.js?v=202608301715"></script>
+  <script src="/js/reveal-animations.js?v=202608301715"></script>
+  <script src="/js/trade.js?v=202608301715"></script>
+  <script src="/js/levelup.js?v=202608301715"></script>
+  <script src="/js/purchase.js?v=202608301715"></script>
+  <script src="/js/master-planning.js?v=202608301715"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -609,7 +639,7 @@
       });
       // Aba inicial via hash (?code=XXX#dice abre direto na aba Dados)
       const initialTab = location.hash.replace("#", "");
-      if (initialTab && ["overview", "characters", "enemies", "dice", "chat", "secrets"].includes(initialTab)) {
+      if (initialTab && ["overview", "characters", "enemies", "dice", "chat", "secrets", "soundboard"].includes(initialTab)) {
         switchTab(initialTab);
       }
 
@@ -650,6 +680,63 @@
 
       const client = new window.RoomClient(code, characterId, isSpectator);
       let currentState = null;
+      let soundboardAudio = null;
+      let soundboardAudioUnlocked = false;
+      let pendingSoundTrackId = null;
+
+      function soundboardEscape(s) {
+        return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#39;"}[m]));
+      }
+      function soundboardAlert(type, message) {
+        const mount = document.getElementById("soundboard-alert");
+        if (mount) mount.innerHTML = `<div class="alert alert-${type}">${soundboardEscape(message)}</div>`;
+      }
+      function renderSoundboard(state, master) {
+        const list = document.getElementById("soundboard-list");
+        if (!list) return;
+        const tracks = Array.isArray(state?.soundboard) ? state.soundboard : [];
+        document.getElementById("soundboard-add-toggle")?.classList.toggle("hidden", !master);
+        document.getElementById("soundboard-stop")?.classList.toggle("hidden", !master);
+        if (!tracks.length) { list.innerHTML = `<div class="muted text-sm">Nenhuma faixa adicionada ainda${master ? ". Use "+"Adicionar faixa"+" para criar seu soundboard." : "."}</div>`; return; }
+        const byCategory = tracks.reduce((groups, track) => { (groups[track.category || "Geral"] ||= []).push(track); return groups; }, {});
+        list.innerHTML = Object.entries(byCategory).map(([category, items]) => `<div class="soundboard-category"><h3 style="font-size:14px;margin:0 0 8px">${soundboardEscape(category)}</h3>${items.map(track => `<div class="soundboard-track"><div style="min-width:0;flex:1"><strong>${soundboardEscape(track.title)}</strong><div class="muted text-xs">${track.format ? soundboardEscape(track.format.toUpperCase()) : "Cloudinary"}${track.duration ? ` · ${Math.round(track.duration)}s` : ""}</div></div>${master ? `<button class="btn btn-sm btn-primary" data-sound-play="${soundboardEscape(track.id)}">▶ Tocar</button><button class="btn btn-sm btn-danger" data-sound-delete="${soundboardEscape(track.id)}" title="Remover da sala">×</button>` : `<span class="muted text-xs">Controlado pelo mestre</span>`}</div>`).join("")}</div>`).join("");
+        list.querySelectorAll("[data-sound-play]").forEach(button => button.addEventListener("click", () => { client.send("play_soundboard_track", { trackId: button.dataset.soundPlay }); }));
+        list.querySelectorAll("[data-sound-delete]").forEach(button => button.addEventListener("click", () => { if (confirm("Remover esta faixa do soundboard?")) client.send("delete_soundboard_track", { trackId: button.dataset.soundDelete }); }));
+      }
+      function playSoundboardTrack(trackId) {
+        const track = currentState?.soundboard?.find(item => item.id === trackId);
+        if (!track) return;
+        if (!soundboardAudioUnlocked) {
+          pendingSoundTrackId = trackId;
+          soundboardAlert("warning", "Clique em “Ativar áudio” para escutar as faixas desta sala.");
+          return;
+        }
+        if (soundboardAudio) { soundboardAudio.pause(); soundboardAudio.currentTime = 0; }
+        soundboardAudio = new Audio(track.url);
+        soundboardAudio.volume = 0.8;
+        soundboardAudio.play().catch(() => soundboardAlert("warning", "Clique em “Ativar áudio” para permitir a reprodução das faixas nesta aba."));
+      }
+      function stopSoundboardTrack() { if (soundboardAudio) { soundboardAudio.pause(); soundboardAudio.currentTime = 0; } }
+      document.getElementById("soundboard-enable-audio")?.addEventListener("click", () => { soundboardAudioUnlocked = true; soundboardAlert("success", "Áudio habilitado."); if (pendingSoundTrackId) { const trackId = pendingSoundTrackId; pendingSoundTrackId = null; playSoundboardTrack(trackId); } });
+      document.getElementById("soundboard-stop")?.addEventListener("click", () => client.send("stop_soundboard_track", {}));
+      document.getElementById("soundboard-add-toggle")?.addEventListener("click", () => document.getElementById("soundboard-add-form")?.classList.remove("hidden"));
+      document.getElementById("soundboard-add-cancel")?.addEventListener("click", () => document.getElementById("soundboard-add-form")?.classList.add("hidden"));
+      document.getElementById("soundboard-add-form")?.addEventListener("submit", async event => {
+        event.preventDefault();
+        const title = document.getElementById("soundboard-title").value.trim();
+        const category = document.getElementById("soundboard-category").value.trim() || "Geral";
+        const file = document.getElementById("soundboard-file").files?.[0];
+        const save = document.getElementById("soundboard-save");
+        if (!file) return soundboardAlert("error", "Escolha um arquivo de áudio.");
+        save.disabled = true; save.innerHTML = '<span class="spinner"></span> Enviando…';
+        try {
+          const fd = new FormData(); fd.append("file", file);
+          const uploaded = await window.api.postForm("/api/upload", fd);
+          client.send("create_soundboard_track", { title, category, url: uploaded.url, publicId: uploaded.publicId, format: uploaded.format, duration: uploaded.duration });
+          document.getElementById("soundboard-add-form").reset(); document.getElementById("soundboard-category").value = "Geral"; document.getElementById("soundboard-add-form").classList.add("hidden"); soundboardAlert("success", "Faixa enviada e adicionada ao soundboard.");
+        } catch (e) { soundboardAlert("error", e.message); }
+        finally { save.disabled = false; save.textContent = "☁️ Enviar e adicionar"; }
+      });
 
       client.onConnectivity = (st) => {
         document.getElementById("conn-mount").innerHTML = window.roomRender.renderConnectivity(st);
@@ -657,6 +744,7 @@
       client.onStateChange = (state) => {
         if (!state) return;
         currentState = state;
+        renderSoundboard(state, isMaster);
         render(state, isMaster);
       };
       // Inicializa o dado visual animado no topo da sala
@@ -745,6 +833,10 @@
         } else if (msg.type === "room_closed") {
           showError("🏁", "Sala encerrada", "O mestre encerrou a sala.", false);
           document.getElementById("room-screen").classList.add("hidden");
+        } else if (msg.type === "soundboard_play") {
+          playSoundboardTrack(msg.payload?.trackId);
+        } else if (msg.type === "soundboard_stop") {
+          stopSoundboardTrack();
         } else if (msg.type === "fatal") {
           showError("⚠️", "Conexão interrompida", msg.payload?.message || "Não foi possível manter a conexão com a sala.", false);
           document.getElementById("room-screen").classList.add("hidden");

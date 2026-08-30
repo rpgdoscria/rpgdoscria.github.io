@@ -246,6 +246,16 @@
           if (this.ws) try { this.ws.close(1000); } catch {}
           break;
         }
+        case "soundboard_track_added": {
+          if (!Array.isArray(s.soundboard)) s.soundboard = [];
+          if (!s.soundboard.some(track => track.id === msg.payload.id)) s.soundboard.push(msg.payload);
+          break;
+        }
+        case "soundboard_track_deleted": {
+          if (!Array.isArray(s.soundboard)) s.soundboard = [];
+          s.soundboard = s.soundboard.filter(track => track.id !== msg.payload.trackId);
+          break;
+        }
         // ===== Polls (Feature 2) =====
         case "poll_created": {
           if (!Array.isArray(s.polls)) s.polls = [];

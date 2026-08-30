@@ -5720,3 +5720,14 @@ h1, h2, h3, .brand, .modal-card h3, .room-title, .planning-section h4 {
   .trade-item-option { grid-template-columns: auto minmax(0, 1fr) 56px; }
   .trade-item-option .muted { display: none; }
 }
+
+/* Soundboard da sala */
+.soundboard-list { display: grid; gap: 16px; }
+.soundboard-category { border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 12px; background: var(--surface); }
+.soundboard-track { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border-soft); }
+.soundboard-track:first-of-type { border-top: 0; }
+.soundboard-track strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  .soundboard-track { flex-wrap: wrap; }
+  .soundboard-track > div:first-child { flex-basis: 100%; }
+}

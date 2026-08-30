@@ -1,4 +1,4 @@
-// frontend/js/editor.js — lógica do editor (split + preview ao vivo + upload)
+// frontend/js/editor.js — editor Markdown + preview + imagens hospedadas no Cloudinary
 
 (function () {
   window.auth.mountHeader("#header-mount");
@@ -147,11 +147,11 @@
       const after = contentEl.value.slice(end);
       contentEl.value = `${before}${md}${after}`;
       renderPreview();
-      showAlert("success", "Imagem inserida.");
+      showAlert("success", "Imagem enviada ao Cloudinary e inserida.");
     } catch (e) {
       showAlert("error", e.message);
     } finally {
-      btnUpload.innerHTML = "📷 Inserir imagem";
+      btnUpload.innerHTML = "☁️ Inserir imagem (Cloudinary)";
       btnUpload.disabled = false;
       imgInput.value = "";
     }

@@ -25,6 +25,18 @@ export interface RoomEnv {
 interface Bar { name: string; current: number; max: number; color: string; }
 interface InventoryItem { name: string; qty: number; description?: string; equipped?: boolean; iconUrl?: string | null; }
 interface StatusEffect { id: string; text: string; }
+interface SoundboardTrack {
+  id: string;
+  title: string;
+  category: string;
+  url: string;
+  publicId?: string | null;
+  format?: string | null;
+  duration?: number | null;
+  createdBy: number;
+  createdByName: string;
+  createdAt: number;
+}
 
 // Stat flexível (homebrew) — mesmo formato do banco character_stats.
 type StatType = "bar" | "number" | "text" | "tag_list" | "checkbox" | "formula";
@@ -244,6 +256,7 @@ interface RoomState {
   purchaseOffers: PurchaseOffer[];
   levelUpOffers: LevelUpOffer[];
   itemProposals: ItemProposal[];  // v12: propostas de itens (jogador → mestre)
+  soundboard: SoundboardTrack[];  // faixas persistentes da mesa, hospedadas no Cloudinary
   // Tarefa 4: mapa userId -> ParticipantInfo (cor, characterName, photoUrl)
   participantColors: Record<number, ParticipantInfo>;
   // Tarefa 1: nome amigável da sala (vindo da tabela rooms)
@@ -305,6 +318,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         const stored = await this.storage.get<RoomState>("roomState");
         if (stored) {
           if (!stored.npcs || typeof stored.npcs !== "object") stored.npcs = {};
+          if (!Array.isArray(stored.soundboard)) stored.soundboard = [];
           this.state = stored;
           await this.scheduleExpiry();
         }
@@ -380,6 +394,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       purchaseOffers: [],
       levelUpOffers: [],
       itemProposals: [],
+      soundboard: [],
       participantColors: {
         [masterUserId]: { color: "#b3121c", characterName: null, photoUrl: null },  // mestre tem cor vermelha tema
       },
@@ -647,6 +662,11 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         // ===== v12: Item proposals (jogador → mestre) =====
         case "item_proposal": await this.handleItemProposal(conn, msg.payload); break;
         case "resolve_item_proposal": await this.handleResolveItemProposal(conn, msg.payload); break;
+        // ===== Soundboard da mesa (Cloudinary) =====
+        case "create_soundboard_track": await this.handleCreateSoundboardTrack(conn, msg.payload); break;
+        case "delete_soundboard_track": await this.handleDeleteSoundboardTrack(conn, msg.payload); break;
+        case "play_soundboard_track": await this.handlePlaySoundboardTrack(conn, msg.payload); break;
+        case "stop_soundboard_track": await this.handleStopSoundboardTrack(conn); break;
         default:
           this.sendTo(ws, { type: "error", payload: { message: `Tipo de mensagem desconhecido: ${msg.type}` } });
       }
@@ -717,6 +737,54 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     this.state!.suggestions.push(sug);
     if (this.state!.suggestions.length > 50) this.state!.suggestions.shift();
     this.broadcast({ type: "formula_suggested", payload: sug });
+  }
+
+  // ---------- Soundboard ----------
+  private async handleCreateSoundboardTrack(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode criar sons.");
+    if (!Array.isArray(this.state!.soundboard)) this.state!.soundboard = [];
+    if (this.state!.soundboard.length >= 100) throw new Error("O soundboard atingiu o limite de 100 faixas.");
+    const title = String(p?.title ?? "").trim();
+    const url = String(p?.url ?? "").trim();
+    if (!title) throw new Error("Nome do som é obrigatório.");
+    if (title.length > 100) throw new Error("Nome do som excede 100 caracteres.");
+    if (!url || !isCloudinaryUrl(url)) throw new Error("A faixa precisa ser uma URL segura do Cloudinary.");
+    const track: SoundboardTrack = {
+      id: cryptoRandomId(),
+      title: title.slice(0, 100),
+      category: String(p?.category ?? "Geral").trim().slice(0, 50) || "Geral",
+      url: url.slice(0, 1000),
+      publicId: p?.publicId ? String(p.publicId).slice(0, 300) : null,
+      format: p?.format ? String(p.format).slice(0, 20) : null,
+      duration: Number.isFinite(Number(p?.duration)) ? Math.max(0, Math.min(3600, Number(p.duration))) : null,
+      createdBy: conn.userId,
+      createdByName: conn.username,
+      createdAt: Date.now(),
+    };
+    this.state!.soundboard.push(track);
+    this.broadcast({ type: "soundboard_track_added", payload: track });
+  }
+
+  private async handleDeleteSoundboardTrack(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode remover sons.");
+    const trackId = String(p?.trackId ?? "");
+    const before = this.state!.soundboard.length;
+    this.state!.soundboard = this.state!.soundboard.filter(track => track.id !== trackId);
+    if (this.state!.soundboard.length === before) throw new Error("Som não encontrado.");
+    this.broadcast({ type: "soundboard_track_deleted", payload: { trackId } });
+  }
+
+  private async handlePlaySoundboardTrack(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode tocar sons para a sala.");
+    const trackId = String(p?.trackId ?? "");
+    const track = this.state!.soundboard.find(item => item.id === trackId);
+    if (!track) throw new Error("Som não encontrado.");
+    this.broadcast({ type: "soundboard_play", payload: { trackId, startedAt: Date.now() } });
+  }
+
+  private async handleStopSoundboardTrack(conn: Connection) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode parar o soundboard.");
+    this.broadcast({ type: "soundboard_stop", payload: { stoppedAt: Date.now() } });
   }
 
   private async handleUpdateOwnCharacter(conn: Connection, p: any) {
@@ -2110,6 +2178,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       if (!Array.isArray(parsed.purchaseOffers)) parsed.purchaseOffers = [];
       if (!Array.isArray(parsed.levelUpOffers)) parsed.levelUpOffers = [];
       if (!parsed.npcs || typeof parsed.npcs !== "object") parsed.npcs = {};
+      if (!Array.isArray(parsed.soundboard)) parsed.soundboard = [];
       if (parsed.enemies && typeof parsed.enemies === "object") {
         Object.values(parsed.enemies).forEach((enemy: any) => {
           if (enemy.kind !== "filler" && enemy.kind !== "complex") enemy.kind = Array.isArray(enemy.stats) && enemy.stats.length ? "complex" : "filler";
@@ -2197,6 +2266,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       purchaseOffers: this.state.purchaseOffers,
       levelUpOffers: this.state.levelUpOffers,
       itemProposals: this.state.itemProposals || [],
+      soundboard: this.state.soundboard || [],
       // Tarefa 4: mapa userId -> { color, characterName, photoUrl }
       participantColors: this.state.participantColors || {},
       you: {
@@ -2250,6 +2320,15 @@ function cryptoRandomId(): string {
   const buf = new Uint8Array(8);
   crypto.getRandomValues(buf);
   return Array.from(buf).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function isCloudinaryUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && (url.hostname === "res.cloudinary.com" || url.hostname.endsWith(".cloudinary.com"));
+  } catch {
+    return false;
+  }
 }
 
 // Sanitiza um stat vindo do cliente/banco pro formato CharacterStat do RoomDO.

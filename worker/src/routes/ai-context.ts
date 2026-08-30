@@ -54,8 +54,8 @@ aiContextRoutes.get("/context", async (c) => {
   const snapshots = snapshotRows.map(row => {
     try {
       const state = JSON.parse(row.state_json);
-      return { roomCode: row.room_code, createdAt: row.created_at, characters: state.characters || {}, npcs: state.npcs || {}, enemies: state.enemies || {} };
-    } catch { return { roomCode: row.room_code, createdAt: row.created_at, characters: {}, npcs: {}, enemies: {} }; }
+      return { roomCode: row.room_code, createdAt: row.created_at, characters: state.characters || {}, npcs: state.npcs || {}, enemies: state.enemies || {}, soundboard: state.soundboard || [] };
+    } catch { return { roomCode: row.room_code, createdAt: row.created_at, characters: {}, npcs: {}, enemies: {}, soundboard: [] }; }
   });
 
   return c.json({
