@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608301800">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301800">
+  <link rel="stylesheet" href="/css/style.css?v=202608301830">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301830">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -37,9 +37,10 @@
       <div class="field">
         <label>Personagens iniciais (opcional)</label>
         <p class="hint" style="margin-bottom:8px">O mestre pode colocar personagens de qualquer jogador na sala. O dono não precisa estar online nem entrar na sala.</p>
-        <div id="characters-list" class="create-room-grid">
-          <div class="muted text-sm">Carregando…</div>
+        <div id="selected-characters-summary" class="card" style="padding:12px;margin-bottom:8px">
+          <span class="muted text-sm">Nenhum personagem selecionado. A sala pode ser criada sem personagens.</span>
         </div>
+        <button type="button" class="btn btn-ghost" id="btn-open-character-picker">🧙 Selecionar personagens</button>
       </div>
 
       <div class="criar-sala-actions">
@@ -65,9 +66,28 @@
     </div>
   </main>
 
-  <script src="/js/config.js?v=202608301800"></script>
-  <script src="/js/api.js?v=202608301800"></script>
-  <script src="/js/auth.js?v=202608301800"></script>
+  <div id="character-picker-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="character-picker-title">
+    <div class="modal-card" style="width:100%;max-width:720px;max-height:85vh;display:flex;flex-direction:column">
+      <div class="flex items-center justify-between" style="gap:12px;margin-bottom:8px">
+        <div>
+          <h2 id="character-picker-title" style="margin:0;font-size:20px">🧙 Personagens iniciais</h2>
+          <p class="muted text-sm" style="margin:4px 0 0">Selecione as fichas que já devem aparecer na sala.</p>
+        </div>
+        <button type="button" class="btn btn-sm btn-ghost" id="btn-close-character-picker" title="Fechar">✕</button>
+      </div>
+      <div id="characters-list" class="create-room-grid" style="overflow:auto;padding:4px;min-height:120px">
+        <div class="muted text-sm">Carregando…</div>
+      </div>
+      <div class="flex items-center justify-between" style="gap:12px;margin-top:14px;flex-wrap:wrap">
+        <span id="character-picker-count" class="muted text-sm">0 selecionados</span>
+        <button type="button" class="btn btn-primary" id="btn-confirm-character-picker">Concluir seleção</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/config.js?v=202608301830"></script>
+  <script src="/js/api.js?v=202608301830"></script>
+  <script src="/js/auth.js?v=202608301830"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -104,8 +124,13 @@
           document.body.appendChild(link);
           link.click();
           link.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-          status.textContent = "Guia baixado. Guarde o arquivo em local privado: ele contém a chave do seu usuário.";
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+          status.textContent = "Guia gerado. Guarde o arquivo em local privado: ele contém a chave do seu usuário. Se o download automático não iniciar, ";
+          const fallback = document.createElement("a");
+          fallback.href = url;
+          fallback.download = "GUIA-AGENTE-RPG.md";
+          fallback.textContent = "clique aqui para baixar";
+          status.appendChild(fallback);
           showAlert("success", "Guia personalizado baixado.");
         } catch (e) {
           status.textContent = "Não foi possível gerar o guia.";
@@ -131,6 +156,21 @@
       });
 
       const selected = new Set();
+      const pickerModal = document.getElementById("character-picker-modal");
+      const selectedSummary = document.getElementById("selected-characters-summary");
+      let availableCharacters = [];
+      function updateCharacterSelectionSummary() {
+        const chosen = availableCharacters.filter(character => selected.has(Number(character.id)));
+        document.getElementById("character-picker-count").textContent = `${chosen.length} selecionado${chosen.length === 1 ? "" : "s"}`;
+        selectedSummary.innerHTML = chosen.length
+          ? `<div class="flex gap-2" style="flex-wrap:wrap">${chosen.map(character => `<span class="tag">🧙 ${escapeHtml(character.name)} <span class="muted">· ${escapeHtml(character.ownerUsername || "jogador")}</span></span>`).join("")}</div>`
+          : `<span class="muted text-sm">Nenhum personagem selecionado. A sala pode ser criada sem personagens.</span>`;
+      }
+      function closeCharacterPicker() { pickerModal.classList.add("hidden"); }
+      document.getElementById("btn-open-character-picker").addEventListener("click", () => pickerModal.classList.remove("hidden"));
+      document.getElementById("btn-close-character-picker").addEventListener("click", closeCharacterPicker);
+      document.getElementById("btn-confirm-character-picker").addEventListener("click", closeCharacterPicker);
+      pickerModal.addEventListener("click", event => { if (event.target === pickerModal) closeCharacterPicker(); });
       const nameInput = document.getElementById("room-name");
       const descInput = document.getElementById("room-desc");
       const btnCreate = document.getElementById("btn-create");
@@ -152,24 +192,27 @@
       // Carrega personagens
       try {
         const data = await window.api.get("/api/characters?scope=all");
+        availableCharacters = data.characters || [];
         const list = document.getElementById("characters-list");
-        if (!data.characters || data.characters.length === 0) {
+        if (!availableCharacters.length) {
           list.innerHTML = `<div class="alert alert-info">Você ainda não tem personagens. Os jogadores podem entrar com os próprios depois.</div>`;
         } else {
-          list.innerHTML = data.characters.map(c => `
+          list.innerHTML = availableCharacters.map(c => `
             <div class="character-pick ${selected.has(c.id) ? "selected" : ""}" data-id="${c.id}">
               <div class="name">${escapeHtml(c.name)}</div>
               <div class="meta">👤 ${escapeHtml(c.ownerUsername || "jogador")} · ${(c.stats || []).length} status · ${(c.inventory || []).length} itens${c.isActive ? " · ⭐ ativo" : ""}</div>
             </div>
           `).join("");
-          list.querySelectorAll(".character-pick").forEach(el => {
-            el.addEventListener("click", () => {
-              const id = Number(el.dataset.id);
-              if (selected.has(id)) { selected.delete(id); el.classList.remove("selected"); }
-              else { selected.add(id); el.classList.add("selected"); }
+            list.querySelectorAll(".character-pick").forEach(el => {
+              el.addEventListener("click", () => {
+                const id = Number(el.dataset.id);
+                if (selected.has(id)) { selected.delete(id); el.classList.remove("selected"); }
+                else { selected.add(id); el.classList.add("selected"); }
+                updateCharacterSelectionSummary();
+              });
             });
-          });
         }
+        updateCharacterSelectionSummary();
       } catch (e) {
         showAlert("error", `Erro ao carregar personagens: ${e.message}`);
       }
