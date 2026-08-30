@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608292010">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608292010">
+  <link rel="stylesheet" href="/css/style.css?v=202608292145">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608292145">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -35,8 +35,8 @@
       </div>
 
       <div class="field">
-        <label>Personagens (opcional)</label>
-        <p class="hint" style="margin-bottom:8px">Selecione personagens pra já entrar na sala, ou pule — os jogadores entram depois com os próprios.</p>
+        <label>Personagens iniciais (opcional)</label>
+        <p class="hint" style="margin-bottom:8px">O mestre pode colocar personagens de qualquer jogador na sala. O dono não precisa estar online nem entrar na sala.</p>
         <div id="characters-list" class="create-room-grid">
           <div class="muted text-sm">Carregando…</div>
         </div>
@@ -56,9 +56,9 @@
     </div>
   </main>
 
-  <script src="/js/config.js?v=202608292010"></script>
-  <script src="/js/api.js?v=202608292010"></script>
-  <script src="/js/auth.js?v=202608292010"></script>
+  <script src="/js/config.js?v=202608292145"></script>
+  <script src="/js/api.js?v=202608292145"></script>
+  <script src="/js/auth.js?v=202608292145"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -100,7 +100,7 @@
 
       // Carrega personagens
       try {
-        const data = await window.api.get("/api/characters");
+        const data = await window.api.get("/api/characters?scope=all");
         const list = document.getElementById("characters-list");
         if (!data.characters || data.characters.length === 0) {
           list.innerHTML = `<div class="alert alert-info">Você ainda não tem personagens. Os jogadores podem entrar com os próprios depois.</div>`;
@@ -108,7 +108,7 @@
           list.innerHTML = data.characters.map(c => `
             <div class="character-pick ${selected.has(c.id) ? "selected" : ""}" data-id="${c.id}">
               <div class="name">${escapeHtml(c.name)}</div>
-              <div class="meta">${(c.stats || []).length} status · ${(c.inventory || []).length} itens${c.isActive ? " · ⭐ ativo" : ""}</div>
+              <div class="meta">👤 ${escapeHtml(c.ownerUsername || "jogador")} · ${(c.stats || []).length} status · ${(c.inventory || []).length} itens${c.isActive ? " · ⭐ ativo" : ""}</div>
             </div>
           `).join("");
           list.querySelectorAll(".character-pick").forEach(el => {

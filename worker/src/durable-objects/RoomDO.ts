@@ -49,6 +49,7 @@ interface CharacterState {
   ownerUsername: string;
   name: string;
   photoUrl?: string | null;
+  symbolUrl?: string | null;
   pageId?: number | null;
   stats: CharacterStat[];       // substitui hpCurrent/hpMax/money/bars — tudo é stat
   inventory: InventoryItem[];
@@ -153,6 +154,8 @@ interface Trade {
   proposerName: string;
   receiverUserId: number;
   receiverName: string;
+  proposerCharacterId?: number;
+  receiverCharacterId?: number;
   offer: TradeOffer;       // o que o proposer oferece
   request: TradeOffer;     // o que o proposer pede em troca
   status: "pending" | "accepted" | "rejected" | "countered" | "cancelled";
@@ -316,6 +319,12 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       await this.endRoomInternal();
       return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
     }
+    if (url.pathname.endsWith("/purge") && request.method === "POST") {
+      // Exclusão definitiva: não persiste um snapshot novo, pois a rota REST
+      // apagará os registros do banco logo depois deste cleanup.
+      await this.purgeRoomInternal();
+      return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    }
 
     if (url.pathname.endsWith("/connect") || url.pathname.endsWith("/connect/")) {
       if (request.headers.get("Upgrade") !== "websocket") {
@@ -379,14 +388,46 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       ownerUsername: ch.ownerUsername ?? "",
       name: String(ch.name).slice(0, 100),
       photoUrl: ch.photoUrl ?? null,
+      symbolUrl: ch.symbolUrl ?? null,
       pageId: ch.pageId ?? null,
       // Stats flexíveis (homebrew) — aceita array de stats vindos do banco
       stats: Array.isArray(ch.stats) ? ch.stats.map(sanitizeStat).filter(Boolean) : [],
       inventory: Array.isArray(ch.inventory) ? ch.inventory.slice(0, 100) : [],
-      statusEffects: [],
+      statusEffects: Array.isArray(ch.statusEffects) ? ch.statusEffects.slice(0, 50) : [],
     };
     await this.persistState(true);
     return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+  }
+
+  // Permite ao mestre colocar um personagem previamente criado na sala,
+  // mesmo quando o dono ainda não entrou (ou nem está online).
+  private async handleAddCharacterByMaster(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode adicionar personagens à sala.");
+    const id = Number(p?.characterId);
+    if (!id) throw new Error("characterId é obrigatório.");
+    if (this.state!.characters[id]) throw new Error("Esse personagem já está na sala.");
+    const r = await this.env.DB.prepare(
+      `SELECT c.id, c.owner_user_id, c.name, c.photo_url, c.symbol_url, c.page_id,
+              c.inventory_json, c.status_effects_json, u.username AS owner_username
+       FROM characters c JOIN users u ON u.id = c.owner_user_id WHERE c.id = ?`
+    ).bind(id).first<any>();
+    if (!r) throw new Error("Personagem não encontrado.");
+    const stats = await this.env.DB.prepare(
+      `SELECT id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order, player_editable
+       FROM character_stats WHERE character_id = ? ORDER BY display_order ASC, id ASC`
+    ).bind(id).all<any>();
+    const ch: CharacterState = {
+      id: Number(r.id), ownerUserId: Number(r.owner_user_id), ownerUsername: r.owner_username ?? "",
+      name: String(r.name).slice(0, 100), photoUrl: r.photo_url ?? null, symbolUrl: r.symbol_url ?? null,
+      pageId: r.page_id ?? null,
+      stats: (stats.results || []).map((s: any) => sanitizeStat(s)).filter(Boolean) as CharacterStat[],
+      inventory: sanitizeInventory(safeJson(r.inventory_json, [])),
+      statusEffects: safeJson(r.status_effects_json, []),
+    };
+    this.state!.characters[id] = ch;
+    await this.persistState(true);
+    this.broadcast({ type: "character_updated", payload: ch });
+    this.broadcastParticipantsList();
   }
 
   private async endRoomInternal() {
@@ -394,6 +435,18 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     this.broadcast({ type: "room_closed", payload: { reason: "Sala encerrada pelo mestre." } });
     for (const [ws] of this.connections) {
       try { ws.close(1000, "Sala encerrada"); } catch {}
+    }
+    this.connections.clear();
+    try { await this.storage.deleteAll(); } catch {}
+    this.state = null;
+  }
+
+  private async purgeRoomInternal() {
+    if (this.state) {
+      this.broadcast({ type: "room_closed", payload: { reason: "Sala excluída pelo mestre." } });
+    }
+    for (const [ws] of this.connections) {
+      try { ws.close(1000, "Sala excluída"); } catch {}
     }
     this.connections.clear();
     try { await this.storage.deleteAll(); } catch {}
@@ -426,6 +479,12 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     const isMaster = this.state!.masterUserId === payload.sub;
     if (!isMaster && this.state!.locked) {
       return new Response("Sala travada pelo mestre — não aceita novas entradas.", { status: 403 });
+    }
+    if (!isMaster && characterId && !isSpectator) {
+      const owner = await this.env.DB.prepare(`SELECT owner_user_id FROM characters WHERE id = ?`).bind(characterId).first<{ owner_user_id: number }>();
+      if (!owner || Number(owner.owner_user_id) !== payload.sub) {
+        return new Response("Você não pode entrar com o personagem de outro jogador.", { status: 403 });
+      }
     }
 
     this.state!.lastActivity = Date.now();
@@ -477,10 +536,11 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
             ownerUsername: r.owner_username ?? "",
             name: r.name,
             photoUrl: r.photo_url,
+            symbolUrl: r.symbol_url ?? null,
             pageId: r.page_id ?? null,
             stats: (stats.results || []).map((s: any) => sanitizeStat(s)).filter(Boolean) as CharacterStat[],
             inventory: r.inventory_json ? JSON.parse(r.inventory_json) : [],
-            statusEffects: [],
+            statusEffects: r.status_effects_json ? safeJson(r.status_effects_json, []) : [],
           };
           this.state!.characters[characterId] = ch;
           // Broadcast pra TODOS (incluindo o recém-conectado) que o personagem entrou
@@ -532,6 +592,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         case "suggest_formula": await this.handleSuggestFormula(conn, msg.payload); break;
         case "update_own_character": await this.handleUpdateOwnCharacter(conn, msg.payload); break;
         case "update_character": await this.handleUpdateCharacter(conn, msg.payload); break;
+        case "add_character": await this.handleAddCharacterByMaster(conn, msg.payload); break;
         case "create_enemy": await this.handleCreateEnemy(conn, msg.payload); break;
         case "update_enemy": await this.handleUpdateEnemy(conn, msg.payload); break;
         case "update_enemy_stat": await this.handleUpdateEnemyStat(conn, msg.payload); break;
@@ -653,10 +714,17 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       if (stat && !stat.playerEditable) {
         throw new Error("Este status só pode ser editado pelo mestre.");
       }
+      this.applyStatUpdate(ch, p);
     }
-    // Jogador só pode atualizar stats do próprio personagem (não inventário, não nome).
-    // Formato novo: { statId, value } — value depende do tipo daquele stat.
-    this.applyStatUpdate(ch, p);
+    if (Array.isArray(p?.stats)) {
+      for (const statPayload of p.stats) {
+        const editable = ch.stats.find(s => s.id === Number(statPayload?.id));
+        if (editable && !editable.playerEditable) throw new Error(`O status "${editable.name}" só pode ser editado pelo mestre.`);
+        if (editable) this.applyStatUpdate(ch, { statId: editable.id, value: statPayloadToValue(statPayload) });
+      }
+    }
+    this.applyCharacterFields(ch, p, true);
+    await this.persistCharacterToDb(ch);
     this.broadcast({ type: "character_updated", payload: ch });
   }
 
@@ -665,23 +733,55 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     const id = Number(p?.characterId);
     if (!id || !this.state!.characters[id]) throw new Error("Personagem não encontrado.");
     const ch = this.state!.characters[id];
-    // Mestre pode atualizar stat individual OU inventário completo.
-    this.applyStatUpdate(ch, p);
+    // Mestre pode atualizar stat individual, vários stats e os dados completos.
+    if (p?.statId) this.applyStatUpdate(ch, p);
+    if (Array.isArray(p?.stats)) {
+      for (const statPayload of p.stats) {
+        const stat = ch.stats.find(s => s.id === Number(statPayload?.id));
+        if (stat) this.applyStatUpdate(ch, { statId: stat.id, value: statPayloadToValue(statPayload) });
+      }
+    }
+    this.applyCharacterFields(ch, p, true);
     if (Array.isArray(p?.inventory)) {
-      ch.inventory = p.inventory.filter((it: any) => it && typeof it.name === "string").map((it: any) => ({
-        name: String(it.name).slice(0, 80),
-        qty: clampInt(it.qty, 0, 9999),
-        description: it.description ? String(it.description).slice(0, 200) : undefined,
-        equipped: !!it.equipped,
-        iconUrl: it.iconUrl ? String(it.iconUrl).slice(0, 500) : null,
-      })).slice(0, 100);
+      ch.inventory = sanitizeInventory(p.inventory);
     }
     // Mestre pode mudar permissão de um stat on the fly
     if (p?.statId && typeof p?.playerEditable === "boolean") {
       const stat = ch.stats.find(s => s.id === Number(p.statId));
       if (stat) stat.playerEditable = !!p.playerEditable;
     }
+    await this.persistCharacterToDb(ch);
     this.broadcast({ type: "character_updated", payload: ch });
+  }
+
+  private applyCharacterFields(ch: CharacterState, p: any, includeInventory: boolean) {
+    if (typeof p?.name === "string" && p.name.trim()) ch.name = p.name.trim().slice(0, 100);
+    if (typeof p?.photoUrl !== "undefined") ch.photoUrl = p.photoUrl ? String(p.photoUrl).slice(0, 500) : null;
+    if (typeof p?.symbolUrl !== "undefined") ch.symbolUrl = p.symbolUrl ? String(p.symbolUrl).slice(0, 500) : null;
+    if (typeof p?.pageId !== "undefined") ch.pageId = p.pageId ? Number(p.pageId) : null;
+    if (includeInventory && Array.isArray(p?.inventory)) ch.inventory = sanitizeInventory(p.inventory);
+  }
+
+  private async persistCharacterToDb(ch: CharacterState) {
+    ch.inventory = sanitizeInventory(ch.inventory);
+    const statements = [this.env.DB.prepare(
+      `UPDATE characters SET name = ?, photo_url = ?, symbol_url = ?, page_id = ?, inventory_json = ?, status_effects_json = ?, updated_at = datetime('now') WHERE id = ?`
+    ).bind(ch.name, ch.photoUrl ?? null, ch.symbolUrl ?? null, ch.pageId ?? null, JSON.stringify(ch.inventory), JSON.stringify(ch.statusEffects || []), ch.id)];
+    for (const stat of ch.stats) {
+      statements.push(this.env.DB.prepare(
+        `UPDATE character_stats SET name = ?, type = ?, value_current = ?, value_max = ?, value_text = ?, value_bool = ?, color = ?, player_editable = ?, updated_at = datetime('now') WHERE id = ? AND character_id = ?`
+      ).bind(stat.name, stat.type, stat.valueCurrent ?? null, stat.valueMax ?? null, stat.valueText ?? null, stat.valueBool ?? null, stat.color ?? null, stat.playerEditable ? 1 : 0, stat.id, ch.id));
+    }
+    await this.env.DB.batch(statements).catch(() => {/* o snapshot ainda mantém a sessão */});
+    const inventoryStatements = [this.env.DB.prepare(`DELETE FROM character_inventory_items WHERE character_id = ?`).bind(ch.id)];
+    ch.inventory.forEach((item, index) => {
+      inventoryStatements.push(this.env.DB.prepare(
+        `INSERT INTO character_inventory_items (character_id, name, qty, description, equipped, icon_url, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(ch.id, item.name, item.qty, item.description ?? null, item.equipped ? 1 : 0, item.iconUrl ?? null, index));
+    });
+    for (let i = 0; i < inventoryStatements.length; i += 90) {
+      await this.env.DB.batch(inventoryStatements.slice(i, i + 90)).catch(() => {/* o snapshot ainda mantém a sessão */});
+    }
   }
 
   // Migration 0013: mestre deleta um stat da ficha do personagem em tempo real.
@@ -699,6 +799,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     try {
       await this.env.DB.prepare(`DELETE FROM character_stats WHERE id = ? AND character_id = ?`).bind(statId, characterId).run();
     } catch {}
+    await this.persistCharacterToDb(ch);
     this.broadcast({ type: "character_updated", payload: ch });
   }
 
@@ -720,6 +821,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         `UPDATE character_stats SET player_editable = ?, updated_at = datetime('now') WHERE id = ? AND character_id = ?`
       ).bind(playerEditable ? 1 : 0, statId, characterId).run();
     } catch {}
+    await this.persistCharacterToDb(ch);
     this.broadcast({ type: "character_updated", payload: ch });
   }
 
@@ -730,6 +832,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     if (!statId) throw new Error("statId é obrigatório.");
     const stat = ch.stats.find(s => s.id === statId);
     if (!stat) throw new Error("Status não encontrado neste personagem.");
+    if (stat.type === "formula") throw new Error("Status calculado por fórmula não pode ser editado diretamente.");
     const v = p?.value ?? {};
     if (stat.type === "bar" || stat.type === "number") {
       if (typeof v.current === "number" && Number.isFinite(v.current)) {
@@ -746,7 +849,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
           stat.valueCurrent = v.max;
         }
       }
-    } else if (stat.type === "text" || stat.type === "tag_list" || stat.type === "formula") {
+    } else if (stat.type === "text" || stat.type === "tag_list") {
       if (typeof v.text === "string") stat.valueText = v.text.slice(0, 2000);
     } else if (stat.type === "checkbox") {
       if (typeof v.bool === "boolean") stat.valueBool = v.bool ? 1 : 0;
@@ -1032,6 +1135,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       const ch = this.state!.characters[Number(targetId)];
       if (!ch) throw new Error("Personagem não encontrado.");
       ch.statusEffects.push(effect);
+      await this.persistCharacterToDb(ch);
       this.broadcast({ type: "status_effect_added", payload: { targetType, targetId: Number(targetId), effect } });
     } else if (targetType === "enemy") {
       const en = this.state!.enemies[String(targetId)];
@@ -1050,6 +1154,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       const ch = this.state!.characters[Number(targetId)];
       if (!ch) return;
       ch.statusEffects = ch.statusEffects.filter(s => s.id !== statusId);
+      await this.persistCharacterToDb(ch);
       this.broadcast({ type: "status_effect_removed", payload: { targetType, targetId: Number(targetId), statusId } });
     } else if (targetType === "enemy") {
       const en = this.state!.enemies[String(targetId)];
@@ -1275,6 +1380,15 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     let receiverName = "jogador";
     const receiverChars = Object.values(this.state.characters).filter(c => c.ownerUserId === targetUserId);
     if (receiverChars.length > 0) receiverName = receiverChars[0].ownerUsername;
+    const targetCharacterId = Number(p?.targetCharacterId);
+    const receiverCh = targetCharacterId
+      ? this.state.characters[targetCharacterId]
+      : receiverChars[0];
+    if (!receiverCh || receiverCh.ownerUserId !== targetUserId) throw new Error("Personagem alvo não está na sala.");
+    const proposerCh = this.state.characters[conn.characterId];
+    if (!proposerCh) throw new Error("Seu personagem não está na sala.");
+    this.assertTradeTransfer(proposerCh, receiverCh, offer, "Você não possui todos os itens ou moedas oferecidos.");
+    this.assertTradeTransfer(receiverCh, proposerCh, request, "O personagem alvo não possui todos os itens ou moedas solicitados.");
 
     const trade: Trade = {
       id: cryptoRandomId(),
@@ -1283,6 +1397,8 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       proposerName: conn.username,
       receiverUserId: targetUserId,
       receiverName,
+      proposerCharacterId: proposerCh.id,
+      receiverCharacterId: receiverCh.id,
       offer,
       request,
       status: "pending",
@@ -1335,10 +1451,15 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     }
 
     if (action === "accept") {
+      const proposerCh = this.findTradeCharacter(trade.proposerUserId, trade.proposerCharacterId);
+      const receiverCh = this.findTradeCharacter(trade.receiverUserId, trade.receiverCharacterId);
+      if (!proposerCh || !receiverCh) throw new Error("Os personagens da troca não estão disponíveis na sala.");
+      this.assertTradeTransfer(proposerCh, receiverCh, trade.offer, "O personagem que oferece não possui mais todos os itens ou moedas.");
+      this.assertTradeTransfer(receiverCh, proposerCh, trade.request, "Você não possui mais todos os itens ou moedas solicitados.");
       trade.status = "accepted";
       trade.resolvedAt = Date.now();
       // Aplica a troca nos personagens (move itens/dinheiro)
-      this.applyTradeEffects(trade);
+      await this.applyTradeEffects(trade);
     } else if (action === "reject") {
       trade.status = "rejected";
       trade.resolvedAt = Date.now();
@@ -1360,6 +1481,8 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         proposerName: trade.receiverName,
         receiverUserId: trade.proposerUserId,
         receiverName: trade.proposerName,
+        proposerCharacterId: trade.receiverCharacterId ?? conn.characterId,
+        receiverCharacterId: trade.proposerCharacterId,
         offer: counterOffer,
         request: counterRequest,
         status: "pending",
@@ -1411,17 +1534,15 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
   // Move itens/dinheiro entre personagens após troca aceita.
   // Nota: no modelo homebrew, itens ficam em ch.inventory[] (array de {name, qty, description}).
   // "money" é tratado como stat separado (se existir) — buscamos por nome.
-  private applyTradeEffects(trade: Trade) {
-    const proposerChars = Object.values(this.state!.characters).filter(c => c.ownerUserId === trade.proposerUserId);
-    const receiverChars = Object.values(this.state!.characters).filter(c => c.ownerUserId === trade.receiverUserId);
-    if (proposerChars.length === 0 || receiverChars.length === 0) return;
-    const proposerCh = proposerChars[0];
-    const receiverCh = receiverChars[0];
+  private async applyTradeEffects(trade: Trade) {
+    const proposerCh = this.findTradeCharacter(trade.proposerUserId, trade.proposerCharacterId);
+    const receiverCh = this.findTradeCharacter(trade.receiverUserId, trade.receiverCharacterId);
+    if (!proposerCh || !receiverCh) return;
 
     // Move itens do proposer -> receiver
     for (const item of trade.offer.items) {
       // Remove do proposer (subtrai qty; se chegar a 0, remove)
-      const propItem = proposerCh.inventory.find(it => it.name === item.name);
+      const propItem = proposerCh.inventory.find(it => it.name.trim().toLowerCase() === item.name.trim().toLowerCase());
       if (propItem) {
         propItem.qty = Math.max(0, propItem.qty - item.qty);
         if (propItem.qty === 0) {
@@ -1429,7 +1550,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         }
       }
       // Adiciona no receiver
-      const recvItem = receiverCh.inventory.find(it => it.name === item.name);
+      const recvItem = receiverCh.inventory.find(it => it.name.trim().toLowerCase() === item.name.trim().toLowerCase());
       if (recvItem) {
         recvItem.qty += item.qty;
       } else {
@@ -1439,14 +1560,14 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
 
     // Move itens do receiver -> proposer (request)
     for (const item of trade.request.items) {
-      const recvItem = receiverCh.inventory.find(it => it.name === item.name);
+      const recvItem = receiverCh.inventory.find(it => it.name.trim().toLowerCase() === item.name.trim().toLowerCase());
       if (recvItem) {
         recvItem.qty = Math.max(0, recvItem.qty - item.qty);
         if (recvItem.qty === 0) {
           receiverCh.inventory = receiverCh.inventory.filter(it => it !== recvItem);
         }
       }
-      const propItem = proposerCh.inventory.find(it => it.name === item.name);
+      const propItem = proposerCh.inventory.find(it => it.name.trim().toLowerCase() === item.name.trim().toLowerCase());
       if (propItem) {
         propItem.qty += item.qty;
       } else {
@@ -1465,6 +1586,35 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     // Broadcast update dos personagens afetados
     this.broadcast({ type: "character_updated", payload: proposerCh });
     this.broadcast({ type: "character_updated", payload: receiverCh });
+    await this.persistCharacterToDb(proposerCh);
+    await this.persistCharacterToDb(receiverCh);
+  }
+
+  private findTradeCharacter(userId: number, characterId?: number): CharacterState | null {
+    if (characterId && this.state?.characters[characterId]?.ownerUserId === userId) return this.state.characters[characterId];
+    return Object.values(this.state?.characters || {}).find(c => c.ownerUserId === userId) ?? null;
+  }
+
+  private assertTradeAssets(ch: CharacterState, offer: TradeOffer, message: string) {
+    for (const item of offer.items) {
+      const owned = ch.inventory.find(it => it.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+      if (!owned || owned.qty < item.qty) throw new Error(message);
+    }
+    if (offer.money && offer.money > 0) {
+      const moneyNames = ["dinheiro", "moedas", "gold", "ouro", "money"];
+      const stat = ch.stats.find(s => s.type === "number" && moneyNames.includes(s.name.toLowerCase()));
+      if (!stat || Number(stat.valueCurrent ?? 0) < offer.money) throw new Error(message);
+    }
+  }
+
+  private assertTradeTransfer(from: CharacterState, to: CharacterState, offer: TradeOffer, message: string) {
+    this.assertTradeAssets(from, offer, message);
+    if (offer.money && offer.money > 0 && !this.findMoneyStat(to)) throw new Error(message);
+  }
+
+  private findMoneyStat(ch: CharacterState): CharacterStat | undefined {
+    const names = ["dinheiro", "moedas", "gold", "ouro", "money"];
+    return ch.stats.find(s => s.type === "number" && names.includes(s.name.toLowerCase()));
   }
 
   // Procura um stat do tipo "number" com nome "Dinheiro" (case-insensitive).
@@ -1571,6 +1721,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         } else {
           ch.inventory.push({ name: offer.itemName, qty: 1, description: offer.itemDescription });
         }
+        await this.persistCharacterToDb(ch);
         this.broadcast({ type: "character_updated", payload: ch });
       }
     }
@@ -1678,6 +1829,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       stat.valueCurrent = Number(stat.valueCurrent ?? 0) + delta;
     }
 
+    await this.persistCharacterToDb(ch);
     this.broadcast({ type: "character_updated", payload: ch });
 
     // Notifica via chat
@@ -1940,6 +2092,32 @@ function clampInt(v: any, min: number, max: number): number {
   const n = Math.floor(Number(v));
   if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, n));
+}
+
+function safeJson(s: string | null | undefined, fallback: any): any {
+  if (!s) return fallback;
+  try { return JSON.parse(s); } catch { return fallback; }
+}
+
+function sanitizeInventory(items: any[]): InventoryItem[] {
+  return (Array.isArray(items) ? items : [])
+    .filter(it => it && typeof it.name === "string" && it.name.trim())
+    .slice(0, 100)
+    .map(it => ({
+      name: String(it.name).trim().slice(0, 80),
+      qty: clampInt(it.qty, 0, 9999),
+      description: it.description ? String(it.description).slice(0, 200) : undefined,
+      equipped: !!it.equipped,
+      iconUrl: it.iconUrl ? String(it.iconUrl).slice(0, 500) : null,
+    }));
+}
+
+function statPayloadToValue(s: any): any {
+  const value = s?.value || s || {};
+  if (s?.type === "bar") return { current: Number(value.current ?? s.valueCurrent), max: Number(value.max ?? s.valueMax) };
+  if (s?.type === "number") return { current: Number(value.current ?? s.valueCurrent) };
+  if (s?.type === "checkbox") return { bool: typeof value.bool === "boolean" ? value.bool : !!s.valueBool };
+  return { text: String(value.text ?? s.valueText ?? "") };
 }
 
 function cryptoRandomId(): string {

@@ -200,24 +200,38 @@ roomRoutes.delete("/:code", async (c) => {
   if (room.master_user_id !== user.sub) {
     return c.json({ error: "Apenas o mestre criador pode excluir a sala." }, 403);
   }
-  // Remove tudo (cascade manual — D1 não honra FK CASCADE em todos os casos)
-  await c.env.DB.batch([
-    c.env.DB.prepare(`DELETE FROM room_snapshots WHERE room_code = ?`).bind(code),
-    c.env.DB.prepare(`DELETE FROM chat_log WHERE room_code = ?`).bind(code),
-    c.env.DB.prepare(`DELETE FROM dice_log WHERE room_code = ?`).bind(code),
-    c.env.DB.prepare(`DELETE FROM polls WHERE room_code = ?`).bind(code),
-    c.env.DB.prepare(`DELETE FROM trades WHERE room_code = ?`).bind(code),
-    c.env.DB.prepare(`DELETE FROM purchase_offers WHERE room_code = ?`).bind(code),
-    c.env.DB.prepare(`DELETE FROM session_participants WHERE room_code = ?`).bind(code),
-    c.env.DB.prepare(`DELETE FROM master_planning WHERE room_code = ?`).bind(code),
-    c.env.DB.prepare(`DELETE FROM rooms WHERE code = ?`).bind(code),
-  ]);
-  // Manda o DO encerrar (limpa storage interno)
+
+  // Primeiro limpa o Durable Object. O endpoint /end persiste um snapshot antes
+  // de fechar a sala, o que recriava room_snapshots depois do DELETE abaixo.
   try {
     const doId = c.env.ROOM.idFromName(code);
     const doStub = c.env.ROOM.get(doId);
-    await doStub.fetch(new Request(`https://do/end`, { method: "POST" }));
+    await doStub.fetch(new Request(`https://do/purge`, { method: "POST" }));
   } catch {}
+
+  // Remove tudo (cascade manual — D1 não honra FK CASCADE em todos os casos).
+  // Os filhos das enquetes são removidos explicitamente para funcionar também
+  // em bancos antigos sem foreign_keys habilitado.
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare(`DELETE FROM poll_votes WHERE poll_id IN (SELECT id FROM polls WHERE room_code = ?)`)
+        .bind(code),
+      c.env.DB.prepare(`DELETE FROM poll_chat_messages WHERE poll_id IN (SELECT id FROM polls WHERE room_code = ?)`)
+        .bind(code),
+      c.env.DB.prepare(`DELETE FROM room_snapshots WHERE room_code = ?`).bind(code),
+      c.env.DB.prepare(`DELETE FROM chat_log WHERE room_code = ?`).bind(code),
+      c.env.DB.prepare(`DELETE FROM dice_log WHERE room_code = ?`).bind(code),
+      c.env.DB.prepare(`DELETE FROM polls WHERE room_code = ?`).bind(code),
+      c.env.DB.prepare(`DELETE FROM trades WHERE room_code = ?`).bind(code),
+      c.env.DB.prepare(`DELETE FROM purchase_offers WHERE room_code = ?`).bind(code),
+      c.env.DB.prepare(`DELETE FROM session_participants WHERE room_code = ?`).bind(code),
+      c.env.DB.prepare(`DELETE FROM master_planning WHERE room_code = ?`).bind(code),
+      c.env.DB.prepare(`DELETE FROM rooms WHERE code = ?`).bind(code),
+    ]);
+  } catch (error) {
+    console.error("Falha ao excluir dados da sala", { code, error });
+    return c.json({ error: "Não foi possível excluir todos os dados da sala. Tente novamente." }, 500);
+  }
   await audit(c.env.DB, user.sub, "room.delete", code, null);
   return c.json({ ok: true });
 });

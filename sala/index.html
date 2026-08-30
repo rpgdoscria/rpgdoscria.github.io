@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608292010">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608292010">
+  <link rel="stylesheet" href="/css/style.css?v=202608292145">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608292145">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -104,6 +104,7 @@
               <button class="btn btn-ghost hidden" id="btn-create-poll-overview">📊 Criar enquete</button>
               <button class="btn btn-ghost hidden" id="btn-create-trade-overview">🤝 Propor troca</button>
               <button class="btn btn-ghost hidden" id="btn-create-purchase-overview">🛒 Oferecer compra</button>
+              <button class="btn btn-ghost hidden" id="btn-add-room-character">➕ Adicionar personagem</button>
             </div>
           </div>
         </div>
@@ -267,27 +268,15 @@
 
   <!-- Modais (edit personagem, inimigo, status) — mesmos do sala-mestre.html anterior -->
   <div id="character-modal" class="modal-backdrop hidden">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width:680px;max-height:90vh">
       <h3 id="char-modal-title">Editar personagem</h3>
       <div id="char-modal-alert"></div>
       <div class="field">
         <label>Nome</label>
         <input type="text" id="char-name">
       </div>
-      <div class="grid-2">
-        <div class="field">
-          <label>HP atual</label>
-          <input type="number" id="char-hp-current">
-        </div>
-        <div class="field">
-          <label>HP máximo</label>
-          <input type="number" id="char-hp-max">
-        </div>
-      </div>
-      <div class="field">
-        <label>Dinheiro</label>
-        <input type="number" id="char-money">
-      </div>
+      <p class="muted text-sm">Edite os dados permitidos abaixo. O inventário tem seu próprio painel para edição completa.</p>
+      <div id="char-stats-editor" class="char-stats-editor"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="char-modal-cancel">Cancelar</button>
         <button class="btn btn-primary" id="char-modal-save">Salvar</button>
@@ -490,29 +479,29 @@
 
   <script src="/vendor/purify.min.js"></script>
   <script src="/vendor/marked.min.js"></script>
-  <script src="/js/config.js?v=202608292010"></script>
-  <script src="/js/api.js?v=202608292010"></script>
-  <script src="/js/auth.js?v=202608292010"></script>
-  <script src="/js/markdown.js?v=202608292010"></script>
-  <script src="/js/room-ws.js?v=202608292010"></script>
-  <script src="/js/dice-ui.js?v=202608292010"></script>
-  <script src="/js/dice-visual.js?v=202608292010"></script>
-  <script src="/js/dice-tutorial.js?v=202608292010"></script>
-  <script src="/js/room-render.js?v=202608292010"></script>
-  <script src="/js/character-render.js?v=202608292010"></script>
-  <script src="/js/character-sheet-full.js?v=202608292010"></script>
-  <script src="/js/item-drawer.js?v=202608292010"></script>
-  <script src="/js/enemy-illustration-drawer.js?v=202608292010"></script>
-  <script src="/js/item-proposal.js?v=202608292010"></script>
-  <script src="/js/room-chat.js?v=202608292010"></script>
-  <script src="/js/damage-system.js?v=202608292010"></script>
-  <script src="/js/formula-builder.js?v=202608292010"></script>
-  <script src="/js/poll.js?v=202608292010"></script>
-  <script src="/js/reveal-animations.js?v=202608292010"></script>
-  <script src="/js/trade.js?v=202608292010"></script>
-  <script src="/js/levelup.js?v=202608292010"></script>
-  <script src="/js/purchase.js?v=202608292010"></script>
-  <script src="/js/master-planning.js?v=202608292010"></script>
+  <script src="/js/config.js?v=202608292145"></script>
+  <script src="/js/api.js?v=202608292145"></script>
+  <script src="/js/auth.js?v=202608292145"></script>
+  <script src="/js/markdown.js?v=202608292145"></script>
+  <script src="/js/room-ws.js?v=202608292145"></script>
+  <script src="/js/dice-ui.js?v=202608292145"></script>
+  <script src="/js/dice-visual.js?v=202608292145"></script>
+  <script src="/js/dice-tutorial.js?v=202608292145"></script>
+  <script src="/js/room-render.js?v=202608292145"></script>
+  <script src="/js/character-render.js?v=202608292145"></script>
+  <script src="/js/character-sheet-full.js?v=202608292145"></script>
+  <script src="/js/item-drawer.js?v=202608292145"></script>
+  <script src="/js/enemy-illustration-drawer.js?v=202608292145"></script>
+  <script src="/js/item-proposal.js?v=202608292145"></script>
+  <script src="/js/room-chat.js?v=202608292145"></script>
+  <script src="/js/damage-system.js?v=202608292145"></script>
+  <script src="/js/formula-builder.js?v=202608292145"></script>
+  <script src="/js/poll.js?v=202608292145"></script>
+  <script src="/js/reveal-animations.js?v=202608292145"></script>
+  <script src="/js/trade.js?v=202608292145"></script>
+  <script src="/js/levelup.js?v=202608292145"></script>
+  <script src="/js/purchase.js?v=202608292145"></script>
+  <script src="/js/master-planning.js?v=202608292145"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -731,6 +720,9 @@
         } else if (msg.type === "room_closed") {
           showError("🏁", "Sala encerrada", "O mestre encerrou a sala.", false);
           document.getElementById("room-screen").classList.add("hidden");
+        } else if (msg.type === "fatal") {
+          showError("⚠️", "Conexão interrompida", msg.payload?.message || "Não foi possível manter a conexão com a sala.", false);
+          document.getElementById("room-screen").classList.add("hidden");
         } else if (msg.type === "error") {
           showAlert("error", msg.payload?.message || "Erro");
           setTimeout(() => { document.getElementById("alert-mount").innerHTML = ""; }, 4000);
@@ -875,6 +867,27 @@
         if (others.length === 0) { alert("Não há jogadores pra oferecer compra."); return; }
         try { window.purchaseSystem.openPurchaseCreator(others); } catch (e) { console.warn(e); }
       });
+      const btnAddRoomCharacter = document.getElementById("btn-add-room-character");
+      if (btnAddRoomCharacter) btnAddRoomCharacter.addEventListener("click", async () => {
+        if (!currentState) return;
+        try {
+          const data = await window.api.get("/api/characters?scope=all");
+          const available = (data.characters || []).filter(ch => !currentState.characters.some(existing => existing.id === ch.id));
+          if (!available.length) { alert("Todos os personagens disponíveis já estão na sala."); return; }
+          const overlay = document.createElement("div");
+          overlay.className = "modal-backdrop";
+          overlay.style.display = "grid";
+          overlay.innerHTML = `<div class="modal-card" style="max-width:520px"><h3>➕ Adicionar personagem à sala</h3><p class="muted text-sm">O jogador não precisa estar conectado.</p><div class="field"><label for="room-character-select">Personagem</label><select id="room-character-select">${available.map(ch => `<option value="${ch.id}">${escapeHtml(ch.name)} — ${escapeHtml(ch.ownerUsername || "jogador")}</option>`).join("")}</select></div><div class="modal-actions"><button class="btn btn-ghost" id="room-character-cancel">Cancelar</button><button class="btn btn-primary" id="room-character-add">Adicionar</button></div></div>`;
+          document.body.appendChild(overlay);
+          overlay.querySelector("#room-character-cancel").addEventListener("click", () => overlay.remove());
+          overlay.querySelector("#room-character-add").addEventListener("click", () => {
+            const id = Number(overlay.querySelector("#room-character-select").value);
+            client.send("add_character", { characterId: id });
+            overlay.remove();
+          });
+          overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+        } catch (e) { alert(e.message); }
+      });
 
       // ===== Carrega lista de documentos secretos (mestre) =====
       async function loadSecretsList() {
@@ -986,6 +999,7 @@
           try { window.masterPlanning.init(code); } catch (e) { console.warn("planning init:", e); }
           // Ações rápidas de mestre na Visão Geral
           document.getElementById("btn-create-purchase-overview").classList.remove("hidden");
+          document.getElementById("btn-add-room-character").classList.remove("hidden");
           // Carrega lista de documentos secretos (assíncrono)
           loadSecretsList();
         } else {
@@ -1408,10 +1422,15 @@
         editingCharacterId = id;
         document.getElementById("char-modal-title").textContent = `Editar: ${ch.name}`;
         document.getElementById("char-name").value = ch.name;
-        // Compat: se ch tem hpCurrent (formato antigo), usa; senão vazio
-        document.getElementById("char-hp-current").value = ch.hpCurrent ?? "";
-        document.getElementById("char-hp-max").value = ch.hpMax ?? "";
-        document.getElementById("char-money").value = ch.money ?? "";
+        const statsEditor = document.getElementById("char-stats-editor");
+        statsEditor.innerHTML = (ch.stats || []).map(s => {
+          const locked = !isMaster && !s.playerEditable;
+          const disabled = locked || s.type === "formula" ? "disabled" : "";
+          if (s.type === "bar") return `<div class="field char-stat-edit" data-stat-id="${s.id}" data-stat-type="bar"><label>${escapeHtml(s.name)}${locked ? " 🔒" : ""}</label><div class="grid-2"><input data-stat-field="current" type="number" value="${s.valueCurrent ?? 0}" ${disabled}><input data-stat-field="max" type="number" value="${s.valueMax ?? 0}" ${disabled}></div></div>`;
+          if (s.type === "number") return `<div class="field char-stat-edit" data-stat-id="${s.id}" data-stat-type="number"><label>${escapeHtml(s.name)}${locked ? " 🔒" : ""}</label><input data-stat-field="current" type="number" value="${s.valueCurrent ?? 0}" ${disabled}></div>`;
+          if (s.type === "checkbox") return `<label class="field char-stat-edit" data-stat-id="${s.id}" data-stat-type="checkbox"><span>${escapeHtml(s.name)}${locked ? " 🔒" : ""}</span><input data-stat-field="bool" type="checkbox" ${s.valueBool ? "checked" : ""} ${disabled}></label>`;
+          return `<div class="field char-stat-edit" data-stat-id="${s.id}" data-stat-type="${escapeHtml(s.type)}"><label>${escapeHtml(s.name)}${s.type === "formula" ? " (calculado)" : locked ? " 🔒" : ""}</label><textarea data-stat-field="text" rows="2" ${disabled}>${escapeHtml(s.valueText || "")}</textarea></div>`;
+        }).join("") || `<div class="muted text-sm">Este personagem ainda não possui status.</div>`;
         document.getElementById("char-modal-alert").innerHTML = "";
         document.getElementById("character-modal").classList.remove("hidden");
       }
@@ -1419,12 +1438,21 @@
         document.getElementById("character-modal").classList.add("hidden");
       });
       document.getElementById("char-modal-save").addEventListener("click", () => {
-        // Nota: na sala nova, edição de stats é via statId. Mas mantemos o modal
-        // pra compat com nome/dinheiro — se o jogador só quer mudar nome, pode.
-        // Stats individuais vão via botões +/- direto na ficha.
+        const stats = Array.from(document.querySelectorAll("#char-stats-editor .char-stat-edit"))
+          .filter(row => row.dataset.statType !== "formula" && (isMaster || !row.querySelector("[disabled]")))
+          .map(row => {
+          const type = row.dataset.statType;
+          const value = {};
+          if (type === "bar") { value.current = Number(row.querySelector('[data-stat-field="current"]').value); value.max = Number(row.querySelector('[data-stat-field="max"]').value); }
+          else if (type === "number") value.current = Number(row.querySelector('[data-stat-field="current"]').value);
+          else if (type === "checkbox") value.bool = row.querySelector('[data-stat-field="bool"]').checked;
+          else value.text = row.querySelector('[data-stat-field="text"]').value;
+            return { id: Number(row.dataset.statId), type, value };
+          });
         const payload = {
           characterId: editingCharacterId,
           name: document.getElementById("char-name").value.trim(),
+          stats,
         };
         if (isMaster) {
           client.send("update_character", payload);
@@ -1663,15 +1691,19 @@
       let inventoryModalPendingIcon = null;  // URL do ícone desenhado (a ser salvo com o item)
       let inventoryModalView = "detailed";  // v13: "detailed" (com ícones) | "list" (compacto)
       let inventoryModalItems = [];  // v13: cache dos itens carregados (pra re-renderizar ao trocar view)
+      let inventoryModalCanEdit = false;
 
       function openInventoryModal(characterId, characterName) {
         inventoryModalCharId = characterId;
         inventoryModalPendingIcon = null;
         inventoryModalView = "detailed";  // v13: default = detalhado
+        const selectedCharacter = currentState?.characters.find(c => c.id === characterId);
+        inventoryModalCanEdit = !!selectedCharacter && (isMaster || Number(selectedCharacter.ownerUserId) === Number(window._roomClient?.userId));
         document.getElementById("inv-modal-char-name").textContent = characterName;
         document.getElementById("inv-modal-alert").innerHTML = "";
         // Esconde form de adicionar (v13: só aparece ao clicar "+ Novo item")
         document.getElementById("inv-add-section").classList.add("hidden");
+        document.getElementById("inv-add-toggle").classList.toggle("hidden", !inventoryModalCanEdit);
         // Limpa form de adicionar
         document.getElementById("inv-add-name").value = "";
         document.getElementById("inv-add-qty").value = "1";
@@ -1738,9 +1770,28 @@
             const itemId = Number(b.dataset.itemId);
             try {
               await window.api.del(`/api/characters/${inventoryModalCharId}/inventory/${itemId}`);
+              await syncInventoryWithRoom();
               showAlert("success", "Item removido.");
               loadInventoryItems(inventoryModalCharId);
             } catch (e) { alert(e.message); }
+          });
+        });
+        listEl.querySelectorAll('button[data-inv-action="save"]').forEach(b => {
+          b.addEventListener("click", async () => {
+            const row = b.closest(".inv-modal-row");
+            const itemId = Number(b.dataset.itemId);
+            const name = row?.querySelector('[data-inv-field="name"]')?.value.trim();
+            const qty = Number(row?.querySelector('[data-inv-field="qty"]')?.value);
+            const description = row?.querySelector('[data-inv-field="description"]')?.value.trim() || "";
+            const equipped = !!row?.querySelector('[data-inv-field="equipped"]')?.checked;
+            if (!name) { alert("O item precisa ter um nome."); return; }
+            b.disabled = true;
+            try {
+              await window.api.put(`/api/characters/${inventoryModalCharId}/inventory/${itemId}`, { name, qty, description, equipped });
+              await syncInventoryWithRoom();
+              showAlert("success", "Item salvo.");
+              loadInventoryItems(inventoryModalCharId);
+            } catch (e) { alert(e.message); b.disabled = false; }
           });
         });
         listEl.querySelectorAll('button[data-inv-action="edit-icon"]').forEach(b => {
@@ -1750,6 +1801,7 @@
             window.ItemDrawer.open(async (iconUrl) => {
               try {
                 await window.api.put(`/api/characters/${inventoryModalCharId}/inventory/${itemId}`, { iconUrl });
+                await syncInventoryWithRoom();
                 showAlert("success", "Ícone atualizado!");
                 loadInventoryItems(inventoryModalCharId);
               } catch (e) { alert(e.message); }
@@ -1767,15 +1819,29 @@
           <div class="inv-modal-row inv-modal-row-detailed">
             <div class="inv-modal-row-icon">${iconHtml}</div>
             <div class="inv-modal-row-info">
-              <div class="inv-modal-row-name">${escapeHtml(it.name)} <span class="inv-modal-row-qty">×${it.qty}</span></div>
-              ${it.description ? `<div class="inv-modal-row-desc muted text-xs">${escapeHtml(it.description)}</div>` : ""}
+              <input class="inv-edit-name" data-inv-field="name" value="${escapeHtml(it.name)}" maxlength="80" aria-label="Nome do item" ${inventoryModalCanEdit ? "" : "disabled"}>
+              <div class="flex items-center gap-2"><label class="text-xs muted">Quantidade <input class="inv-edit-qty" data-inv-field="qty" type="number" value="${it.qty}" min="0" max="9999" aria-label="Quantidade" ${inventoryModalCanEdit ? "" : "disabled"}></label><label class="text-xs muted"><input data-inv-field="equipped" type="checkbox" ${it.equipped ? "checked" : ""} ${inventoryModalCanEdit ? "" : "disabled"}> Equipado</label></div>
+              <textarea class="inv-edit-desc" data-inv-field="description" maxlength="200" rows="1" placeholder="Descrição" ${inventoryModalCanEdit ? "" : "disabled"}>${escapeHtml(it.description || "")}</textarea>
             </div>
             <div class="inv-modal-row-actions">
-              <button class="btn btn-sm btn-ghost" data-inv-action="edit-icon" data-item-id="${it.id}" title="Desenhar/editar ícone">🎨 Ícone</button>
-              <button class="btn btn-sm btn-danger" data-inv-action="delete" data-item-id="${it.id}" title="Remover item">🗑 Remover</button>
+              ${inventoryModalCanEdit ? `<button class="btn btn-sm btn-primary" data-inv-action="save" data-item-id="${it.id}" title="Salvar alterações">Salvar</button><button class="btn btn-sm btn-ghost" data-inv-action="edit-icon" data-item-id="${it.id}" title="Desenhar/editar ícone">🎨 Ícone</button><button class="btn btn-sm btn-danger" data-inv-action="delete" data-item-id="${it.id}" title="Remover item">🗑 Remover</button>` : ""}
             </div>
           </div>
         `;
+      }
+
+      async function syncInventoryWithRoom() {
+        if (!inventoryModalCanEdit) return;
+        try {
+          const data = await window.api.get(`/api/characters/${inventoryModalCharId}/inventory`);
+          const ch = currentState?.characters.find(c => c.id === inventoryModalCharId);
+          if (!ch || !data.items) return;
+          const isOwn = Number(ch.ownerUserId) === Number(window._roomClient?.userId);
+          client.send(isMaster && !isOwn ? "update_character" : "update_own_character", {
+            characterId: inventoryModalCharId,
+            inventory: data.items,
+          });
+        } catch (e) { console.warn("inventory sync:", e); }
       }
 
       // v13: Visualização COMPACTA (lista) — uma linha por item, sem ícone grande
@@ -1859,22 +1925,7 @@
           await window.api.post(`/api/characters/${inventoryModalCharId}/inventory`, {
             name, qty, equipped, description, iconUrl: inventoryModalPendingIcon,
           });
-          // Atualiza estado da sala em tempo real via WS (pra outros clientes verem)
-          if (currentState) {
-            const ch = currentState.characters.find(c => c.id === inventoryModalCharId);
-            if (ch && isMaster) {
-              // Re-busca inventário completo e envia via WS pra sincronizar
-              try {
-                const data = await window.api.get(`/api/characters/${inventoryModalCharId}/inventory`);
-                if (data.items) {
-                  client.send("update_character", {
-                    characterId: inventoryModalCharId,
-                    inventory: data.items,
-                  });
-                }
-              } catch {}
-            }
-          }
+          await syncInventoryWithRoom();
           document.getElementById("inv-modal-alert").innerHTML = `<div class="alert alert-success">Item adicionado!</div>`;
           setTimeout(() => { document.getElementById("inv-modal-alert").innerHTML = ""; }, 2000);
           // Limpa form

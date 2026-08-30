@@ -33,13 +33,17 @@ function clampNum(v: any, min: number, max: number): number | null {
 characterRoutes.get("/", async (c) => {
   const user = c.get("user") as JwtPayload | undefined;
   if (!user) return c.json({ error: "Não autenticado." }, 401);
+  const scope = c.req.query("scope");
+  const userRow = await queryFirst<{ role: string; active: number }>(c.env.DB, `SELECT role, active FROM users WHERE id = ?`, user.sub);
+  if (!userRow || userRow.active !== 1) return c.json({ error: "Conta inativa." }, 403);
+  const canSeeAll = scope === "all" && userRow.role === "admin";
   const rows = await queryAll<any>(
     c.env.DB,
     `SELECT c.*, u.username AS owner_username
      FROM characters c JOIN users u ON u.id = c.owner_user_id
-     WHERE c.owner_user_id = ?
-     ORDER BY c.is_active DESC, c.updated_at DESC`,
-    user.sub
+     ${canSeeAll ? "" : "WHERE c.owner_user_id = ?"}
+     ORDER BY c.owner_user_id ASC, c.is_active DESC, c.updated_at DESC`,
+    ...(canSeeAll ? [] : [user.sub])
   );
   const out = [];
   for (const r of rows) {
@@ -68,6 +72,10 @@ characterRoutes.get("/:id", async (c) => {
     `SELECT c.*, u.username AS owner_username FROM characters c JOIN users u ON u.id = c.owner_user_id WHERE c.id = ?`, id
   );
   if (!r) return c.json({ error: "Personagem não encontrado." }, 404);
+  const userRow = await queryFirst<{ role: string }>(c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub);
+  if (r.owner_user_id !== user.sub && userRow?.role !== "admin") {
+    return c.json({ error: "Você só pode consultar seus próprios personagens." }, 403);
+  }
   const stats = await queryAll<any>(c.env.DB, `SELECT * FROM character_stats WHERE character_id = ? ORDER BY display_order ASC, id ASC`, id);
   return c.json({
     id: r.id, ownerUserId: r.owner_user_id, ownerUsername: r.owner_username,
@@ -117,6 +125,8 @@ characterRoutes.post("/", async (c) => {
     if (s.statTemplateId && seenTemplateIds.has(Number(s.statTemplateId))) continue;
     await insertStat(c.env.DB, newId, s, order++);
   }
+  await replaceInventoryItems(c.env.DB, newId, Array.isArray(body.inventory) ? body.inventory : []);
+  await syncLegacyInventory(c.env.DB, newId);
   await audit(c.env.DB, user.sub, "character.create", name, `stats=${statsArr.length}, ruleSets=${ruleSetIds.length}`);
   return c.json({ ok: true, id: newId }, 201);
 });
@@ -129,7 +139,9 @@ characterRoutes.put("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const own = await queryFirst<{ owner: number }>(c.env.DB, `SELECT owner_user_id AS owner FROM characters WHERE id = ?`, id);
   if (!own) return c.json({ error: "Personagem não encontrado." }, 404);
-  if (own.owner !== user.sub) return c.json({ error: "Você só pode editar seus próprios personagens." }, 403);
+  const userRow = await queryFirst<{ role: string }>(c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub);
+  const isMaster = userRow?.role === "admin";
+  if (own.owner !== user.sub && !isMaster) return c.json({ error: "Você só pode editar seus próprios personagens." }, 403);
 
   let body: any;
   try { body = await c.req.json(); } catch { return c.json({ error: "JSON inválido." }, 400); }
@@ -146,6 +158,10 @@ characterRoutes.put("/:id", async (c) => {
     fields.push("updated_at = datetime('now')");
     values.push(id);
     await c.env.DB.prepare(`UPDATE characters SET ${fields.join(", ")} WHERE id = ?`).bind(...values).run();
+  }
+  if (Array.isArray(body.inventory)) {
+    await replaceInventoryItems(c.env.DB, id, body.inventory);
+    await syncLegacyInventory(c.env.DB, id);
   }
 
   // ===== CORREÇÃO DO BUG =====
@@ -283,11 +299,24 @@ characterRoutes.get("/:id/inventory", async (c) => {
   const user = c.get("user") as JwtPayload | undefined;
   if (!user) return c.json({ error: "Não autenticado." }, 401);
   const id = Number(c.req.param("id"));
-  const items = await queryAll<any>(
+  const ch = await queryFirst<{ owner: number }>(c.env.DB, `SELECT owner_user_id AS owner FROM characters WHERE id = ?`, id);
+  if (!ch) return c.json({ error: "Personagem não encontrado." }, 404);
+  const userRow = await queryFirst<{ role: string }>(c.env.DB, `SELECT role FROM users WHERE id = ?`, user.sub);
+  if (ch.owner !== user.sub && userRow?.role !== "admin") return c.json({ error: "Sem permissão." }, 403);
+  let items = await queryAll<any>(
     c.env.DB,
     `SELECT id, name, qty, description, equipped, icon_url, sort_order FROM character_inventory_items WHERE character_id = ? ORDER BY sort_order ASC, id ASC`,
     id
   );
+  // Migra automaticamente personagens antigos que ainda só possuem JSON.
+  if (items.length === 0) {
+    const legacy = await queryFirst<{ inventory_json: string | null }>(c.env.DB, `SELECT inventory_json FROM characters WHERE id = ?`, id);
+    const parsed = safeJson(legacy?.inventory_json ?? null, []);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      await replaceInventoryItems(c.env.DB, id, parsed);
+      items = await queryAll<any>(c.env.DB, `SELECT id, name, qty, description, equipped, icon_url, sort_order FROM character_inventory_items WHERE character_id = ? ORDER BY sort_order ASC, id ASC`, id);
+    }
+  }
   return c.json({
     items: items.map(it => ({
       id: it.id, name: it.name, qty: it.qty, description: it.description,
@@ -325,6 +354,7 @@ characterRoutes.post("/:id/inventory", async (c) => {
     `INSERT INTO character_inventory_items (character_id, name, qty, description, equipped, icon_url, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, name.slice(0, 80), qty, description, equipped, iconUrl, sortOrder).run();
   const newId = res.meta.last_row_id as number;
+  await syncLegacyInventory(c.env.DB, id);
   await audit(c.env.DB, user.sub, "character.inventory.add", `char=${id} item=${name}`, null);
   return c.json({ ok: true, id: newId }, 201);
 });
@@ -354,6 +384,8 @@ characterRoutes.put("/:id/inventory/:itemId", async (c) => {
   fields.push("updated_at = datetime('now')");
   vals.push(itemId, id);
   await c.env.DB.prepare(`UPDATE character_inventory_items SET ${fields.join(", ")} WHERE id = ? AND character_id = ?`).bind(...vals).run();
+  await syncLegacyInventory(c.env.DB, id);
+  await audit(c.env.DB, user.sub, "character.inventory.update", `char=${id} item=${itemId}`, null);
   return c.json({ ok: true });
 });
 
@@ -369,8 +401,38 @@ characterRoutes.delete("/:id/inventory/:itemId", async (c) => {
   const isMaster = userRow && userRow.role === "admin";
   if (!isMaster && ch.owner !== user.sub) return c.json({ error: "Sem permissão." }, 403);
   await c.env.DB.prepare(`DELETE FROM character_inventory_items WHERE id = ? AND character_id = ?`).bind(itemId, id).run();
+  await syncLegacyInventory(c.env.DB, id);
+  await audit(c.env.DB, user.sub, "character.inventory.delete", `char=${id} item=${itemId}`, null);
   return c.json({ ok: true });
 });
+
+async function syncLegacyInventory(db: D1Database, characterId: number): Promise<void> {
+  const items = await queryAll<any>(db, `SELECT name, qty, description, equipped, icon_url AS iconUrl, sort_order AS sortOrder FROM character_inventory_items WHERE character_id = ? ORDER BY sort_order ASC, id ASC`, characterId);
+  await db.prepare(`UPDATE characters SET inventory_json = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(JSON.stringify(items), characterId).run();
+}
+
+async function replaceInventoryItems(db: D1Database, characterId: number, rawItems: any[]): Promise<void> {
+  const items = (Array.isArray(rawItems) ? rawItems : [])
+    .filter(it => it && typeof it.name === "string" && it.name.trim())
+    .slice(0, 100)
+    .map((it, index) => ({
+      name: String(it.name).trim().slice(0, 80),
+      qty: Math.max(0, Math.min(9999, Number(it.qty) || 0)),
+      description: it.description ? String(it.description).slice(0, 200) : null,
+      equipped: it.equipped ? 1 : 0,
+      iconUrl: it.iconUrl ? String(it.iconUrl).slice(0, 500) : null,
+      sortOrder: Number.isFinite(Number(it.sortOrder)) ? Number(it.sortOrder) : index,
+    }));
+  const statements = [db.prepare(`DELETE FROM character_inventory_items WHERE character_id = ?`).bind(characterId)];
+  for (const it of items) {
+    statements.push(db.prepare(`INSERT INTO character_inventory_items (character_id, name, qty, description, equipped, icon_url, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(characterId, it.name, it.qty, it.description, it.equipped, it.iconUrl, it.sortOrder));
+  }
+  for (let i = 0; i < statements.length; i += 90) {
+    await db.batch(statements.slice(i, i + 90));
+  }
+}
 
 // ---------- helpers ----------
 function mapStat(s: any) {

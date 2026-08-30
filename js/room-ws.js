@@ -26,12 +26,17 @@
       this.reconnectAttempts = 0;
       this.maxReconnectAttempts = 10;
       this.shouldReconnect = true;
+      this.reconnectTimer = null;
+      this.socketGeneration = 0;
+      this.fatal = false;
       this.onEvent = null;       // callback (msg) => void
       this.onStateChange = null; // callback (state) => void  (chamado a cada room_state ou atualização incremental)
       this.onConnectivity = null;// callback (status: 'connected'|'reconnecting'|'closed'|'error') => void
     }
 
     connect() {
+      if (!this.shouldReconnect || this.fatal) return;
+      if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) return;
       const token = getToken();
       if (!token) {
         this._notify("error");
@@ -46,36 +51,47 @@
       const url = `${WS_BASE}/api/rooms/connect?${params}`;
 
       this._notify("reconnecting");
+      const generation = ++this.socketGeneration;
+      let socket;
       try {
-        this.ws = new WebSocket(url);
+        socket = new WebSocket(url);
+        this.ws = socket;
       } catch (e) {
         this._notify("error");
         this._scheduleReconnect();
         return;
       }
 
-      this.ws.addEventListener("open", () => {
+      socket.addEventListener("open", () => {
+        if (this.ws !== socket || generation !== this.socketGeneration) return;
         this.connected = true;
         this.reconnectAttempts = 0;
         this._notify("connected");
       });
 
-      this.ws.addEventListener("message", (e) => {
+      socket.addEventListener("message", (e) => {
+        if (this.ws !== socket || generation !== this.socketGeneration) return;
         let msg;
         try { msg = JSON.parse(e.data); } catch { return; }
         this._handleMessage(msg);
       });
 
-      this.ws.addEventListener("close", (e) => {
+      socket.addEventListener("close", (e) => {
+        if (this.ws !== socket || generation !== this.socketGeneration) return;
         this.connected = false;
         this.ws = null;
         this._notify("closed");
-        if (this.shouldReconnect && e.code !== 1000 && e.code !== 1008) {
+        // 1008 = política/autorização e 1011 = erro interno do servidor:
+        // repetir nesses casos só cria um loop agressivo no navegador.
+        if (this.shouldReconnect && e.code !== 1000 && e.code !== 1008 && e.code !== 1011) {
           this._scheduleReconnect();
+        } else if (this.shouldReconnect && (e.code === 1008 || e.code === 1011)) {
+          this._stopWithFatal("A sala recusou a conexão. Atualize a página ou peça ao mestre para verificar a sala.");
         }
       });
 
-      this.ws.addEventListener("error", () => {
+      socket.addEventListener("error", () => {
+        if (this.ws !== socket || generation !== this.socketGeneration) return;
         this._notify("error");
         // Não fecha aqui — o close handler cuida da reconexão
       });
@@ -94,22 +110,41 @@
 
     close() {
       this.shouldReconnect = false;
+      this.fatal = false;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+      this.socketGeneration++;
       if (this.ws) {
         try { this.ws.close(1000, "Saindo"); } catch {}
+        this.ws = null;
       }
     }
 
     _scheduleReconnect() {
+      if (!this.shouldReconnect || this.fatal || this.reconnectTimer) return;
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        this._notify("error");
-        if (this.onEvent) this.onEvent({ type: "fatal", payload: { message: "Não foi possível reconectar após várias tentativas. Recarregue a página." } });
+        this._stopWithFatal("Não foi possível reconectar após várias tentativas. Recarregue a página.");
         return;
       }
       const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 15000);
       this.reconnectAttempts++;
-      setTimeout(() => {
-        if (this.shouldReconnect) this.connect();
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        if (this.shouldReconnect && !this.fatal) this.connect();
       }, delay);
+    }
+
+    _stopWithFatal(message) {
+      this.fatal = true;
+      this.shouldReconnect = false;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+      this._notify("error");
+      if (this.onEvent) this.onEvent({ type: "fatal", payload: { message } });
     }
 
     _handleMessage(msg) {
