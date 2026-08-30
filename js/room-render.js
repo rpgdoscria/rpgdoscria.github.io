@@ -172,7 +172,7 @@
             ${illustrationHtml}
             <div>
               <div class="enemy-name">${escapeHtml(en.name)}</div>
-              <div class="muted text-xs">inimigo</div>
+              <div class="muted text-xs">${en.kind === "complex" || (en.stats || []).length ? "filler complexo" : "filler básico"}</div>
             </div>
           </div>
           <div class="enemy-actions">

@@ -29,7 +29,7 @@ export function corsMiddleware() {
     c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     c.header(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Bootstrap-Key"
+      "Content-Type, Authorization, X-Bootstrap-Key, X-Wiki-Context-Key"
     );
     c.header("Access-Control-Max-Age", "86400");
 

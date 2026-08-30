@@ -25,6 +25,8 @@ export interface Env {
   // Cloudinary — API key e secret são sensíveis (vão como secret, não como var)
   CLOUDINARY_API_KEY: string;
   CLOUDINARY_API_SECRET: string;
+  // Chave privada para GET /api/ai/context (wrangler secret put AI_CONTEXT_KEY)
+  AI_CONTEXT_KEY: string;
 }
 
 // Re-exporta o tipo do Durable Object para conveniência.

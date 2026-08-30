@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="/css/style.css?v=202608292145">
-  <link rel="stylesheet" href="/css/theme-custom.css?v=202608292145">
+  <link rel="stylesheet" href="/css/style.css?v=202608301525">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301525">
 </head>
 <body>
   <div id="header-mount"></div>
@@ -91,6 +91,7 @@
             <h3>🗺️ Visão Geral</h3>
             <div class="overview-stats">
               <div class="overview-stat"><span class="num" id="ov-count-chars">0</span><span class="lbl">Personagens</span></div>
+              <div class="overview-stat"><span class="num" id="ov-count-npcs">0</span><span class="lbl">NPCs</span></div>
               <div class="overview-stat"><span class="num" id="ov-count-enemies">0</span><span class="lbl">Inimigos</span></div>
               <div class="overview-stat"><span class="num" id="ov-count-rolls">0</span><span class="lbl">Rolagens</span></div>
             </div>
@@ -119,10 +120,14 @@
       <section class="room-tab-panel" id="panel-ficha" data-tab-panel="characters" role="tabpanel" aria-labelledby="tab-ficha">
         <div class="flex items-center justify-between mb-2">
           <h2 style="font-size: 18px; margin: 0;">Fichas dos personagens</h2>
-          <div id="join-hint" class="muted text-xs hidden"></div>
+          <div class="flex items-center gap-2"><div id="join-hint" class="muted text-xs hidden"></div><button class="btn btn-sm btn-primary hidden" id="btn-add-npc">+ Criar NPC</button></div>
         </div>
         <div id="characters-grid" class="characters-grid">
           <div class="muted text-sm">Conectando…</div>
+        </div>
+        <h3 class="mt-5" style="font-size:16px">🎭 NPCs da mesa</h3>
+        <div id="npcs-grid" class="characters-grid">
+          <div class="muted text-sm">Nenhum NPC criado.</div>
         </div>
       </section>
 
@@ -130,7 +135,7 @@
       <section class="room-tab-panel" id="panel-inimigos" data-tab-panel="enemies" role="tabpanel" aria-labelledby="tab-inimigos">
         <div class="flex items-center justify-between mb-2">
           <h2 style="font-size: 18px; margin: 0;">Inimigos</h2>
-          <button class="btn btn-sm btn-primary hidden" id="btn-add-enemy">+ Criar inimigo</button>
+          <div class="flex gap-2"><button class="btn btn-sm btn-primary hidden" id="btn-add-enemy">+ Filler básico</button><button class="btn btn-sm btn-ghost hidden" id="btn-add-complex-enemy">+ Filler complexo</button></div>
         </div>
         <div id="enemies-grid" class="enemies-grid">
           <div class="muted text-sm">Nenhum inimigo ainda.</div>
@@ -239,7 +244,7 @@
             <h4>⚔️ Inimigos pré-prontos</h4>
             <div class="flex gap-2 mb-3 flex-wrap">
               <button class="btn btn-sm btn-primary" id="planning-enemy-new-basic">+ Inimigo básico</button>
-              <button class="btn btn-sm btn-primary" id="planning-enemy-new-advanced">+ NPC avançado</button>
+              <button class="btn btn-sm btn-primary" id="planning-enemy-new-advanced">+ Filler complexo</button>
             </div>
             <div id="planning-enemies-list"></div>
             <details class="mt-3">
@@ -284,6 +289,24 @@
     </div>
   </div>
 
+  <div id="npc-modal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:680px;max-height:90vh">
+      <div class="flex items-center justify-between mb-3">
+        <h3 id="npc-modal-title" style="margin:0">Criar NPC</h3>
+        <button class="btn btn-sm btn-ghost" id="npc-modal-close" title="Fechar">✕</button>
+      </div>
+      <div id="npc-modal-alert"></div>
+      <div class="field"><label>Nome *</label><input type="text" id="npc-name" maxlength="100" placeholder="Ex: Capitã da guarda"></div>
+      <div class="field"><label>Foto (URL opcional)</label><input type="url" id="npc-photo" maxlength="500" placeholder="https://…"></div>
+      <div class="field"><label>Descrição</label><textarea id="npc-description" rows="3" maxlength="1000" placeholder="Personalidade, função, informações importantes…"></textarea></div>
+      <div class="enemy-modal-stats-section">
+        <div class="flex items-center justify-between mb-2"><label class="text-xs muted">Status da ficha</label><button class="btn btn-sm btn-ghost" id="npc-add-stat">+ Barra/status</button></div>
+        <div id="npc-stats-list" class="enemy-stats-editor"></div>
+      </div>
+      <div class="modal-actions"><button class="btn btn-ghost" id="npc-modal-cancel">Cancelar</button><button class="btn btn-primary" id="npc-modal-save">Salvar NPC</button></div>
+    </div>
+  </div>
+
   <div id="enemy-modal" class="modal-backdrop hidden">
     <div class="modal-card" style="max-width:600px;max-height:90vh">
       <div class="flex items-center justify-between mb-3">
@@ -291,6 +314,8 @@
         <button class="btn btn-sm btn-ghost" id="enemy-modal-close" title="Fechar">✕</button>
       </div>
       <div id="enemy-modal-alert"></div>
+
+      <div class="field"><label>Tipo</label><select id="enemy-kind"><option value="filler">Filler básico — controle rápido</option><option value="complex">Filler complexo — ficha com stats</option></select></div>
 
       <!-- Ilustração do inimigo (v12) -->
       <div class="enemy-modal-illustration-section">
@@ -334,7 +359,7 @@
       </div>
 
       <!-- Stats avançados do inimigo (v12) -->
-      <div class="enemy-modal-stats-section">
+      <div class="enemy-modal-stats-section" id="enemy-advanced-stats-section">
         <div class="flex items-center justify-between mb-2">
           <label class="text-xs muted">Stats avançados (NPC completo — opcional)</label>
           <button class="btn btn-sm btn-ghost" id="enemy-add-stat" title="Adicionar stat">+ Stat</button>
@@ -479,29 +504,29 @@
 
   <script src="/vendor/purify.min.js"></script>
   <script src="/vendor/marked.min.js"></script>
-  <script src="/js/config.js?v=202608292145"></script>
-  <script src="/js/api.js?v=202608292145"></script>
-  <script src="/js/auth.js?v=202608292145"></script>
-  <script src="/js/markdown.js?v=202608292145"></script>
-  <script src="/js/room-ws.js?v=202608292145"></script>
-  <script src="/js/dice-ui.js?v=202608292145"></script>
-  <script src="/js/dice-visual.js?v=202608292145"></script>
-  <script src="/js/dice-tutorial.js?v=202608292145"></script>
-  <script src="/js/room-render.js?v=202608292145"></script>
-  <script src="/js/character-render.js?v=202608292145"></script>
-  <script src="/js/character-sheet-full.js?v=202608292145"></script>
-  <script src="/js/item-drawer.js?v=202608292145"></script>
-  <script src="/js/enemy-illustration-drawer.js?v=202608292145"></script>
-  <script src="/js/item-proposal.js?v=202608292145"></script>
-  <script src="/js/room-chat.js?v=202608292145"></script>
-  <script src="/js/damage-system.js?v=202608292145"></script>
-  <script src="/js/formula-builder.js?v=202608292145"></script>
-  <script src="/js/poll.js?v=202608292145"></script>
-  <script src="/js/reveal-animations.js?v=202608292145"></script>
-  <script src="/js/trade.js?v=202608292145"></script>
-  <script src="/js/levelup.js?v=202608292145"></script>
-  <script src="/js/purchase.js?v=202608292145"></script>
-  <script src="/js/master-planning.js?v=202608292145"></script>
+  <script src="/js/config.js?v=202608301525"></script>
+  <script src="/js/api.js?v=202608301525"></script>
+  <script src="/js/auth.js?v=202608301525"></script>
+  <script src="/js/markdown.js?v=202608301525"></script>
+  <script src="/js/room-ws.js?v=202608301525"></script>
+  <script src="/js/dice-ui.js?v=202608301525"></script>
+  <script src="/js/dice-visual.js?v=202608301525"></script>
+  <script src="/js/dice-tutorial.js?v=202608301525"></script>
+  <script src="/js/room-render.js?v=202608301525"></script>
+  <script src="/js/character-render.js?v=202608301525"></script>
+  <script src="/js/character-sheet-full.js?v=202608301525"></script>
+  <script src="/js/item-drawer.js?v=202608301525"></script>
+  <script src="/js/enemy-illustration-drawer.js?v=202608301525"></script>
+  <script src="/js/item-proposal.js?v=202608301525"></script>
+  <script src="/js/room-chat.js?v=202608301525"></script>
+  <script src="/js/damage-system.js?v=202608301525"></script>
+  <script src="/js/formula-builder.js?v=202608301525"></script>
+  <script src="/js/poll.js?v=202608301525"></script>
+  <script src="/js/reveal-animations.js?v=202608301525"></script>
+  <script src="/js/trade.js?v=202608301525"></script>
+  <script src="/js/levelup.js?v=202608301525"></script>
+  <script src="/js/purchase.js?v=202608301525"></script>
+  <script src="/js/master-planning.js?v=202608301525"></script>
   <script>
     (async function () {
       window.auth.mountHeader("#header-mount", "rooms");
@@ -989,6 +1014,8 @@
           document.getElementById("btn-lock").classList.remove("hidden");
           document.getElementById("btn-end").classList.remove("hidden");
           document.getElementById("btn-add-enemy").classList.remove("hidden");
+          document.getElementById("btn-add-complex-enemy").classList.remove("hidden");
+          document.getElementById("btn-add-npc").classList.remove("hidden");
           document.getElementById("btn-item-proposals").classList.remove("hidden");
           document.getElementById("dice-master-panel").classList.remove("hidden");
           document.getElementById("suggestions-panel").classList.remove("hidden");
@@ -1104,9 +1131,11 @@
 
         // Stats da aba Visão Geral
         const ovChars = document.getElementById("ov-count-chars");
+        const ovNpcs = document.getElementById("ov-count-npcs");
         const ovEnemies = document.getElementById("ov-count-enemies");
         const ovRolls = document.getElementById("ov-count-rolls");
         if (ovChars) ovChars.textContent = (state.characters || []).length;
+        if (ovNpcs) ovNpcs.textContent = (state.npcs || []).length;
         if (ovEnemies) ovEnemies.textContent = (state.enemies || []).length;
         if (ovRolls) ovRolls.textContent = (state.diceLog || []).length;
 
@@ -1121,6 +1150,12 @@
               editable: true, isMaster, isOwn,
             });
           }).join("");
+        }
+
+        const ng = document.getElementById("npcs-grid");
+        if (ng) {
+          if (!state.npcs || state.npcs.length === 0) ng.innerHTML = `<div class="muted text-sm">Nenhum NPC criado.</div>`;
+          else ng.innerHTML = state.npcs.map(npc => window.characterRender.renderNpcCard(npc, { isMaster })).join("");
         }
 
         // Cards compactos na Visão Geral (Tarefa 1 — melhoria)
@@ -1186,6 +1221,15 @@
         });
         document.querySelectorAll('button[data-action="gm-edit-character"], button[data-action="edit-character"]').forEach(b => {
           b.addEventListener("click", () => openCharacterModal(Number(b.dataset.characterId)));
+        });
+        document.querySelectorAll('button[data-action="edit-npc"]').forEach(b => {
+          b.addEventListener("click", () => openNpcModal(b.dataset.npcId));
+        });
+        document.querySelectorAll('button[data-action="delete-npc"]').forEach(b => {
+          b.addEventListener("click", () => {
+            if (!confirm("Remover este NPC da sala?")) return;
+            client.send("delete_npc", { npcId: b.dataset.npcId });
+          });
         });
         document.querySelectorAll('button[data-action="edit-enemy"]').forEach(b => {
           b.addEventListener("click", () => openEnemyModal(b.dataset.enemyId));
@@ -1462,15 +1506,83 @@
         document.getElementById("character-modal").classList.add("hidden");
       });
 
+      // ===== Modal NPC =====
+      let editingNpcId = null;
+      let npcModalStats = [];
+      function openNpcModal(npcId) {
+        editingNpcId = npcId || null;
+        const npc = editingNpcId ? currentState?.npcs?.find(n => n.id === editingNpcId) : null;
+        document.getElementById("npc-modal-title").textContent = npc ? `Editar NPC: ${npc.name}` : "Criar NPC";
+        document.getElementById("npc-name").value = npc?.name || "";
+        document.getElementById("npc-photo").value = npc?.photoUrl || "";
+        document.getElementById("npc-description").value = npc?.description || "";
+        npcModalStats = (npc?.stats || []).map(s => ({ ...s }));
+        renderNpcStatsEditor();
+        document.getElementById("npc-modal-alert").innerHTML = "";
+        document.getElementById("npc-modal").classList.remove("hidden");
+      }
+      function renderNpcStatsEditor() {
+        const list = document.getElementById("npc-stats-list");
+        if (!list) return;
+        if (!npcModalStats.length) { list.innerHTML = `<div class="muted text-xs">Nenhum status. Adicione uma barra, número ou texto.</div>`; return; }
+        list.innerHTML = npcModalStats.map((s, i) => `
+          <div class="enemy-stat-editor-row" data-npc-stat-index="${i}">
+            <input type="text" class="nse-name" placeholder="Nome" value="${escapeHtml(s.name)}" maxlength="50">
+            <select class="nse-type"><option value="bar" ${s.type === "bar" ? "selected" : ""}>Barra</option><option value="number" ${s.type === "number" ? "selected" : ""}>Número</option><option value="text" ${s.type === "text" ? "selected" : ""}>Texto</option><option value="checkbox" ${s.type === "checkbox" ? "selected" : ""}>Checkbox</option></select>
+            <input type="number" class="nse-cur" placeholder="Atual" value="${s.valueCurrent ?? ""}" style="width:75px">
+            <input type="number" class="nse-max" placeholder="Máx" value="${s.valueMax ?? ""}" style="width:75px" ${s.type !== "bar" ? "disabled" : ""}>
+            <input type="text" class="nse-text" placeholder="Texto" value="${escapeHtml(s.valueText || "")}" style="${s.type !== "text" ? "display:none" : "flex:1"}">
+            <button class="btn btn-sm btn-danger" data-action="remove-npc-stat" data-stat-index="${i}">×</button>
+          </div>
+        `).join("");
+        list.querySelectorAll(".nse-type").forEach(sel => sel.addEventListener("change", () => {
+          const row = sel.closest(".enemy-stat-editor-row");
+          const type = sel.value;
+          row.querySelector(".nse-max").disabled = type !== "bar";
+          row.querySelector(".nse-max").style.display = type === "bar" ? "" : "none";
+          row.querySelector(".nse-cur").style.display = type === "checkbox" ? "none" : "";
+          row.querySelector(".nse-text").style.display = type === "text" ? "flex" : "none";
+        }));
+        list.querySelectorAll('button[data-action="remove-npc-stat"]').forEach(b => b.addEventListener("click", () => {
+          npcModalStats.splice(Number(b.dataset.statIndex), 1); renderNpcStatsEditor();
+        }));
+      }
+      function collectNpcStats() {
+        return Array.from(document.querySelectorAll("#npc-stats-list .enemy-stat-editor-row")).map((row, i) => {
+          const name = row.querySelector(".nse-name").value.trim();
+          const type = row.querySelector(".nse-type").value;
+          const stat = { id: npcModalStats[i]?.id || `npc-stat-${Date.now()}-${i}`, name, type, displayOrder: i };
+          if (type === "bar" || type === "number") { stat.valueCurrent = Number(row.querySelector(".nse-cur").value) || 0; if (type === "bar") stat.valueMax = Number(row.querySelector(".nse-max").value) || 0; }
+          else if (type === "text") stat.valueText = row.querySelector(".nse-text").value.slice(0, 2000);
+          else if (type === "checkbox") stat.valueBool = 0;
+          return stat;
+        }).filter(s => s.name);
+      }
+      document.getElementById("npc-add-stat").addEventListener("click", () => {
+        npcModalStats.push({ id: `npc-stat-${Date.now()}`, name: "", type: "bar", valueCurrent: 0, valueMax: 10, displayOrder: npcModalStats.length });
+        renderNpcStatsEditor();
+      });
+      document.getElementById("npc-modal-save").addEventListener("click", () => {
+        const name = document.getElementById("npc-name").value.trim();
+        if (!name) { document.getElementById("npc-modal-alert").innerHTML = `<div class="alert alert-error">Nome é obrigatório.</div>`; return; }
+        const payload = { name, photoUrl: document.getElementById("npc-photo").value.trim(), description: document.getElementById("npc-description").value.trim(), stats: collectNpcStats() };
+        if (editingNpcId) { payload.npcId = editingNpcId; client.send("update_npc", payload); } else client.send("create_npc", payload);
+        document.getElementById("npc-modal").classList.add("hidden");
+      });
+      ["npc-modal-cancel", "npc-modal-close"].forEach(id => document.getElementById(id).addEventListener("click", () => document.getElementById("npc-modal").classList.add("hidden")));
+      const btnAddNpc = document.getElementById("btn-add-npc");
+      if (btnAddNpc) btnAddNpc.addEventListener("click", () => openNpcModal(null));
+
       // ===== Modal inimigo (v12: + ilustração + stats avançados) =====
       let editingEnemyId = null;
       let enemyModalIllustrationUrl = null;  // URL da ilustração desenhada
       let enemyModalStats = [];  // array de stats avançados
 
-      function openEnemyModal(enemyId) {
+      function openEnemyModal(enemyId, initialKind = "filler") {
         editingEnemyId = enemyId;
         const en = enemyId ? currentState?.enemies.find(e => e.id === enemyId) : null;
-        document.getElementById("enemy-modal-title").textContent = en ? `Editar: ${en.name}` : "Criar inimigo";
+        document.getElementById("enemy-modal-title").textContent = en ? `Editar: ${en.name}` : (initialKind === "complex" ? "Criar filler complexo" : "Criar filler básico");
+        document.getElementById("enemy-kind").value = en?.kind || ((en?.stats || []).length ? "complex" : initialKind);
         document.getElementById("enemy-name").value = en?.name ?? "";
         document.getElementById("enemy-hp-mode").value = en?.hpMode ?? "numeric";
         document.getElementById("enemy-hp-current").value = en?.hpCurrent ?? 10;
@@ -1484,6 +1596,7 @@
         enemyModalStats = (en?.stats || []).map(s => ({ ...s }));
         renderEnemyStatsEditor();
         toggleEnemyFields();
+        toggleEnemyKind();
         document.getElementById("enemy-modal-alert").innerHTML = "";
         document.getElementById("enemy-modal").classList.remove("hidden");
       }
@@ -1631,12 +1744,20 @@
         document.getElementById("enemy-numeric-fields").classList.toggle("hidden", mode !== "numeric");
         document.getElementById("enemy-desc-fields").classList.toggle("hidden", mode !== "description");
       }
+      function toggleEnemyKind() {
+        const kind = document.getElementById("enemy-kind").value;
+        const section = document.getElementById("enemy-advanced-stats-section");
+        if (section) section.classList.toggle("hidden", kind !== "complex");
+      }
       document.getElementById("enemy-hp-mode").addEventListener("change", toggleEnemyFields);
+      document.getElementById("enemy-kind").addEventListener("change", toggleEnemyKind);
       document.getElementById("enemy-preset-select").addEventListener("change", (e) => {
         document.getElementById("enemy-desc").value = e.target.value;
       });
       const btnAddEnemy = document.getElementById("btn-add-enemy");
       if (btnAddEnemy) btnAddEnemy.addEventListener("click", () => openEnemyModal(null));
+      const btnAddComplexEnemy = document.getElementById("btn-add-complex-enemy");
+      if (btnAddComplexEnemy) btnAddComplexEnemy.addEventListener("click", () => openEnemyModal(null, "complex"));
       // v12: botão "Propostas" (mestre) — abre modal de revisão
       const btnItemProposals = document.getElementById("btn-item-proposals");
       if (btnItemProposals) btnItemProposals.addEventListener("click", () => {
@@ -1652,6 +1773,7 @@
         const collectedStats = collectEnemyStats();
         const payload = {
           name,
+          kind: document.getElementById("enemy-kind").value,
           hpMode: mode,
           hpCurrent: parseInt(document.getElementById("enemy-hp-current").value, 10),
           hpMax: parseInt(document.getElementById("enemy-hp-max").value, 10),
@@ -1980,6 +2102,20 @@
             // Remove a linha do painel imediatamente
             if (statRow) statRow.remove();
           });
+        });
+        const addStatButton = contentEl.querySelector('button[data-action="add-character-stat"]');
+        if (addStatButton) addStatButton.addEventListener("click", () => {
+          const name = contentEl.querySelector("#manage-new-stat-name").value.trim();
+          const current = Number(contentEl.querySelector("#manage-new-stat-current").value);
+          const max = Number(contentEl.querySelector("#manage-new-stat-max").value);
+          const color = contentEl.querySelector("#manage-new-stat-color").value;
+          const playerEditable = contentEl.querySelector("#manage-new-stat-player-editable").checked;
+          if (!name) { alert("Informe o nome da barra."); return; }
+          if (!Number.isFinite(current) || !Number.isFinite(max) || current < 0 || max < 0) { alert("Os valores da barra devem ser números positivos."); return; }
+          if (current > max) { alert("O valor atual não pode ser maior que o máximo."); return; }
+          client.send("add_character_stat", { characterId: manageCharId, name, type: "bar", valueCurrent: current, valueMax: max, color, playerEditable });
+          addStatButton.disabled = true;
+          addStatButton.textContent = "Barra adicionada";
         });
         document.getElementById("manage-character-modal").classList.remove("hidden");
       }

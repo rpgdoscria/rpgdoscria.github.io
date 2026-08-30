@@ -5364,6 +5364,16 @@ h1, h2, h3, .brand, .modal-card h3, .room-title, .planning-section h4 {
   margin-bottom: 6px;
   transition: border-color 0.12s;
 }
+
+.manage-panel-add-stat {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.npc-card {
+  border-color: rgba(167, 139, 250, 0.5);
+}
 .manage-stat-row:hover {
   border-color: var(--accent);
 }
@@ -5710,4 +5720,3 @@ h1, h2, h3, .brand, .modal-card h3, .room-title, .planning-section h4 {
   .trade-item-option { grid-template-columns: auto minmax(0, 1fr) 56px; }
   .trade-item-option .muted { display: none; }
 }
-

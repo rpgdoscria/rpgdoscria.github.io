@@ -185,11 +185,28 @@
           s.enemies = s.enemies.filter(e => e.id !== msg.payload.enemyId);
           break;
         }
+        case "npc_updated": {
+          if (!Array.isArray(s.npcs)) s.npcs = [];
+          const npc = msg.payload;
+          const idx = s.npcs.findIndex(n => n.id === npc.id);
+          if (idx >= 0) s.npcs[idx] = npc;
+          else s.npcs.push(npc);
+          break;
+        }
+        case "npc_deleted": {
+          if (!Array.isArray(s.npcs)) s.npcs = [];
+          s.npcs = s.npcs.filter(n => n.id !== msg.payload.npcId);
+          break;
+        }
         case "status_effect_added": {
           const { targetType, targetId, effect } = msg.payload;
           if (targetType === "character") {
             const ch = s.characters.find(c => c.id === targetId);
             if (ch) ch.statusEffects.push(effect);
+          } else if (targetType === "npc") {
+            if (!Array.isArray(s.npcs)) s.npcs = [];
+            const npc = s.npcs.find(n => n.id === targetId);
+            if (npc) npc.statusEffects.push(effect);
           } else {
             const en = s.enemies.find(e => e.id === targetId);
             if (en) en.statusEffects.push(effect);
@@ -201,6 +218,10 @@
           if (targetType === "character") {
             const ch = s.characters.find(c => c.id === targetId);
             if (ch) ch.statusEffects = ch.statusEffects.filter(s => s.id !== statusId);
+          } else if (targetType === "npc") {
+            if (!Array.isArray(s.npcs)) s.npcs = [];
+            const npc = s.npcs.find(n => n.id === targetId);
+            if (npc) npc.statusEffects = npc.statusEffects.filter(s => s.id !== statusId);
           } else {
             const en = s.enemies.find(e => e.id === targetId);
             if (en) en.statusEffects = en.statusEffects.filter(s => s.id !== statusId);

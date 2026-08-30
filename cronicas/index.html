@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crônicas — Rpg dos Cria</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/css/style.css?v=202608301525">
+  <link rel="stylesheet" href="/css/theme-custom.css?v=202608301525">
+  <style>
+    .chronicles-layout { display:grid; grid-template-columns:minmax(220px, .75fr) minmax(0, 1.7fr); gap:20px; align-items:start; }
+    .chronicle-list { display:grid; gap:10px; max-height:calc(100vh - 210px); overflow:auto; padding-right:3px; }
+    .chronicle-item { width:100%; text-align:left; border:1px solid var(--border-color, #334155); background:var(--surface, #111827); color:inherit; border-radius:12px; padding:12px; cursor:pointer; }
+    .chronicle-item.active { border-color:var(--accent, #a78bfa); box-shadow:0 0 0 1px var(--accent, #a78bfa); }
+    .chronicle-cover { width:100%; max-height:260px; object-fit:cover; border-radius:12px; margin-bottom:16px; }
+    .chronicle-content { min-height:260px; line-height:1.7; }
+    .chronicle-content img { max-width:100%; height:auto; border-radius:10px; }
+    .chronicle-content pre { overflow:auto; padding:12px; border-radius:8px; background:rgba(0,0,0,.25); }
+    .chronicle-editor { min-height:320px; width:100%; resize:vertical; font-family:var(--font-mono, monospace); line-height:1.55; }
+    .chronicle-editor[hidden], #chronicle-preview[hidden] { display:none; }
+    @media (max-width: 800px) { .chronicles-layout { grid-template-columns:1fr; } .chronicle-list { max-height:none; } }
+  </style>
+</head>
+<body>
+  <div id="header-mount"></div>
+  <main class="container wide">
+    <div class="flex items-center justify-between mb-4" style="gap:12px;flex-wrap:wrap">
+      <div>
+        <h1 style="font-family:var(--font-serif);font-size:28px;margin:0">Crônicas</h1>
+        <p class="muted text-sm" style="margin:4px 0 0">Histórias permanentes ligadas às fichas dos personagens.</p>
+      </div>
+      <a class="btn" href="/meus-personagens">← Meus personagens</a>
+    </div>
+
+    <div id="alert-mount"></div>
+    <div class="card" style="padding:14px;margin-bottom:18px">
+      <label for="character-select" class="text-sm" style="display:block;margin-bottom:6px">Personagem da crônica</label>
+      <select id="character-select" class="input" style="max-width:460px"></select>
+    </div>
+
+    <div class="chronicles-layout">
+      <aside>
+        <div class="flex items-center justify-between mb-2">
+          <h2 style="font-size:18px;margin:0">Histórias</h2>
+          <button id="new-chronicle" class="btn btn-sm btn-primary">+ Nova</button>
+        </div>
+        <div id="chronicle-list" class="chronicle-list"></div>
+      </aside>
+
+      <section class="card" style="padding:20px">
+        <div id="empty-state" class="muted" style="padding:48px 12px;text-align:center">Selecione um personagem para ver ou criar uma crônica.</div>
+        <div id="chronicle-view" hidden>
+          <div class="flex items-center justify-between" style="gap:12px;flex-wrap:wrap">
+            <div>
+              <h2 id="view-title" style="font-family:var(--font-serif);margin:0 0 4px"></h2>
+              <div id="view-meta" class="muted text-xs"></div>
+            </div>
+            <div class="flex gap-2">
+              <button id="edit-chronicle" class="btn btn-sm">Editar</button>
+              <button id="delete-chronicle" class="btn btn-sm btn-danger">Apagar</button>
+            </div>
+          </div>
+          <img id="view-cover" class="chronicle-cover" alt="" hidden>
+          <div id="chronicle-content" class="chronicle-content" style="margin-top:18px"></div>
+        </div>
+        <form id="chronicle-form" hidden>
+          <div class="flex items-center justify-between" style="gap:10px;flex-wrap:wrap">
+            <h2 id="form-heading" style="font-family:var(--font-serif);margin:0">Nova crônica</h2>
+            <button type="button" id="cancel-edit" class="btn btn-sm">Cancelar</button>
+          </div>
+          <div class="form-group" style="margin-top:16px">
+            <label for="chronicle-title">Título</label>
+            <input id="chronicle-title" class="input" maxlength="160" required placeholder="Ex.: O despertar na cidade baixa">
+          </div>
+          <div class="form-group">
+            <label for="chronicle-excerpt">Resumo curto <span class="muted text-xs">(opcional)</span></label>
+            <input id="chronicle-excerpt" class="input" maxlength="500" placeholder="Uma frase para aparecer na lista">
+          </div>
+          <div class="form-group">
+            <label for="chronicle-cover">Imagem de capa por URL <span class="muted text-xs">(opcional)</span></label>
+            <input id="chronicle-cover" class="input" maxlength="500" placeholder="https://...">
+          </div>
+          <div class="flex items-center justify-between" style="gap:10px;flex-wrap:wrap">
+            <label for="chronicle-markdown" style="margin:0">Texto da história</label>
+            <div class="flex gap-2">
+              <button type="button" id="insert-image" class="btn btn-sm">🖼 Inserir imagem</button>
+              <button type="button" id="toggle-preview" class="btn btn-sm">Pré-visualizar</button>
+            </div>
+          </div>
+          <textarea id="chronicle-markdown" class="input chronicle-editor" maxlength="200000" placeholder="# Capítulo 1\n\nEscreva a história em Markdown comum ou avançado…"></textarea>
+          <div id="chronicle-preview" class="chronicle-content card" style="padding:14px;margin-top:10px" hidden></div>
+          <details style="margin-top:12px">
+            <summary class="muted text-sm" style="cursor:pointer">Dicas de Markdown e imagens</summary>
+            <p class="muted text-sm" style="margin-bottom:0">Use títulos, listas, tabelas, citações e blocos de código. Para imagens, use <code>![descrição](https://endereco-da-imagem)</code> ou clique em “Inserir imagem”. Links para páginas da wiki podem usar <code>[[Nome da página]]</code>.</p>
+          </details>
+          <div class="flex gap-2" style="margin-top:16px">
+            <button type="submit" class="btn btn-primary">Salvar crônica</button>
+            <button type="button" id="cancel-edit-bottom" class="btn">Cancelar</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script src="/vendor/marked.min.js"></script>
+  <script src="/vendor/purify.min.js"></script>
+  <script src="/js/config.js?v=202608301525"></script>
+  <script src="/js/api.js?v=202608301525"></script>
+  <script src="/js/auth.js?v=202608301525"></script>
+  <script src="/js/markdown.js?v=202608301525"></script>
+  <script>
+    (async function () {
+      window.auth.mountHeader("#header-mount", "characters");
+      const sess = window.auth.requireAuth("viewer");
+      if (!sess) return;
+
+      const $ = id => document.getElementById(id);
+      const state = { characters: [], chronicles: [], selectedId: null, editingId: null };
+      const params = new URLSearchParams(location.search);
+      const requestedCharacterId = Number(params.get("characterId")) || null;
+
+      function escapeHtml(s) { return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#39;"}[m])); }
+      function alertBox(type, message) { $("alert-mount").innerHTML = `<div class="alert alert-${type}">${escapeHtml(message)}</div>`; }
+      function clearAlert() { $("alert-mount").innerHTML = ""; }
+      function selectedCharacter() { return state.characters.find(c => Number(c.id) === Number(state.selectedId)); }
+      function setQueryCharacter(id) { history.replaceState(null, "", `/cronicas?characterId=${encodeURIComponent(id)}`); }
+      function renderList() {
+        const list = $("chronicle-list");
+        if (!state.chronicles.length) { list.innerHTML = `<div class="muted text-sm card" style="padding:18px">Nenhuma crônica ainda. Clique em “+ Nova” para começar.</div>`; return; }
+        list.innerHTML = state.chronicles.map(ch => `<button type="button" class="chronicle-item ${Number(ch.id) === Number(state.selectedId) ? "active" : ""}" data-id="${ch.id}"><div style="font-weight:700">${escapeHtml(ch.title)}</div><div class="muted text-xs" style="margin-top:4px">${escapeHtml(ch.excerpt || "Sem resumo")}</div></button>`).join("");
+        list.querySelectorAll("[data-id]").forEach(btn => btn.addEventListener("click", () => selectChronicle(Number(btn.dataset.id))));
+      }
+      function renderSelected() {
+        const ch = state.chronicles.find(item => Number(item.id) === Number(state.selectedId));
+        if (!ch) { $("chronicle-view").hidden = true; $("empty-state").hidden = false; return; }
+        $("empty-state").hidden = true; $("chronicle-view").hidden = false;
+        $("view-title").textContent = ch.title;
+        $("view-meta").textContent = `${ch.characterName || "Personagem"} · atualizado em ${new Date(ch.updatedAt).toLocaleString("pt-BR")}`;
+        const cover = $("view-cover");
+        cover.hidden = !ch.coverImageUrl; cover.src = ch.coverImageUrl || "";
+        cover.onerror = () => { cover.hidden = true; };
+        $("chronicle-content").innerHTML = window.md.render(ch.contentMd || "");
+      }
+      function selectChronicle(id) { state.selectedId = id; state.editingId = null; $("chronicle-form").hidden = true; renderList(); renderSelected(); }
+      function openForm(ch) {
+        state.editingId = ch ? Number(ch.id) : null;
+        $("chronicle-view").hidden = true; $("empty-state").hidden = true; $("chronicle-form").hidden = false;
+        $("form-heading").textContent = ch ? "Editar crônica" : `Nova crônica para ${selectedCharacter()?.name || "personagem"}`;
+        $("chronicle-title").value = ch?.title || ""; $("chronicle-excerpt").value = ch?.excerpt || ""; $("chronicle-cover").value = ch?.coverImageUrl || ""; $("chronicle-markdown").value = ch?.contentMd || "";
+        $("chronicle-preview").hidden = true; $("chronicle-markdown").hidden = false;
+        $("chronicle-title").focus();
+      }
+      async function loadChronicles() {
+        state.chronicles = (await window.api.get(`/api/chronicles?characterId=${encodeURIComponent(state.selectedId)}`)).chronicles || [];
+        renderList();
+        if (state.chronicles.length) selectChronicle(state.chronicles[0].id); else { state.selectedId = null; renderSelected(); }
+      }
+      function insertAtCursor(text) { const el = $("chronicle-markdown"); const start = el.selectionStart; el.value = el.value.slice(0, start) + text + el.value.slice(el.selectionEnd); el.focus(); el.selectionStart = el.selectionEnd = start + text.length; }
+
+      $("character-select").addEventListener("change", async event => { state.selectedId = Number(event.target.value); setQueryCharacter(state.selectedId); await loadChronicles(); });
+      $("new-chronicle").addEventListener("click", () => { if (selectedCharacter()) openForm(null); else alertBox("error", "Selecione um personagem primeiro."); });
+      $("edit-chronicle").addEventListener("click", () => openForm(state.chronicles.find(ch => Number(ch.id) === Number(state.selectedId))));
+      $("delete-chronicle").addEventListener("click", async () => { if (!state.selectedId || !confirm("Apagar esta crônica?")) return; try { await window.api.del(`/api/chronicles/${state.selectedId}`); alertBox("success", "Crônica apagada."); await loadChronicles(); } catch (e) { alertBox("error", e.message); } });
+      [$("cancel-edit"), $("cancel-edit-bottom")].forEach(btn => btn.addEventListener("click", () => { state.editingId ? selectChronicle(state.editingId) : ( $("chronicle-form").hidden = true, renderSelected() ); }));
+      $("insert-image").addEventListener("click", () => { const url = prompt("Cole a URL pública da imagem:"); if (url) insertAtCursor(`![Descrição da imagem](${url})`); });
+      $("toggle-preview").addEventListener("click", () => { const preview = $("chronicle-preview"); const editing = !$("chronicle-markdown").hidden; preview.innerHTML = window.md.render($("chronicle-markdown").value); preview.hidden = !editing; $("chronicle-markdown").hidden = editing; $("toggle-preview").textContent = editing ? "Voltar ao editor" : "Pré-visualizar"; });
+      $("chronicle-form").addEventListener("submit", async event => { event.preventDefault(); clearAlert(); const body = { characterId: state.selectedId, title: $("chronicle-title").value.trim(), excerpt: $("chronicle-excerpt").value.trim(), coverImageUrl: $("chronicle-cover").value.trim() || null, contentMd: $("chronicle-markdown").value }; try { if (state.editingId) await window.api.put(`/api/chronicles/${state.editingId}`, body); else { const created = await window.api.post("/api/chronicles", body); state.selectedId = Number(created.id); } alertBox("success", "Crônica salva."); await loadChronicles(); } catch (e) { alertBox("error", e.message); } });
+
+      try {
+        const data = await window.api.get("/api/characters"); state.characters = data.characters || [];
+        if (!state.characters.length) { $("character-select").innerHTML = `<option>Nenhum personagem encontrado</option>`; $("new-chronicle").disabled = true; return; }
+        const initial = state.characters.find(c => Number(c.id) === requestedCharacterId) || state.characters[0]; state.selectedId = Number(initial.id); $("character-select").innerHTML = state.characters.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join(""); $("character-select").value = String(state.selectedId); setQueryCharacter(state.selectedId); await loadChronicles();
+      } catch (e) { alertBox("error", e.message); }
+    })();
+  </script>
+</body>
+</html>

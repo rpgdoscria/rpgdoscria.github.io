@@ -73,6 +73,7 @@ interface EnemyStat {
 interface EnemyState {
   id: string;
   name: string;
+  kind: "filler" | "complex";
   hpMode: EnemyHpMode;
   hpCurrent?: number;
   hpMax?: number;
@@ -80,6 +81,15 @@ interface EnemyState {
   statusEffects: StatusEffect[];
   illustrationUrl?: string | null;  // v12: ilustração do inimigo (upload ou desenho)
   stats?: EnemyStat[];              // v12: stats avançados do inimigo (NPC completo)
+}
+
+interface NpcState {
+  id: string;
+  name: string;
+  description?: string;
+  photoUrl?: string | null;
+  stats: EnemyStat[];
+  statusEffects: StatusEffect[];
 }
 
 interface DiceLogEntry {
@@ -224,6 +234,7 @@ interface RoomState {
   lastActivity: number;
   characters: Record<number, CharacterState>;  // chave = characterId
   enemies: Record<string, EnemyState>;
+  npcs: Record<string, NpcState>;
   diceLog: DiceLogEntry[];
   suggestions: SuggestedFormula[];
   chatLog: ChatMessage[];   // mantém últimas ~50 em memória
@@ -293,6 +304,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       try {
         const stored = await this.storage.get<RoomState>("roomState");
         if (stored) {
+          if (!stored.npcs || typeof stored.npcs !== "object") stored.npcs = {};
           this.state = stored;
           await this.scheduleExpiry();
         }
@@ -359,6 +371,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       lastActivity: Date.now(),
       characters: {},
       enemies: {},
+      npcs: {},
       diceLog: [],
       suggestions: [],
       chatLog: [],
@@ -593,6 +606,11 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
         case "update_own_character": await this.handleUpdateOwnCharacter(conn, msg.payload); break;
         case "update_character": await this.handleUpdateCharacter(conn, msg.payload); break;
         case "add_character": await this.handleAddCharacterByMaster(conn, msg.payload); break;
+        case "add_character_stat": await this.handleAddCharacterStat(conn, msg.payload); break;
+        case "create_npc": await this.handleCreateNpc(conn, msg.payload); break;
+        case "update_npc": await this.handleUpdateNpc(conn, msg.payload); break;
+        case "update_npc_stat": await this.handleUpdateNpcStat(conn, msg.payload); break;
+        case "delete_npc": await this.handleDeleteNpc(conn, msg.payload); break;
         case "create_enemy": await this.handleCreateEnemy(conn, msg.payload); break;
         case "update_enemy": await this.handleUpdateEnemy(conn, msg.payload); break;
         case "update_enemy_stat": await this.handleUpdateEnemyStat(conn, msg.payload); break;
@@ -754,6 +772,40 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     this.broadcast({ type: "character_updated", payload: ch });
   }
 
+  private async handleAddCharacterStat(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode adicionar barras ou status.");
+    const characterId = Number(p?.characterId);
+    const ch = this.state!.characters[characterId];
+    if (!characterId || !ch) throw new Error("Personagem não encontrado na sala.");
+    const name = String(p?.name ?? "").trim().slice(0, 50);
+    if (!name) throw new Error("Nome da barra é obrigatório.");
+    const type: StatType = ["bar", "number", "text", "tag_list", "checkbox"].includes(p?.type) ? p.type : "bar";
+    const color = typeof p?.color === "string" && /^#[0-9a-f]{6}$/i.test(p.color) ? p.color : "#a78bfa";
+    const max = clampInt(p?.valueMax ?? 10, 0, 1_000_000_000);
+    const current = type === "bar"
+      ? clampInt(p?.valueCurrent ?? max, 0, max)
+      : type === "number" ? clampInt(p?.valueCurrent ?? 0, -1_000_000_000, 1_000_000_000) : null;
+    const order = ch.stats.reduce((highest, stat) => Math.max(highest, stat.displayOrder), -1) + 1;
+    const result = await this.env.DB.prepare(
+      `INSERT INTO character_stats (character_id, stat_template_id, is_custom, name, type, value_current, value_max, value_text, value_bool, color, display_order, player_editable)
+       VALUES (?, NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      characterId, name, type, current, type === "bar" ? max : null,
+      type === "tag_list" ? "[]" : type === "text" ? "" : null,
+      type === "checkbox" ? 0 : null, color, order, p?.playerEditable ? 1 : 0
+    ).run();
+    const stat: CharacterStat = {
+      id: Number(result.meta.last_row_id), statTemplateId: null, isCustom: true,
+      name, type, valueCurrent: current, valueMax: type === "bar" ? max : null,
+      valueText: type === "tag_list" ? "[]" : type === "text" ? "" : null,
+      valueBool: type === "checkbox" ? 0 : null, color, displayOrder: order,
+      playerEditable: !!p?.playerEditable,
+    };
+    ch.stats.push(stat);
+    await this.persistCharacterToDb(ch);
+    this.broadcast({ type: "character_updated", payload: ch });
+  }
+
   private applyCharacterFields(ch: CharacterState, p: any, includeInventory: boolean) {
     if (typeof p?.name === "string" && p.name.trim()) ch.name = p.name.trim().slice(0, 100);
     if (typeof p?.photoUrl !== "undefined") ch.photoUrl = p.photoUrl ? String(p.photoUrl).slice(0, 500) : null;
@@ -865,6 +917,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     const enemy: EnemyState = {
       id: cryptoRandomId(),
       name: name.slice(0, 100),
+      kind: p?.kind === "complex" ? "complex" : "filler",
       hpMode,
       statusEffects: [],
     };
@@ -880,8 +933,10 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       enemy.illustrationUrl = String(p.illustrationUrl).slice(0, 500);
     }
     // v12: stats avançados do inimigo (NPC completo com barras, números, etc.)
-    if (Array.isArray(p?.stats)) {
+    if (enemy.kind === "complex" && Array.isArray(p?.stats)) {
       enemy.stats = this.sanitizeEnemyStats(p.stats);
+    } else if (enemy.kind === "filler") {
+      enemy.stats = [];
     }
     this.state!.enemies[enemy.id] = enemy;
     this.broadcast({ type: "enemy_updated", payload: enemy });
@@ -892,6 +947,8 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     const id = String(p?.enemyId ?? "");
     const enemy = this.state!.enemies[id];
     if (!enemy) throw new Error("Inimigo não encontrado.");
+
+    if (p?.kind === "filler" || p?.kind === "complex") enemy.kind = p.kind;
 
     if (typeof p?.name === "string" && p.name.trim()) enemy.name = p.name.trim().slice(0, 100);
     if (p?.hpMode === "numeric" || p?.hpMode === "description") {
@@ -925,8 +982,10 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       enemy.illustrationUrl = p.illustrationUrl ? String(p.illustrationUrl).slice(0, 500) : null;
     }
     // v12: atualiza stats avançados (substitui todos se vier array)
-    if (Array.isArray(p?.stats)) {
+    if (enemy.kind === "complex" && Array.isArray(p?.stats)) {
       enemy.stats = this.sanitizeEnemyStats(p.stats);
+    } else if (enemy.kind === "filler") {
+      enemy.stats = [];
     }
     this.broadcast({ type: "enemy_updated", payload: enemy });
   }
@@ -967,7 +1026,11 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     const statId = String(p?.statId ?? "");
     const stat = enemy.stats.find(s => s.id === statId);
     if (!stat) throw new Error("Status não encontrado neste inimigo.");
-    const v = p?.value ?? {};
+    this.applyEnemyStatUpdate(stat, p?.value ?? {});
+    this.broadcast({ type: "enemy_updated", payload: enemy });
+  }
+
+  private applyEnemyStatUpdate(stat: EnemyStat, v: any) {
     if (stat.type === "bar" || stat.type === "number") {
       if (typeof v.current === "number" && Number.isFinite(v.current)) {
         let n = v.current;
@@ -988,7 +1051,53 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
     } else if (stat.type === "checkbox") {
       if (typeof v.bool === "boolean") stat.valueBool = v.bool ? 1 : 0;
     }
-    this.broadcast({ type: "enemy_updated", payload: enemy });
+  }
+
+  private async handleCreateNpc(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode criar NPCs.");
+    const name = String(p?.name ?? "").trim();
+    if (!name) throw new Error("Nome do NPC é obrigatório.");
+    if (!this.state!.npcs) this.state!.npcs = {};
+    const npc: NpcState = {
+      id: cryptoRandomId(),
+      name: name.slice(0, 100),
+      description: p?.description ? String(p.description).slice(0, 1000) : undefined,
+      photoUrl: p?.photoUrl ? String(p.photoUrl).slice(0, 500) : null,
+      stats: Array.isArray(p?.stats) ? this.sanitizeEnemyStats(p.stats) : [],
+      statusEffects: [],
+    };
+    this.state!.npcs[npc.id] = npc;
+    this.broadcast({ type: "npc_updated", payload: npc });
+  }
+
+  private async handleUpdateNpc(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode editar NPCs.");
+    const id = String(p?.npcId ?? "");
+    const npc = this.state!.npcs[id];
+    if (!npc) throw new Error("NPC não encontrado.");
+    if (typeof p?.name === "string" && p.name.trim()) npc.name = p.name.trim().slice(0, 100);
+    if (typeof p?.description !== "undefined") npc.description = p.description ? String(p.description).slice(0, 1000) : undefined;
+    if (typeof p?.photoUrl !== "undefined") npc.photoUrl = p.photoUrl ? String(p.photoUrl).slice(0, 500) : null;
+    if (Array.isArray(p?.stats)) npc.stats = this.sanitizeEnemyStats(p.stats);
+    this.broadcast({ type: "npc_updated", payload: npc });
+  }
+
+  private async handleUpdateNpcStat(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode editar stats de NPCs.");
+    const npc = this.state!.npcs[String(p?.npcId ?? "")];
+    if (!npc) throw new Error("NPC não encontrado.");
+    const stat = npc.stats.find(s => s.id === String(p?.statId ?? ""));
+    if (!stat) throw new Error("Status não encontrado neste NPC.");
+    this.applyEnemyStatUpdate(stat, p?.value ?? {});
+    this.broadcast({ type: "npc_updated", payload: npc });
+  }
+
+  private async handleDeleteNpc(conn: Connection, p: any) {
+    if (!conn.isMaster) throw new Error("Apenas o mestre pode remover NPCs.");
+    const id = String(p?.npcId ?? "");
+    if (!this.state!.npcs[id]) return;
+    delete this.state!.npcs[id];
+    this.broadcast({ type: "npc_deleted", payload: { npcId: id } });
   }
 
   // v12: jogador propõe item para o mestre aprovar.
@@ -1137,6 +1246,11 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       ch.statusEffects.push(effect);
       await this.persistCharacterToDb(ch);
       this.broadcast({ type: "status_effect_added", payload: { targetType, targetId: Number(targetId), effect } });
+    } else if (targetType === "npc") {
+      const npc = this.state!.npcs[String(targetId)];
+      if (!npc) throw new Error("NPC não encontrado.");
+      npc.statusEffects.push(effect);
+      this.broadcast({ type: "status_effect_added", payload: { targetType, targetId: String(targetId), effect } });
     } else if (targetType === "enemy") {
       const en = this.state!.enemies[String(targetId)];
       if (!en) throw new Error("Inimigo não encontrado.");
@@ -1156,6 +1270,11 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       ch.statusEffects = ch.statusEffects.filter(s => s.id !== statusId);
       await this.persistCharacterToDb(ch);
       this.broadcast({ type: "status_effect_removed", payload: { targetType, targetId: Number(targetId), statusId } });
+    } else if (targetType === "npc") {
+      const npc = this.state!.npcs[String(targetId)];
+      if (!npc) return;
+      npc.statusEffects = npc.statusEffects.filter(s => s.id !== statusId);
+      this.broadcast({ type: "status_effect_removed", payload: { targetType, targetId: String(targetId), statusId } });
     } else if (targetType === "enemy") {
       const en = this.state!.enemies[String(targetId)];
       if (!en) return;
@@ -1990,6 +2109,12 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       if (!Array.isArray(parsed.trades)) parsed.trades = [];
       if (!Array.isArray(parsed.purchaseOffers)) parsed.purchaseOffers = [];
       if (!Array.isArray(parsed.levelUpOffers)) parsed.levelUpOffers = [];
+      if (!parsed.npcs || typeof parsed.npcs !== "object") parsed.npcs = {};
+      if (parsed.enemies && typeof parsed.enemies === "object") {
+        Object.values(parsed.enemies).forEach((enemy: any) => {
+          if (enemy.kind !== "filler" && enemy.kind !== "complex") enemy.kind = Array.isArray(enemy.stats) && enemy.stats.length ? "complex" : "filler";
+        });
+      }
       if (!parsed.participantColors) parsed.participantColors = {};
       if (!parsed.name) parsed.name = "Sala";
       if (parsed.chatLog.length === 0) {
@@ -2062,6 +2187,7 @@ export class RoomDO<Env extends RoomEnv = RoomEnv> implements DurableObject {
       createdAt: this.state.createdAt,
       characters: Object.values(this.state.characters),
       enemies: Object.values(this.state.enemies),
+      npcs: Object.values(this.state.npcs || {}),
       diceLog: this.state.diceLog.slice(-50),
       suggestions: this.state.suggestions,
       chatLog: this.state.chatLog.slice(-50),

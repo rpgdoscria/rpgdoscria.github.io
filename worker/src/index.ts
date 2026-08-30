@@ -17,6 +17,8 @@ import { characterRoutes } from "./routes/characters";
 import { statTemplateRoutes } from "./routes/stat-templates";
 import { ruleSetRoutes } from "./routes/rule-sets";
 import { pollRoutes } from "./routes/polls";
+import { chronicleRoutes } from "./routes/chronicles";
+import { aiContextRoutes } from "./routes/ai-context";
 
 // Re-export da classe RoomDO — o Wrangler precisa encontrar a classe aqui.
 export { RoomDO } from "./durable-objects/RoomDO";
@@ -64,6 +66,8 @@ app.route("/api/characters", characterRoutes); // personagens + stats (homebrew)
 app.route("/api/stat-templates", statTemplateRoutes); // status base (mestre+)
 app.route("/api/rule-sets", ruleSetRoutes);           // sets de regras (mestre+)
 app.route("/api/polls", pollRoutes);                  // enquetes (polls)
+app.route("/api/chronicles", chronicleRoutes);       // crônicas Markdown dos personagens
+app.route("/api/ai", aiContextRoutes);               // contexto READ ONLY autorizado
 
 // 404 genérico para /api/*
 app.notFound((c) => c.json({ error: "Rota não encontrada." }, 404));

@@ -294,6 +294,7 @@
     if (!client) { alert("WebSocket não conectado."); return; }
     const payload = {
       name: en.name,
+      kind: en.mode === "advanced" ? "complex" : "filler",
       hpMode: en.hpMode || "numeric",
       hpMax: en.hpMax ?? 10,
       hpCurrent: en.hpCurrent ?? en.hpMax ?? 10,
@@ -327,7 +328,7 @@
     const ruleSetOptions = allRuleSets.map(rs => `<option value="${rs.id}" ${editing?.ruleSetId === rs.id ? "selected" : ""}>${esc(rs.name)}</option>`).join("");
     const advancedFields = mode === "advanced" ? `
       <div class="field">
-        <label>Set de regras (NPC importante)</label>
+        <label>Set de regras (filler complexo)</label>
         <select id="pe-ruleset">
           <option value="">— sem set (stats manuais) —</option>
           ${ruleSetOptions}
@@ -342,7 +343,7 @@
 
     overlay.innerHTML = `
       <div class="modal-card" style="max-width:560px">
-        <h3>${editing ? "Editar" : "Criar"} inimigo — modo ${mode === "advanced" ? "avançado (NPC)" : "básico"}</h3>
+        <h3>${editing ? "Editar" : "Criar"} inimigo — modo ${mode === "advanced" ? "filler complexo" : "filler básico"}</h3>
         <div id="pe-alert"></div>
         <div class="field">
           <label>Nome *</label>

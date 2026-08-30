@@ -151,6 +151,9 @@
     if (showActions) {
       if (isMaster) {
         actionsHtml = `
+          <button class="char-action-btn" data-action="edit-character" data-character-id="${ch.id}" title="Editar ficha, incluindo máximos das barras">
+            ✎ <span class="char-action-label">Editar</span>
+          </button>
           <button class="char-action-btn" data-action="manage-character" data-character-id="${ch.id}" title="Gerenciar ficha, permissões e stats">
             ⚙️ <span class="char-action-label">Gerenciar</span>
           </button>
@@ -219,6 +222,32 @@
     `;
   }
 
+  function renderNpcCard(npc, opts = {}) {
+    const { isMaster = false } = opts;
+    const avatarHtml = renderAvatar(npc, 56);
+    const statsHtml = (npc.stats || []).map(s => renderStat(s, { editable: false, isMaster: false, isOwn: false, compact: true })).join("");
+    const statusHtml = (npc.statusEffects || []).map(s => `
+      <span class="status-tag">${sanitizeText(s.text)}${isMaster ? `<button class="status-remove" data-action="remove-status" data-target-type="npc" data-target-id="${escapeHtml(npc.id)}" data-status-id="${escapeHtml(s.id)}">×</button>` : ""}</span>
+    `).join("");
+    return `
+      <div class="card character-card npc-card" data-npc-id="${escapeHtml(npc.id)}">
+        <div class="character-header">
+          <div class="character-header-left">
+            ${avatarHtml}
+            <div class="character-header-info">
+              <div class="character-name">${escapeHtml(npc.name)}</div>
+              <div class="character-owner muted text-xs">NPC da mesa</div>
+            </div>
+          </div>
+          ${isMaster ? `<div class="character-actions-bar"><button class="char-action-btn" data-action="edit-npc" data-npc-id="${escapeHtml(npc.id)}">✎ <span class="char-action-label">Editar</span></button><button class="char-action-btn" data-action="add-status" data-target-type="npc" data-target-id="${escapeHtml(npc.id)}">✨ <span class="char-action-label">Status</span></button><button class="char-action-btn" data-action="delete-npc" data-npc-id="${escapeHtml(npc.id)}">🗑</button></div>` : ""}
+        </div>
+        ${npc.description ? `<p class="muted text-sm">${sanitizeText(npc.description)}</p>` : ""}
+        <div class="stats-section stats-grid-compact">${statsHtml || `<div class="muted text-sm">Sem status definidos.</div>`}</div>
+        ${statusHtml ? `<div class="status-list">${statusHtml}</div>` : ""}
+      </div>
+    `;
+  }
+
   // v13: Render do PAINEL DE GESTÃO (modal) — mestre gerencia permissões e deleta stats.
   // É chamado quando o mestre clica em "Gerenciar" no card do personagem.
   function renderManagePanel(ch) {
@@ -264,6 +293,17 @@
           <p class="muted text-xs mb-2">Controle quais status o jogador pode editar. Status bloqueados (🔒) só o mestre modifica. Status liberados (🔓) o jogador pode ajustar.</p>
           ${statsHtml || `<div class="muted text-sm">Sem status definidos.</div>`}
         </div>
+        <div class="manage-panel-add-stat">
+          <h4 class="manage-panel-section-title">➕ Adicionar barra customizada</h4>
+          <div class="grid-2">
+            <div class="field"><label>Nome</label><input id="manage-new-stat-name" maxlength="50" placeholder="Ex: Sanidade"></div>
+            <div class="field"><label>Cor</label><input id="manage-new-stat-color" type="color" value="#a78bfa" style="height:38px;padding:3px"></div>
+            <div class="field"><label>Atual (Y)</label><input id="manage-new-stat-current" type="number" min="0" value="10"></div>
+            <div class="field"><label>Máximo (X)</label><input id="manage-new-stat-max" type="number" min="0" value="10"></div>
+          </div>
+          <label class="text-sm" style="display:flex;align-items:center;gap:8px"><input id="manage-new-stat-player-editable" type="checkbox"> Jogador poderá editar esta barra</label>
+          <button class="btn btn-sm btn-primary mt-2" data-action="add-character-stat">Adicionar barra</button>
+        </div>
       </div>
     `;
   }
@@ -274,5 +314,6 @@
     renderStat,
     renderAvatar,
     renderManagePanel,
+    renderNpcCard,
   };
 })();
